@@ -1,0 +1,1000 @@
+(function () {
+  'use strict';
+
+  var CURRENT_YEAR = new Date().getFullYear();
+  var HORIZON = 10; // years shown in projections (current year + 9)
+
+  // ---------------------------------------------------------------------
+  // Utilities
+  // ---------------------------------------------------------------------
+  function eur(n) {
+    if (!isFinite(n)) n = 0;
+    return '€ ' + Math.round(n).toLocaleString('nl-NL');
+  }
+  function num(v) {
+    var n = parseInt(String(v == null ? '' : v).replace(/[^0-9-]/g, ''), 10);
+    return isNaN(n) ? 0 : n;
+  }
+  function clamp(n, lo, hi) { return Math.max(lo, Math.min(hi, n)); }
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+  function uid(prefix) { return prefix + '-' + Math.random().toString(36).slice(2, 9); }
+
+  // ---------------------------------------------------------------------
+  // Geometry helpers (BAG polygon area / perimeter), ported from the
+  // MJOP Live prototype's real-data lookup logic.
+  // ---------------------------------------------------------------------
+  function ringArea(ring) {
+    var lat0 = ring[0][1] * Math.PI / 180;
+    var kx = 111320 * Math.cos(lat0), ky = 110540;
+    var a = 0;
+    for (var i = 0; i < ring.length - 1; i++) {
+      var x1 = ring[i][0] * kx, y1 = ring[i][1] * ky;
+      var x2 = ring[i + 1][0] * kx, y2 = ring[i + 1][1] * ky;
+      a += x1 * y2 - x2 * y1;
+    }
+    return Math.abs(a / 2);
+  }
+  function ringOmtrek(ring) {
+    var lat0 = ring[0][1] * Math.PI / 180;
+    var kx = 111320 * Math.cos(lat0), ky = 110540;
+    var p = 0;
+    for (var i = 0; i < ring.length - 1; i++) {
+      var dx = (ring[i + 1][0] - ring[i][0]) * kx;
+      var dy = (ring[i + 1][1] - ring[i][1]) * ky;
+      p += Math.sqrt(dx * dx + dy * dy);
+    }
+    return p;
+  }
+  function pointInRing(ring, x, y) {
+    var c = false;
+    for (var i = 0, j = ring.length - 2; i < ring.length - 1; j = i++) {
+      var xi = ring[i][0], yi = ring[i][1], xj = ring[j][0], yj = ring[j][1];
+      if (((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi)) c = !c;
+    }
+    return c;
+  }
+
+  // ---------------------------------------------------------------------
+  // PDOK / BAG / 3D BAG lookups (public, unauthenticated APIs)
+  // ---------------------------------------------------------------------
+  function suggestAddress(q) {
+    var url = 'https://api.pdok.nl/bzk/locatieserver/search/v3_1/suggest?q='
+      + encodeURIComponent(q) + '&fq=type:adres&rows=6';
+    return fetch(url).then(function (r) { return r.json(); }).then(function (j) {
+      var docs = (j.response && j.response.docs) || [];
+      return docs.map(function (d) { return { id: d.id, naam: d.weergavenaam }; });
+    });
+  }
+
+  function lookupBuilding(id, naam) {
+    return fetch('https://api.pdok.nl/bzk/locatieserver/search/v3_1/lookup?id='
+      + encodeURIComponent(id) + '&fl=weergavenaam,centroide_ll,postcode,woonplaatsnaam')
+      .then(function (r) { return r.json(); })
+      .then(function (lj) {
+        var doc = lj.response.docs[0];
+        var m = /POINT\(([-0-9.]+) ([-0-9.]+)\)/.exec(doc.centroide_ll);
+        if (!m) throw new Error('geen coordinaat gevonden voor dit adres');
+        var lon = parseFloat(m[1]), lat = parseFloat(m[2]);
+        var d = 0.00018;
+        var bbox = [lon - d, lat - d, lon + d, lat + d].join(',');
+        return fetch('https://api.pdok.nl/kadaster/bag/ogc/v2/collections/pand/items?f=json&limit=20&bbox=' + bbox)
+          .then(function (r) { return r.json(); })
+          .then(function (pj) {
+            var feats = (pj.features || []).filter(function (f) { return f.geometry; });
+            if (!feats.length) throw new Error('geen pand gevonden op dit adres');
+            var scored = feats.map(function (f) {
+              var ring = f.geometry.type === 'Polygon' ? f.geometry.coordinates[0] : f.geometry.coordinates[0][0];
+              var opp = ringArea(ring);
+              var c = ring.reduce(function (a, p) { return [a[0] + p[0] / ring.length, a[1] + p[1] / ring.length]; }, [0, 0]);
+              var dist = Math.hypot(c[0] - lon, c[1] - lat);
+              return { f: f, ring: ring, opp: opp, omtrek: ringOmtrek(ring), dist: dist, raak: pointInRing(ring, lon, lat) };
+            }).sort(function (a, b) { return (b.raak - a.raak) || (a.dist - b.dist); });
+            var best = scored[0];
+            var p = best.f.properties || {};
+            var units = p.aantal_verblijfsobjecten || (p.verblijfsobject ? p.verblijfsobject.length : 0) || 1;
+
+            var afterD3 = Promise.resolve(null);
+            if (p.identificatie) {
+              afterD3 = fetch('https://api.3dbag.nl/collections/pand/items/NL.IMBAG.Pand.' + p.identificatie)
+                .then(function (tr) { return tr.ok ? tr.json() : null; })
+                .then(function (tj) {
+                  if (!tj) return null;
+                  var co = tj.feature.CityObjects['NL.IMBAG.Pand.' + p.identificatie];
+                  var a = co && co.attributes;
+                  if (!a) return null;
+                  var plat = a.b3_opp_dak_plat || 0, schuin = a.b3_opp_dak_schuin || 0;
+                  return {
+                    dak: Math.round(plat + schuin), plat: Math.round(plat), schuin: Math.round(schuin),
+                    gevel: Math.round(a.b3_opp_buitenmuur || 0), grond: Math.round(a.b3_opp_grond || 0),
+                    lagen: a.b3_bouwlagen || null, daktype: a.b3_dak_type || '',
+                    hoogte: (a.b3_h_dak_max != null && a.b3_h_maaiveld != null)
+                      ? Math.round((a.b3_h_dak_max - a.b3_h_maaiveld) * 10) / 10 : null,
+                  };
+                }).catch(function () { return null; });
+            }
+
+            return afterD3.then(function (d3) {
+              var dak = d3 && d3.dak ? d3.dak : Math.round(best.opp);
+              var gevel = d3 && d3.gevel ? d3.gevel : Math.round(best.omtrek * 3 * 3);
+              return {
+                adres: doc.weergavenaam,
+                bouwjaar: p.bouwjaar || null,
+                gebruiksdoel: p.gebruiksdoel || '',
+                identificatie: p.identificatie || '',
+                opp: Math.round(best.opp),
+                omtrek: Math.round(best.omtrek),
+                units: units, d3: d3,
+                dakM2: dak, gevelM2: gevel,
+                werkhoogte: d3 && d3.hoogte ? Math.round(d3.hoogte) : 9,
+              };
+            });
+          });
+      });
+  }
+
+  // ---------------------------------------------------------------------
+  // Element model
+  // ---------------------------------------------------------------------
+  var KOZ_DEF = [['Draaiend raam', 174], ['Vast glas', 96], ['Deur', 240], ['Dakkapel', 320]];
+
+  var VERGELIJK_DAK = [
+    { titel: 'Als nieuw', foto: 'referentiefoto\nnieuw bitumendak', tekst: 'Egaal zwart, naden dicht, geen plassen na regen.', conditie: 1 },
+    { titel: 'Licht verouderd', foto: 'geen foto — beschrijving\nlichte veroudering', tekst: 'Wat verkleuring en grind verschoven, verder gaaf.', conditie: 2 },
+    { titel: 'Blaasvorming', foto: 'referentiefoto\nblaasvorming en scheuren', tekst: 'Blazen en losse naden op meerdere plekken, plassen blijven staan.', conditie: 4 },
+    { titel: 'Lekkage gemeld', foto: 'geen foto — beschrijving\nactieve lekkage', tekst: 'Zichtbare scheuren, vochtplekken in de bovenste woning.', conditie: 5 },
+  ];
+  var UITSLAG_DAK = {
+    1: ['Conditie 1 — als nieuw', 'Vervanging kan ver na 2035 blijven staan. Alleen tweejaarlijkse inspectie opnemen.'],
+    2: ['Conditie 2 — goed', 'Vervanging kan doorschuiven naar het einde van de cyclus. Alleen tweejaarlijkse inspectie opnemen.'],
+    3: ['Conditie 3 — redelijk', 'Reken op een bandbreedte in de kosten; de prijs kan tot de vervanging oplopen.'],
+    4: ['Conditie 4 — matig', 'Vervanging binnen vijf jaar. Dit is vaak de grootste post in het plan.'],
+    5: ['Conditie 5 — slecht', 'Vervanging dit jaar, en tot die tijd jaarlijks nakijken. Dit verhoogt de maandbijdrage direct.'],
+  };
+
+  function defaultBuilding() {
+    return {
+      adres: 'Voorbeeldgebouw — portiekflat', bouwjaar: 1978, units: 8,
+      dakM2: 140, gevelM2: 220, werkhoogte: 9, opp: 140, omtrek: 60,
+      identificatie: '', gebruiksdoel: 'woonfunctie', d3: null, isVoorbeeld: true,
+    };
+  }
+
+  function scaleKozCounts(units) {
+    return [
+      Math.max(1, Math.round(units * 1)),
+      Math.max(0, Math.round(units * 0.25)),
+      Math.max(1, Math.round(units * 0.125)),
+      Math.max(0, Math.round(units * 0.125)),
+    ];
+  }
+
+  function buildDefaultElements(b) {
+    var els = [];
+    els.push({
+      id: 'dak', naam: 'Plat dak — dakbedekking', categorie: 'Dak',
+      type: 'dak', cyclus: 25, laatsteBeurt: b.bouwjaar || (CURRENT_YEAR - 25), conditie: null,
+      hoeveelheid: b.dakM2, eenheid: 'm²', kengetal: 165,
+      assessable: true, vergelijk: VERGELIJK_DAK, uitslag: UITSLAG_DAK,
+    });
+    els.push({
+      id: 'schilderwerk', naam: 'Buitenschilderwerk kozijnen', categorie: 'Gevel',
+      type: 'kozijnen', cyclus: 6, laatsteBeurt: b.bouwjaar || (CURRENT_YEAR - 6), conditie: null,
+      koz: KOZ_DEF.map(function (d, i) {
+        return { naam: d[0], tarief: d[1], aantal: scaleKozCounts(b.units)[i], eigenTarief: null };
+      }),
+    });
+    els.push({
+      id: 'gevel', naam: 'Gevelreiniging en metselwerkherstel', categorie: 'Gevel',
+      type: 'gevel', cyclus: 15, laatsteBeurt: b.bouwjaar || (CURRENT_YEAR - 15), conditie: null,
+      hoeveelheid: b.gevelM2, eenheid: 'm² buitenmuur', kengetal: 26,
+    });
+    els.push({
+      id: 'steiger', naam: 'Steiger of hoogwerker', categorie: 'Gevel',
+      type: 'steiger', cyclus: 6, laatsteBeurt: b.bouwjaar || (CURRENT_YEAR - 6), conditie: null,
+      hoeveelheid: b.gevelM2, eenheid: 'm² gevel', werkhoogte: b.werkhoogte,
+    });
+    els.push({
+      id: 'intercom', naam: 'Intercom en bellentableau', categorie: 'Installaties',
+      type: 'per-unit', cyclus: 20, laatsteBeurt: b.bouwjaar || (CURRENT_YEAR - 20), conditie: null,
+      hoeveelheid: b.units, eenheid: 'units', kengetal: 575,
+    });
+    els.push({
+      id: 'trappenhuis', naam: 'Trappenhuis en entree', categorie: 'Binnen',
+      type: 'per-unit', cyclus: 8, laatsteBeurt: b.bouwjaar || (CURRENT_YEAR - 8), conditie: null,
+      hoeveelheid: b.units, eenheid: 'units', kengetal: 480,
+    });
+    els.push({
+      id: 'riolering', naam: 'Riolering en hemelwaterafvoer', categorie: 'Installaties',
+      type: 'riolering', cyclus: 10, laatsteBeurt: b.bouwjaar || (CURRENT_YEAR - 10), conditie: null,
+      hoeveelheid: b.units,
+    });
+    els.push({
+      id: 'dakinspectie', naam: 'Dakinspectie en klein onderhoud', categorie: 'Dak',
+      type: 'dakinspectie', cyclus: 2, laatsteBeurt: CURRENT_YEAR, conditie: null,
+      hoeveelheid: b.dakM2,
+    });
+    return els;
+  }
+
+  // ---------------------------------------------------------------------
+  // Cost + scheduling
+  // ---------------------------------------------------------------------
+  function elementCost(el, state) {
+    switch (el.type) {
+      case 'dak': return el.hoeveelheid * el.kengetal;
+      case 'kozijnen': return el.koz.reduce(function (a, k) { return a + k.aantal * (k.eigenTarief != null ? k.eigenTarief : k.tarief); }, 0);
+      case 'gevel': return el.hoeveelheid * el.kengetal;
+      case 'steiger': return Math.round(el.hoeveelheid * (el.werkhoogte > 8 ? 11 : 6));
+      case 'per-unit': return el.hoeveelheid * el.kengetal;
+      case 'riolering': return 1100 + el.hoeveelheid * 120;
+      case 'dakinspectie': return 420 + el.hoeveelheid * 2;
+      case 'custom': return el.bedrag;
+      default: return 0;
+    }
+  }
+
+  function elementMeta(el) {
+    switch (el.type) {
+      case 'dak': return el.hoeveelheid + ' m² × ' + eur(el.kengetal);
+      case 'kozijnen': return el.koz.reduce(function (a, k) { return a + k.aantal; }, 0) + ' kozijnen';
+      case 'gevel': return el.hoeveelheid + ' m² buitenmuur × ' + eur(el.kengetal);
+      case 'steiger': return 'werkhoogte ' + el.werkhoogte + ' m';
+      case 'per-unit': return el.hoeveelheid + ' units × ' + eur(el.kengetal);
+      case 'riolering': return 'preventief doorspuiten';
+      case 'dakinspectie': return 'tweejaarlijks';
+      case 'custom': return el.metaTekst || 'eenmalige post';
+      default: return '';
+    }
+  }
+
+  // First occurrence at/after CURRENT_YEAR of a cycle anchored at `start`.
+  function nextOccurrence(cyclus, start) {
+    var j = start;
+    while (j < CURRENT_YEAR) j += cyclus;
+    return j;
+  }
+
+  function conditionYear(el) {
+    var baseline = nextOccurrence(el.cyclus, el.laatsteBeurt + el.cyclus);
+    if (el.conditie == null) return baseline;
+    var jarenResterend = Math.round(el.cyclus * (5 - el.conditie) / 4);
+    return Math.max(CURRENT_YEAR, CURRENT_YEAR + jarenResterend);
+  }
+
+  // Returns [{jaar, bedrag, meta}] within the planning horizon.
+  function scheduleFor(el, state) {
+    var out = [];
+    if (el.type === 'custom') {
+      if (el.cyclus) {
+        var j = nextOccurrence(el.cyclus, el.jaar);
+        while (j <= CURRENT_YEAR + HORIZON - 1) { out.push({ jaar: j, bedrag: el.bedrag, meta: elementMeta(el) }); j += el.cyclus; }
+      } else if (el.jaar >= CURRENT_YEAR && el.jaar <= CURRENT_YEAR + HORIZON - 1) {
+        out.push({ jaar: el.jaar, bedrag: el.bedrag, meta: elementMeta(el) });
+      }
+      return out;
+    }
+    var first = conditionYear(el);
+    var bedrag = elementCost(el, state);
+    var meta = elementMeta(el);
+    var j2 = first;
+    while (j2 <= CURRENT_YEAR + HORIZON - 1) {
+      out.push({ jaar: j2, bedrag: bedrag, meta: meta });
+      j2 += el.cyclus;
+    }
+    return out;
+  }
+
+  function fullPlan(state) {
+    var posten = [];
+    state.elements.forEach(function (el) {
+      scheduleFor(el, state).forEach(function (p) {
+        posten.push({ elId: el.id, naam: el.naam, jaar: p.jaar, bedrag: p.bedrag, meta: p.meta });
+      });
+    });
+    posten.sort(function (a, b) { return a.jaar - b.jaar || b.bedrag - a.bedrag; });
+    return posten;
+  }
+
+  function kasstroom(state) {
+    var posten = fullPlan(state);
+    var perJaar = {};
+    posten.forEach(function (p) { perJaar[p.jaar] = (perJaar[p.jaar] || 0) + p.bedrag; });
+    var units = Math.max(1, state.building.units);
+    var inkomen = state.bijdrage * 12 * units;
+    var saldo = state.fonds;
+    var rows = [];
+    for (var j = CURRENT_YEAR; j <= CURRENT_YEAR + HORIZON - 1; j++) {
+      saldo = saldo + inkomen - (perJaar[j] || 0);
+      rows.push({ jaar: j, kosten: perJaar[j] || 0, saldo: saldo });
+    }
+    return rows;
+  }
+
+  // ---------------------------------------------------------------------
+  // State
+  // ---------------------------------------------------------------------
+  var state = {
+    screen: 'onboarding',
+    onboarding: { q: '', sug: [], bezig: false, bezigTekst: '', fout: '' },
+    building: null,
+    fonds: 0,
+    bijdrage: 55,
+    idxBalk: true,
+    elements: [],
+    tab: 'home',
+    activeElementId: null,
+    activeScreen: null, // null | 'vergelijk-help' | 'offertes' | 'add-element'
+    filter: 'Alles',
+    offertes: {}, // elId -> [{id, naam, btw, regels:[{naam,bedrag}]}]
+    bijvullen: {}, // elId -> bool
+    addForm: null,
+    hVragen: { won: 3, oppr: 2, extra: 0 },
+  };
+
+  function startApp(building) {
+    state.building = building;
+    state.fonds = building.units * 2500;
+    state.elements = buildDefaultElements(building);
+    state.screen = 'app';
+    state.tab = 'home';
+  }
+
+  // ---------------------------------------------------------------------
+  // Rendering
+  // ---------------------------------------------------------------------
+  var root;
+
+  function render() {
+    var active = document.activeElement;
+    var focusInfo = null;
+    if (active && root.contains(active) && active.id) {
+      focusInfo = { id: active.id, start: active.selectionStart, end: active.selectionEnd };
+    }
+    root.innerHTML = state.screen === 'onboarding' ? renderOnboarding() : renderApp();
+    if (focusInfo) {
+      var el = document.getElementById(focusInfo.id);
+      if (el) {
+        el.focus();
+        if (typeof el.setSelectionRange === 'function' && focusInfo.start != null) {
+          try { el.setSelectionRange(focusInfo.start, focusInfo.end); } catch (e) {}
+        }
+      }
+    }
+  }
+
+  function renderOnboarding() {
+    var s = state.onboarding;
+    var html = '';
+    html += '<div class="app-shell">';
+    html += '<div class="hero"><div class="eyebrow on-blue">MJOP Live · echte BAG-data</div>';
+    html += '<h1>MJOP voor kleine VvE’s</h1>';
+    html += '<p>Typ een adres. De app haalt bouwjaar en appartementen uit de BAG, en het echte dakoppervlak, muuroppervlak en de hoogte uit de 3D BAG.</p></div>';
+
+    html += '<div class="section">';
+    html += '<div class="field"><div class="eyebrow">Adres</div>';
+    html += '<input id="addr-search" data-bind="addr-q" value="' + esc(s.q) + '" placeholder="bv. Kastanjelaan 12 Amersfoort" autocomplete="off" /></div>';
+
+    if (s.sug.length) {
+      html += '<div class="suggest-list">';
+      s.sug.forEach(function (sg) {
+        html += '<div class="suggest-row" data-act="kies-adres" data-id="' + esc(sg.id) + '" data-naam="' + esc(sg.naam) + '">' + esc(sg.naam) + '</div>';
+      });
+      html += '</div>';
+    }
+    if (s.bezig) html += '<div class="notice">' + esc(s.bezigTekst) + '</div>';
+    if (s.fout) html += '<div class="notice error">' + esc(s.fout) + '</div>';
+    html += '</div>';
+
+    html += '<div class="empty-block"><div class="empty-card">';
+    html += '<div class="title">Probeer bijvoorbeeld</div>';
+    html += '<div class="body">Je eigen adres, of een portiekflat die je kent. Hoe meer appartementen op één pand, hoe beter de app het als VvE herkent.</div>';
+    html += '<div class="btn-row"><div class="ghost-btn" data-act="skip-onboarding">Begin met een voorbeeldgebouw →</div></div>';
+    html += '</div></div>';
+
+    html += '<div class="footer-note">Kengetallen zijn indicatieve richtprijzen inclusief btw, geen offerte. Bronnen: PDOK Locatieserver en BAG (Public Domain Mark 1.0) en 3D BAG van de TU Delft (CC BY 4.0).</div>';
+    html += '</div>';
+    return html;
+  }
+
+  function renderApp() {
+    var html = '<div class="app-shell">';
+    if (state.tab === 'home') html += renderHome();
+    else if (state.tab === 'gebouw') html += renderGebouw();
+    else if (state.tab === 'planning') html += renderPlanning();
+    else if (state.tab === 'rapport') html += renderRapport();
+    html += renderTabBar();
+    html += '</div>';
+    return html;
+  }
+
+  function renderTabBar() {
+    var tabs = [['home', 'Overzicht'], ['gebouw', 'Gebouw'], ['planning', 'Planning'], ['rapport', 'Rapport']];
+    var html = '<div class="tab-bar">';
+    tabs.forEach(function (t) {
+      var active = state.tab === t[0];
+      html += '<button class="tab-item' + (active ? ' active' : '') + '" data-act="set-tab" data-tab="' + t[0] + '">';
+      html += '<span class="tab-dot"></span><span>' + t[1] + '</span></button>';
+    });
+    html += '</div>';
+    return html;
+  }
+
+  function projectionBars(rows) {
+    var maxAbs = Math.max(1, Math.max.apply(null, rows.map(function (r) { return Math.abs(r.saldo); })));
+    var html = '<div class="bars">';
+    rows.forEach(function (r) {
+      var posH = r.saldo > 0 ? Math.max(3, r.saldo / maxAbs * 40) : 0;
+      var negH = r.saldo < 0 ? Math.max(3, -r.saldo / maxAbs * 40) : 0;
+      html += '<div class="bar-col">';
+      html += '<div class="bar-pos"><div style="height:' + posH + 'px"></div></div>';
+      html += '<div class="bar-mid"></div>';
+      html += '<div class="bar-neg"><div style="height:' + negH + 'px"></div></div>';
+      html += '<div class="bar-label">' + String(r.jaar).slice(2) + '</div>';
+      html += '</div>';
+    });
+    html += '</div>';
+    return html;
+  }
+
+  function renderHome() {
+    var b = state.building;
+    var rows = kasstroom(state);
+    var laagste = Math.min.apply(null, rows.map(function (r) { return r.saldo; }));
+    var eerste = rows.filter(function (r) { return r.saldo < 0; })[0];
+    var units = Math.max(1, b.units);
+    var totaal = rows.reduce(function (a, r) { return a + r.kosten; }, 0);
+    var nodig = Math.max(5, Math.ceil((totaal - state.fonds) / (10 * 12 * units) / 5) * 5);
+
+    var html = '<div style="padding:24px 0 8px">';
+    if (state.idxBalk) {
+      html += '<div class="idx-bar" data-act="dismiss-idx">';
+      html += '<span class="pill">' + CURRENT_YEAR + '</span>';
+      html += '<span class="text">Bijgewerkt met de laatst opgehaalde gegevens — controleer de posten die aandacht vragen</span>';
+      html += '<button class="close" data-act="dismiss-idx">×</button></div>';
+    }
+    html += '<div style="padding:0 22px">';
+    html += '<div class="eyebrow">' + esc(b.adres) + ' <span class="linkish" data-act="wijzig-adres">wijzig</span></div>';
+    html += '<div class="page-title" style="margin-top:9px">Sparen we genoeg?</div>';
+    html += '</div>';
+
+    html += '<div class="section"><div class="contrib-box">';
+    html += '<div class="contrib-top"><div class="label">Bijdrage per appartement</div><div class="amount">' + eur(state.bijdrage) + '</div></div>';
+    html += '<input type="range" min="10" max="400" step="5" value="' + state.bijdrage + '" data-change="bijdrage" />';
+    html += projectionBars(rows);
+    html += '<div class="advice">' + (eerste
+      ? 'Bij ' + eur(state.bijdrage) + ' per maand is het fonds in ' + eerste.jaar + ' leeg. Er is ongeveer ' + eur(nodig) + ' per appartement per maand nodig om alle posten te dekken.'
+      : 'Bij ' + eur(state.bijdrage) + ' per maand blijft het fonds ' + HORIZON + ' jaar positief, met ' + eur(laagste) + ' als laagste stand.') + '</div>';
+    html += '<div class="advice-btn" data-act="zet-advies" data-nodig="' + nodig + '">Zet op het benodigde bedrag (' + eur(nodig) + ')</div>';
+    html += '</div></div>';
+
+    html += '<div class="stat-pair">';
+    html += '<div class="stat-card"><div class="label">Reservefonds nu</div><div class="amount">' + eur(state.fonds) + '</div></div>';
+    html += '<div class="stat-card"><div class="label">Kosten t/m ' + (CURRENT_YEAR + HORIZON - 1) + '</div><div class="amount">' + eur(totaal) + '</div></div>';
+    html += '</div>';
+
+    var aandacht = state.elements.filter(needsAssessment);
+    var eerstvolgende = fullPlan(state).filter(function (p) { return p.jaar <= CURRENT_YEAR + 1; }).slice(0, 3);
+    html += '<div class="section"><div class="section-title">Vraagt nu aandacht</div>';
+    html += '<div class="card" style="margin-top:11px">';
+    var rowsHtml = [];
+    aandacht.forEach(function (el) {
+      rowsHtml.push('<div class="attn-row" data-act="open-element" data-id="' + el.id + '">' +
+        '<div class="attn-icon" style="background:#FBE9DF;color:#B4531F">?</div>' +
+        '<div class="grow"><div class="title">' + esc(el.naam) + ' nog niet beoordeeld</div>' +
+        '<div class="sub">Beoordeel de conditie — dit bepaalt het jaar van vervanging</div></div>' +
+        '<div class="chev">›</div></div>');
+    });
+    eerstvolgende.forEach(function (p) {
+      rowsHtml.push('<div class="attn-row" data-act="open-element" data-id="' + p.elId + '">' +
+        '<div class="attn-icon" style="background:#F6E6C8;color:#8A6414">' + p.jaar + '</div>' +
+        '<div class="grow"><div class="title">' + esc(p.naam) + '</div>' +
+        '<div class="sub">Gepland in ' + p.jaar + ' · ' + eur(p.bedrag) + '</div></div>' +
+        '<div class="chev">›</div></div>');
+    });
+    if (!rowsHtml.length) rowsHtml.push('<div class="attn-row"><div class="grow"><div class="title">Niets dat nu aandacht vraagt</div><div class="sub">Alle elementen zijn beoordeeld</div></div></div>');
+    html += rowsHtml.join('');
+    html += '</div></div>';
+
+    html += '<div class="footer-note">Kengetallen zijn indicatieve richtprijzen inclusief btw, geen offerte. Cycli zijn gebaseerd op het bouwjaar uit de BAG; een echte conditiemeting kan posten naar voren of naar achteren schuiven.</div>';
+    html += '</div>';
+    return html;
+  }
+
+  function needsAssessment(el) { return el.type !== 'custom' && el.conditie == null; }
+  function isAssessed(el) { return el.type === 'custom' || el.conditie != null; }
+
+  function scoreColors(conditie) {
+    if (conditie == null) return ['#EFE7DA', 'rgba(36,31,27,.45)'];
+    if (conditie <= 2) return ['#E3EDE2', '#3F6B46'];
+    if (conditie === 3) return ['#F6EFD9', '#7D6318'];
+    return ['#FBE9DF', '#8A3D14'];
+  }
+
+  function renderGebouw() {
+    if (state.activeElementId) return renderElementDetail(state.activeElementId);
+    var b = state.building;
+    var cats = ['Alles', 'Dak', 'Gevel', 'Installaties', 'Binnen'];
+    var els = state.elements.filter(function (el) { return state.filter === 'Alles' || el.categorie === state.filter; });
+
+    var html = '<div style="padding:24px 0 8px">';
+    html += '<div style="padding:0 22px">';
+    html += '<div class="page-title">Gebouw</div>';
+    html += '<div class="page-sub">' + esc(b.adres) + ' · bouwjaar ' + (b.bouwjaar || 'onbekend') + ' · ' + b.units + ' appartementen · ' + state.elements.length + ' elementen</div>';
+    html += '</div>';
+
+    html += '<div class="section"><div class="chip-row">';
+    cats.forEach(function (c) {
+      html += '<div class="chip' + (state.filter === c ? ' active' : '') + '" data-act="set-filter" data-filter="' + c + '">' + c + '</div>';
+    });
+    html += '</div></div>';
+
+    html += '<div class="section"><div class="card">';
+    els.forEach(function (el, i) {
+      var bedrag = eur(elementCost(el, state));
+      var colors = scoreColors(el.conditie);
+      html += '<div class="row" data-act="open-element" data-id="' + el.id + '" style="cursor:pointer' + (i === 0 ? ';border-top:none' : '') + '">';
+      html += '<div class="el-badge" style="background:' + colors[0] + ';color:' + colors[1] + '">' + (el.conditie == null ? '?' : el.conditie) + '</div>';
+      html += '<div class="grow"><div class="name">' + esc(el.naam) + '</div><div class="meta">' + elementMeta(el) + '</div></div>';
+      html += '<div class="value">' + bedrag + '</div></div>';
+    });
+    html += '</div>';
+    html += '<div class="add-el" data-act="open-add-element"><div class="plus">+</div><div><div class="title">Element toevoegen</div><div class="sub">Bijv. balkons, hekwerk, liftinstallatie</div></div></div>';
+    html += '</div>';
+
+    if (state.addForm) html += renderAddElementForm();
+
+    html += '</div>';
+    return html;
+  }
+
+  function renderAddElementForm() {
+    var f = state.addForm;
+    var html = '<div class="section"><div class="card pad">';
+    html += '<div style="font:500 13.5px/1.35 DM Sans,sans-serif">Nieuw element</div>';
+    html += '<div class="input-row"><div class="label">Naam</div><input id="add-el-naam" data-bind="add-el-naam" value="' + esc(f.naam) + '" style="width:170px;text-align:left" /></div>';
+    html += '<div class="input-row"><div class="label">Jaar</div><input id="add-el-jaar" data-bind="add-el-jaar" value="' + f.jaar + '" /></div>';
+    html += '<div class="input-row"><div class="label">Bedrag</div><input id="add-el-bedrag" data-bind="add-el-bedrag" value="' + f.bedrag + '" class="wide" /></div>';
+    html += '<div class="input-row"><div class="label">Cyclus in jaren (optioneel, leeg = eenmalig)</div><input id="add-el-cyclus" data-bind="add-el-cyclus" value="' + (f.cyclus || '') + '" /></div>';
+    html += '<div class="btn-row"><div class="primary-btn" data-act="save-add-element">Toevoegen</div><div class="ghost-btn" data-act="cancel-add-element">Annuleer</div></div>';
+    html += '</div></div>';
+    return html;
+  }
+
+  function renderElementDetail(id) {
+    var el = state.elements.filter(function (e) { return e.id === id; })[0];
+    if (!el) { state.activeElementId = null; return renderGebouw(); }
+    var html = '<div style="padding:20px 0 8px">';
+    html += '<div class="top-nav"><div class="back-link" data-act="close-element">‹ Gebouw</div></div>';
+    html += '<div style="padding:0 22px">';
+    html += '<div class="eyebrow">' + esc(el.categorie) + ' · cyclus ' + el.cyclus + ' jaar</div>';
+    html += '<div class="page-title" style="font-size:24px;margin-top:8px">' + esc(el.naam) + '</div>';
+    html += '</div>';
+
+    if (el.assessable) html += renderVergelijk(el);
+    if (el.type === 'kozijnen') html += renderKozijnen(el);
+    if (el.type === 'dak' || el.type === 'gevel' || el.type === 'per-unit') html += renderHoeveelheidKengetal(el);
+    if (el.type === 'steiger') html += renderSteiger(el);
+    if (!el.assessable && el.type !== 'custom') html += renderSimpleConditie(el);
+
+    var jaar = conditionYear(el);
+    var bedrag = elementCost(el, state);
+    html += '<div class="section"><div class="card pad">';
+    html += '<div class="kv"><div class="label">Eerstvolgende beurt</div><div class="amount" style="font-size:19px">' + jaar + '</div></div>';
+    html += '<div class="divider"></div>';
+    html += '<div class="kv strong"><div class="label">Geraamde kosten</div><div class="amount">' + eur(bedrag) + '</div></div>';
+    html += '</div></div>';
+
+    html += renderOffertes(el);
+
+    html += '</div>';
+    return html;
+  }
+
+  function renderVergelijk(el) {
+    var html = '<div class="section"><div class="section-title">Wat lijkt er het meest op?</div>';
+    html += '<div class="compare-grid" style="margin-top:11px">';
+    el.vergelijk.forEach(function (v, i) {
+      var sel = el.conditie === v.conditie;
+      html += '<div class="compare-card' + (sel ? ' selected' : '') + '" data-act="set-conditie" data-id="' + el.id + '" data-conditie="' + v.conditie + '">';
+      html += '<div class="compare-photo"><span>' + esc(v.foto) + '</span></div>';
+      html += '<div class="compare-body"><div class="compare-head"><div class="title">' + esc(v.titel) + '</div><div class="compare-dot' + (sel ? ' selected' : '') + '"></div></div>';
+      html += '<div class="compare-text">' + esc(v.tekst) + '</div></div></div>';
+    });
+    html += '</div>';
+    var res = el.conditie != null ? el.uitslag[el.conditie] : null;
+    html += '<div class="result-box' + (el.conditie == null ? '' : (el.conditie >= 4 ? ' bad' : ' good')) + '">';
+    html += '<div class="label">' + (el.conditie == null ? 'Nog niets gekozen' : 'Conditiescore volgens NEN 2767') + '</div>';
+    html += '<div class="head">' + (res ? esc(res[0]) : 'Kies een voorbeeld hierboven') + '</div>';
+    html += '<div class="body">' + (res ? esc(res[1]) : 'Zodra je kiest rekent de app het jaar van vervanging en het effect op de maandbijdrage uit.') + '</div>';
+    html += '</div></div>';
+    return html;
+  }
+
+  function renderHoeveelheidKengetal(el) {
+    var label = el.type === 'per-unit' ? 'Aantal units' : 'Oppervlak in ' + el.eenheid;
+    var html = '<div class="section"><div class="card pad">';
+    html += '<div class="input-row" style="margin-top:0"><div class="label">' + label + '</div><input id="hv-' + el.id + '" data-bind="el-hoeveelheid" data-id="' + el.id + '" value="' + el.hoeveelheid + '" /></div>';
+    html += '<div class="input-row"><div class="label">Kengetal per eenheid</div><input id="kg-' + el.id + '" data-bind="el-kengetal" data-id="' + el.id + '" value="' + el.kengetal + '" /></div>';
+    if (el.type === 'dak' && !state.building.isVoorbeeld) {
+      html += '<div class="hint">Dakoppervlak komt uit de 3D BAG (echt dakvlak, plat + schuin). Pas het aan als een offerte of opname iets anders laat zien.</div>';
+    }
+    html += '</div></div>';
+    return html;
+  }
+
+  function renderSteiger(el) {
+    var html = '<div class="section"><div class="card pad">';
+    html += '<div class="input-row" style="margin-top:0"><div class="label">Buitenmuur in m²</div><input id="hv-' + el.id + '" data-bind="el-hoeveelheid" data-id="' + el.id + '" value="' + el.hoeveelheid + '" /></div>';
+    html += '<div class="input-row"><div class="label">Werkhoogte in m</div><input id="wh-' + el.id + '" data-bind="el-werkhoogte" data-id="' + el.id + '" value="' + el.werkhoogte + '" /></div>';
+    html += '<div class="hint">' + (el.werkhoogte > 8
+      ? 'Boven 8 meter rekent de app met een hoogwerker of rolsteiger: € 11 per m² gevel.'
+      : 'Tot 8 meter kan het met een lichte steiger: € 6 per m² gevel.') + '</div>';
+    html += '</div></div>';
+    return html;
+  }
+
+  function renderSimpleConditie(el) {
+    var html = '<div class="section"><div class="card pad">';
+    html += '<div style="font:500 13.5px/1.35 DM Sans,sans-serif">Conditie</div>';
+    html += '<div class="seg" style="margin-top:11px">';
+    [1, 2, 3, 4, 5].forEach(function (c) {
+      html += '<div class="seg-opt' + (el.conditie === c ? ' active' : '') + '" data-act="set-conditie" data-id="' + el.id + '" data-conditie="' + c + '">' + c + '</div>';
+    });
+    html += '</div>';
+    html += '<div class="hint">1 = als nieuw, 5 = einde levensduur. Onbeoordeeld gaat uit van de standaardcyclus vanaf het bouwjaar.</div>';
+    html += '</div></div>';
+    return html;
+  }
+
+  function renderKozijnen(el) {
+    var html = '<div class="section"><div class="koz-table">';
+    html += '<div class="koz-head"><div class="c1">Type</div><div class="c2">Aantal</div><div class="c3">Tarief</div><div class="c4">Bedrag</div></div>';
+    el.koz.forEach(function (k, i) {
+      var tarief = k.eigenTarief != null ? k.eigenTarief : k.tarief;
+      html += '<div class="koz-row">';
+      html += '<div class="c1">' + esc(k.naam) + '</div>';
+      html += '<div class="c2"><button data-act="koz-min" data-id="' + el.id + '" data-i="' + i + '">−</button><span class="val">' + k.aantal + '</span><button data-act="koz-plus" data-id="' + el.id + '" data-i="' + i + '">+</button></div>';
+      html += '<div class="c3"><input id="koz-tarief-' + el.id + '-' + i + '" data-bind="koz-tarief" data-id="' + el.id + '" data-i="' + i + '" value="' + tarief + '" />';
+      html += '<div class="hint">index € ' + k.tarief + '</div></div>';
+      html += '<div class="c4">' + eur(k.aantal * tarief) + '</div>';
+      html += '</div>';
+    });
+    var totaalAantal = el.koz.reduce(function (a, k) { return a + k.aantal; }, 0);
+    html += '<div class="koz-total"><div class="label">Schilderwerk kozijnen</div><div class="count">' + totaalAantal + ' kozijnen</div><div class="amount">' + eur(elementCost(el, state)) + '</div></div>';
+    html += '</div>';
+    html += '<div class="info-block">Tarieven zijn direct aanpasbaar. Een offerte overschrijft het tarief, maar gaat na verloop van tijd weer mee in de indexering.</div>';
+    html += '</div>';
+    return html;
+  }
+
+  // --- Offertes (manual entry + compare) ---------------------------------
+  function renderOffertes(el) {
+    var offs = state.offertes[el.id] || [];
+    var bijvul = !!state.bijvullen[el.id];
+    var html = '<div class="section"><div class="section-title">Offertes</div>';
+    html += '<div class="card" style="margin-top:11px">';
+    if (!offs.length) {
+      html += '<div class="row" style="border-top:none"><div class="grow meta" style="font-size:12.5px">Nog geen offertes toegevoegd voor dit element.</div></div>';
+    }
+    offs.forEach(function (o, oi) {
+      var totaal = o.regels.reduce(function (a, r) { return a + num(r.bedrag); }, 0);
+      if (o.btw) totaal = totaal * 1.21;
+      html += '<div class="row" style="align-items:flex-start' + (oi === 0 ? ';border-top:none' : '') + '">';
+      html += '<div class="grow">';
+      html += '<div class="name" style="font-weight:500">' + esc(o.naam) + '</div>';
+      o.regels.forEach(function (r, ri) {
+        html += '<div style="display:flex;gap:8px;margin-top:6px">';
+        html += '<input id="of-' + o.id + '-naam-' + ri + '" data-bind="of-regel-naam" data-oid="' + o.id + '" data-ri="' + ri + '" value="' + esc(r.naam) + '" style="flex:1;border:1px solid var(--ink-14);border-radius:8px;padding:5px 7px;font:400 11.5px DM Sans,sans-serif" placeholder="regel" />';
+        html += '<input id="of-' + o.id + '-bedrag-' + ri + '" data-bind="of-regel-bedrag" data-oid="' + o.id + '" data-ri="' + ri + '" value="' + esc(r.bedrag) + '" style="width:80px;border:1px solid var(--ink-14);border-radius:8px;padding:5px 7px;text-align:right;font:500 11.5px DM Mono,monospace" placeholder="€" />';
+        html += '<button data-act="of-del-regel" data-oid="' + o.id + '" data-ri="' + ri + '" style="border:none;background:none;color:var(--ink-45);cursor:pointer">×</button>';
+        html += '</div>';
+      });
+      html += '<div style="margin-top:8px" class="linkish" data-act="of-add-regel" data-oid="' + o.id + '">+ regel toevoegen</div>';
+      html += '<div class="toggle-row" style="margin-top:9px" data-act="of-toggle-btw" data-oid="' + o.id + '">';
+      html += '<div class="grow" style="font:400 11.5px DM Sans,sans-serif">' + (o.btw ? 'inclusief 21% btw' : 'exclusief btw') + '</div>';
+      html += '<div class="toggle' + (o.btw ? ' on' : '') + '"><div class="knob"></div></div></div>';
+      html += '</div>';
+      html += '<div style="text-align:right"><div class="value" style="font-size:14px">' + eur(totaal) + '</div>';
+      html += '<div class="linkish" style="margin-top:6px;font-size:11px" data-act="of-del" data-oid="' + o.id + '">verwijder</div></div>';
+      html += '</div>';
+    });
+    html += '<div class="row" style="cursor:pointer" data-act="of-add">';
+    html += '<div class="grow" style="font:500 13px DM Sans,sans-serif;color:var(--blue)">+ Offerte toevoegen</div></div>';
+    html += '</div>';
+
+    if (offs.length >= 2) html += renderOfferteVergelijk(el, offs, bijvul);
+
+    html += '</div>';
+    return html;
+  }
+
+  function offerteTotal(o) {
+    var t = o.regels.reduce(function (a, r) { return a + num(r.bedrag); }, 0);
+    return o.btw ? t * 1.21 : t;
+  }
+
+  function renderOfferteVergelijk(el, offs, bijvul) {
+    var regelNamen = [];
+    offs.forEach(function (o) { o.regels.forEach(function (r) { if (r.naam && regelNamen.indexOf(r.naam) < 0) regelNamen.push(r.naam); }); });
+
+    function cellValue(o, naam) {
+      var r = o.regels.filter(function (x) { return x.naam === naam; })[0];
+      if (r) return num(r.bedrag);
+      return null;
+    }
+    // "kengetal" fallback for a missing line = average of the other quotes' value for that line.
+    function fallbackFor(naam, excludeIdx) {
+      var vals = [];
+      offs.forEach(function (o, i) { if (i !== excludeIdx) { var v = cellValue(o, naam); if (v != null) vals.push(v); } });
+      if (!vals.length) return 0;
+      return Math.round(vals.reduce(function (a, b) { return a + b; }, 0) / vals.length);
+    }
+
+    var totals = offs.map(function (o, oi) {
+      var sub = regelNamen.reduce(function (a, naam) {
+        var v = cellValue(o, naam);
+        if (v == null) v = bijvul ? fallbackFor(naam, oi) : 0;
+        return a + v;
+      }, 0);
+      return o.btw ? sub * 1.21 : sub;
+    });
+    var orde = totals.map(function (t, i) { return [t, i]; }).sort(function (a, b) { return a[0] - b[0]; }).map(function (x) { return x[1]; });
+
+    var html = '<div class="section"><div class="section-title">Offertes vergelijken</div>';
+    html += '<div class="compare-table" style="margin-top:11px">';
+    html += '<div class="ct-head"><div class="c1">REGEL</div>';
+    offs.forEach(function (o, oi) {
+      var rang = orde.indexOf(oi) + 1;
+      html += '<div class="ct-head-col"><span class="ct-rang" style="background:' + (rang === 1 ? '#E7EFE6' : 'rgba(36,31,27,.06)') + ';color:' + (rang === 1 ? '#3F6B46' : 'rgba(36,31,27,.5)') + '">#' + rang + '</span><div class="ct-colname">' + esc(o.naam) + '</div></div>';
+    });
+    html += '</div>';
+    regelNamen.forEach(function (naam) {
+      html += '<div class="ct-row"><div class="c1">' + esc(naam) + '</div>';
+      offs.forEach(function (o, oi) {
+        var v = cellValue(o, naam);
+        var missing = v == null;
+        var shown = missing ? (bijvul ? fallbackFor(naam, oi) : null) : v;
+        html += '<div class="ct-cell" style="background:' + (missing && bijvul ? '#F6EFD9' : 'transparent') + ';color:' + (missing ? '#8A6414' : 'rgba(36,31,27,.7)') + '">' + (shown == null ? '—' : shown.toLocaleString('nl-NL')) + '</div>';
+      });
+      html += '</div>';
+    });
+    html += '<div class="ct-total"><div class="c1">Totaal</div>';
+    totals.forEach(function (t) { html += '<div class="amount">' + eur(t) + '</div>'; });
+    html += '</div></div>';
+
+    html += '<div class="toggle-row" style="margin-top:12px;background:#fff;border:1px solid var(--ink-10);border-radius:18px;padding:15px 16px" data-act="toggle-bijvullen" data-id="' + el.id + '">';
+    html += '<div class="grow" style="font:400 12.5px/1.45 DM Sans,sans-serif">' + (bijvul ? 'Ontbrekende regels bijgevuld met het gemiddelde van de andere offertes' : 'Alleen wat de aannemers hebben opgeschreven') + '</div>';
+    html += '<div class="toggle' + (bijvul ? ' on' : '') + '"><div class="knob"></div></div></div>';
+    html += '</div>';
+    return html;
+  }
+
+  function renderPlanning() {
+    var rows = kasstroom(state);
+    var plan = fullPlan(state);
+    var totaal = rows.reduce(function (a, r) { return a + r.kosten; }, 0);
+    var html = '<div style="padding:24px 0 8px">';
+    html += '<div style="padding:0 22px"><div class="page-title">Planning</div>';
+    html += '<div class="page-sub">' + CURRENT_YEAR + ' – ' + (CURRENT_YEAR + HORIZON - 1) + ' · ' + eur(totaal) + ' totaal</div></div>';
+    html += '<div class="section timeline">';
+    rows.forEach(function (r) {
+      var posten = plan.filter(function (p) { return p.jaar === r.jaar; });
+      html += '<div class="tl-row"><div class="tl-year" style="color:' + (r.saldo < 0 ? '#B4531F' : 'rgba(36,31,27,.55)') + '">' + r.jaar + '</div>';
+      html += '<div class="tl-dot-col"><div class="tl-dot" style="background:' + (r.saldo < 0 ? '#E8845C' : (posten.length ? '#1F4E79' : 'rgba(36,31,27,.2)')) + '"></div><div class="tl-line"></div></div>';
+      html += '<div class="tl-body">';
+      if (!posten.length) html += '<div class="tl-empty">niets gepland</div>';
+      posten.forEach(function (p) {
+        html += '<div class="tl-post" data-act="open-element" data-id="' + p.elId + '" style="cursor:pointer"><div class="grow"><div class="name">' + esc(p.naam) + '</div><div class="meta">' + esc(p.meta) + '</div></div><div class="amount">' + eur(p.bedrag) + '</div></div>';
+      });
+      html += '</div>';
+      html += '<div class="tl-saldo" style="color:' + (r.saldo < 0 ? '#B4531F' : 'rgba(36,31,27,.38)') + '">' + (r.saldo < 0 ? '−' : '') + '€ ' + Math.round(Math.abs(r.saldo) / 1000) + 'k</div>';
+      html += '</div>';
+    });
+    html += '</div></div>';
+    return html;
+  }
+
+  function renderRapport() {
+    var b = state.building;
+    var rows = kasstroom(state);
+    var totaal = rows.reduce(function (a, r) { return a + r.kosten; }, 0);
+    var beoordeeld = state.elements.filter(isAssessed).length;
+    var laagste = Math.min.apply(null, rows.map(function (r) { return r.saldo; }));
+    var eerste = rows.filter(function (r) { return r.saldo < 0; })[0];
+    var nodig = Math.max(5, Math.ceil((totaal - state.fonds) / (10 * 12 * Math.max(1, b.units)) / 5) * 5);
+
+    var html = '<div style="padding:24px 0 8px">';
+    html += '<div style="padding:0 22px"><div class="page-title">Rapport</div>';
+    html += '<div class="page-sub">' + esc(b.adres) + ' · ' + beoordeeld + ' van ' + state.elements.length + ' elementen beoordeeld</div></div>';
+
+    html += '<div class="section"><div class="card pad">';
+    html += '<div style="font:500 14.5px/1.3 DM Sans,sans-serif">MJOP ' + CURRENT_YEAR + '–' + (CURRENT_YEAR + HORIZON - 1) + '</div>';
+    html += '<div class="hint" style="margin-top:5px">Conditie per element, kostenopbouw en het voorstel voor de maandbijdrage.</div>';
+    html += '<div class="btn-row"><div class="primary-btn" data-act="print-rapport">Afdrukken / PDF</div><div class="ghost-btn" data-act="export-csv">Exporteer CSV</div></div>';
+    html += '</div></div>';
+
+    html += '<div class="section"><div class="card pad">';
+    html += '<div style="font:500 13.5px/1.3 DM Sans,sans-serif">Voorstel voor de vergadering</div>';
+    html += '<div style="display:flex;align-items:baseline;gap:9px;margin-top:10px">';
+    html += '<div style="font:500 26px/1 DM Mono,monospace;color:var(--blue)">' + eur(eerste ? nodig : state.bijdrage) + '</div>';
+    html += '<div style="font:400 12px/1.3 DM Sans,sans-serif;color:var(--ink-60)">per appartement per maand</div></div>';
+    html += '<div class="hint">' + (eerste
+      ? 'Bij de huidige bijdrage van ' + eur(state.bijdrage) + ' raakt het fonds in ' + eerste.jaar + ' leeg.'
+      : 'Bij ' + eur(state.bijdrage) + ' per maand blijft het fonds ' + HORIZON + ' jaar positief, met ' + eur(laagste) + ' als laagste stand.') + '</div>';
+    html += '</div></div>';
+
+    html += '<div class="section"><div class="section-title">Elementen</div><div class="card" style="margin-top:11px">';
+    state.elements.forEach(function (el, i) {
+      var colors = scoreColors(el.conditie);
+      html += '<div class="row"' + (i === 0 ? ' style="border-top:none"' : '') + '>';
+      html += '<div class="el-badge" style="background:' + colors[0] + ';color:' + colors[1] + '">' + (el.conditie == null ? '?' : el.conditie) + '</div>';
+      html += '<div class="grow"><div class="name">' + esc(el.naam) + '</div><div class="meta">volgende beurt ' + conditionYear(el) + '</div></div>';
+      html += '<div class="value">' + eur(elementCost(el, state)) + '</div></div>';
+    });
+    html += '</div></div>';
+
+    html += '<div class="footer-note">Bronnen: PDOK Locatieserver en BAG (Public Domain Mark 1.0), 3D BAG van de TU Delft (CC BY 4.0). Kengetallen zijn indicatieve richtprijzen, geen offerte.</div>';
+    html += '</div>';
+    return html;
+  }
+
+  // ---------------------------------------------------------------------
+  // Actions (click) and Binds (input/change)
+  // ---------------------------------------------------------------------
+  var searchTimer = null;
+
+  var ACTIONS = {
+    'skip-onboarding': function () { startApp(defaultBuilding()); render(); },
+    'wijzig-adres': function () { state.screen = 'onboarding'; state.onboarding = { q: '', sug: [], bezig: false, bezigTekst: '', fout: '' }; render(); },
+    'kies-adres': function (d) {
+      var s = state.onboarding;
+      s.sug = []; s.q = d.naam; s.bezig = true; s.bezigTekst = 'Adres opzoeken in de BAG…'; s.fout = '';
+      render();
+      lookupBuilding(d.id, d.naam).then(function (building) {
+        s.bezig = false;
+        startApp(building);
+        render();
+      }).catch(function (err) {
+        s.bezig = false;
+        s.fout = 'Dit adres lukt niet: ' + (err && err.message ? err.message : 'onbekende fout') + '. Probeer een ander huisnummer, of begin met een voorbeeldgebouw.';
+        render();
+      });
+    },
+    'dismiss-idx': function () { state.idxBalk = false; render(); },
+    'set-tab': function (d) { state.tab = d.tab; state.activeElementId = null; render(); },
+    'set-filter': function (d) { state.filter = d.filter; render(); },
+    'open-element': function (d) { state.tab = 'gebouw'; state.activeElementId = d.id; render(); },
+    'close-element': function () { state.activeElementId = null; render(); },
+    'set-conditie': function (d) {
+      var el = findEl(d.id); if (!el) return;
+      el.conditie = el.conditie === +d.conditie ? null : +d.conditie;
+      render();
+    },
+    'koz-min': function (d) { var el = findEl(d.id); if (!el) return; var k = el.koz[+d.i]; k.aantal = Math.max(0, k.aantal - 1); render(); },
+    'koz-plus': function (d) { var el = findEl(d.id); if (!el) return; var k = el.koz[+d.i]; k.aantal = k.aantal + 1; render(); },
+    'zet-advies': function (d) { state.bijdrage = clamp(+d.nodig, 10, 400); render(); },
+    'open-add-element': function () { state.addForm = { naam: '', jaar: CURRENT_YEAR + 1, bedrag: 0, cyclus: '' }; render(); },
+    'cancel-add-element': function () { state.addForm = null; render(); },
+    'save-add-element': function () {
+      var f = state.addForm;
+      if (!f.naam) return;
+      state.elements.push({
+        id: uid('custom'), naam: f.naam, categorie: 'Overig', type: 'custom',
+        cyclus: f.cyclus ? num(f.cyclus) : 0, jaar: num(f.jaar) || CURRENT_YEAR, bedrag: num(f.bedrag),
+        metaTekst: 'handmatig toegevoegd',
+      });
+      state.addForm = null;
+      render();
+    },
+    'of-add': function (d) {
+      var list = state.offertes[state.activeElementId] || (state.offertes[state.activeElementId] = []);
+      list.push({ id: uid('of'), naam: 'Aannemer ' + (list.length + 1), btw: false, regels: [{ naam: '', bedrag: '' }] });
+      render();
+    },
+    'of-del': function (d) {
+      var list = state.offertes[state.activeElementId] || [];
+      state.offertes[state.activeElementId] = list.filter(function (o) { return o.id !== d.oid; });
+      render();
+    },
+    'of-add-regel': function (d) {
+      var o = findOfferte(d.oid); if (!o) return;
+      o.regels.push({ naam: '', bedrag: '' });
+      render();
+    },
+    'of-del-regel': function (d) {
+      var o = findOfferte(d.oid); if (!o) return;
+      o.regels.splice(+d.ri, 1);
+      render();
+    },
+    'of-toggle-btw': function (d) {
+      var o = findOfferte(d.oid); if (!o) return;
+      o.btw = !o.btw;
+      render();
+    },
+    'toggle-bijvullen': function (d) { state.bijvullen[d.id] = !state.bijvullen[d.id]; render(); },
+    'print-rapport': function () { window.print(); },
+    'export-csv': function () { exportCsv(); },
+  };
+
+  var BINDS = {
+    'addr-q': function (t) {
+      var s = state.onboarding;
+      s.q = t.value; s.fout = '';
+      clearTimeout(searchTimer);
+      if (t.value.trim().length < 4) { s.sug = []; return; }
+      searchTimer = setTimeout(function () {
+        suggestAddress(t.value).then(function (sug) { s.sug = sug; render(); })
+          .catch(function () { s.fout = 'Kon de adressenservice niet bereiken.'; render(); });
+      }, 280);
+    },
+    'el-hoeveelheid': function (t, d) { var el = findEl(d.id); if (el) el.hoeveelheid = num(t.value); },
+    'el-kengetal': function (t, d) { var el = findEl(d.id); if (el) el.kengetal = num(t.value); },
+    'el-werkhoogte': function (t, d) { var el = findEl(d.id); if (el) el.werkhoogte = num(t.value); },
+    'koz-tarief': function (t, d) { var el = findEl(d.id); if (el) el.koz[+d.i].eigenTarief = t.value === '' ? null : num(t.value); },
+    'add-el-naam': function (t) { state.addForm.naam = t.value; },
+    'add-el-jaar': function (t) { state.addForm.jaar = t.value; },
+    'add-el-bedrag': function (t) { state.addForm.bedrag = t.value; },
+    'add-el-cyclus': function (t) { state.addForm.cyclus = t.value; },
+    'of-regel-naam': function (t, d) { var o = findOfferte(d.oid); if (o) o.regels[+d.ri].naam = t.value; },
+    'of-regel-bedrag': function (t, d) { var o = findOfferte(d.oid); if (o) o.regels[+d.ri].bedrag = t.value; },
+  };
+
+  var CHANGES = {
+    'bijdrage': function (t) { state.bijdrage = +t.value; render(); },
+  };
+
+  function findEl(id) { return state.elements.filter(function (e) { return e.id === id; })[0]; }
+  function findOfferte(oid) {
+    var list = state.offertes[state.activeElementId] || [];
+    return list.filter(function (o) { return o.id === oid; })[0];
+  }
+
+  function exportCsv() {
+    var rows = [['Element', 'Categorie', 'Conditie', 'Cyclus (jaar)', 'Volgende beurt', 'Kosten']];
+    state.elements.forEach(function (el) {
+      rows.push([el.naam, el.categorie, el.conditie == null ? 'onbekend' : el.conditie, el.cyclus || '', conditionYear(el), Math.round(elementCost(el, state))]);
+    });
+    var csv = rows.map(function (r) {
+      return r.map(function (v) { return '"' + String(v).replace(/"/g, '""') + '"'; }).join(',');
+    }).join('\r\n');
+    var blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = 'mjop-' + (state.building.adres || 'export').replace(/[^a-z0-9]+/gi, '-').toLowerCase() + '.csv';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  // ---------------------------------------------------------------------
+  // Boot
+  // ---------------------------------------------------------------------
+  document.addEventListener('DOMContentLoaded', function () {
+    root = document.getElementById('root');
+    root.addEventListener('click', function (e) {
+      var t = e.target.closest('[data-act]');
+      if (!t) return;
+      var handler = ACTIONS[t.dataset.act];
+      if (handler) { e.preventDefault(); handler(t.dataset, e); }
+    });
+    root.addEventListener('input', function (e) {
+      var t = e.target.closest('[data-bind]');
+      if (!t) return;
+      var handler = BINDS[t.dataset.bind];
+      if (handler) { handler(t, t.dataset); render(); }
+    });
+    root.addEventListener('change', function (e) {
+      var t = e.target.closest('[data-change]');
+      if (!t) return;
+      var handler = CHANGES[t.dataset.change];
+      if (handler) handler(t, t.dataset);
+    });
+    render();
+  });
+})();
