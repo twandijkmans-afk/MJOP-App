@@ -690,6 +690,33 @@
     return rows;
   }
 
+  // Jaar -> bedrag voor één element, voor de jarenplan-tabel van het
+  // afdrukbare rapport (elke voorkomst binnen de horizon opgeteld per jaar).
+  function elementYearMap(el, state) {
+    var map = {};
+    scheduleFor(el, state).forEach(function (p) { map[p.jaar] = (map[p.jaar] || 0) + p.bedrag; });
+    return map;
+  }
+
+  function hoeveelheidLabel(el) {
+    switch (el.type) {
+      case 'dak': case 'gevel': return num(el.hoeveelheid).toLocaleString('nl-NL') + ' m²';
+      case 'per-unit': return el.hoeveelheid + ' st';
+      case 'steiger': return el.hoeveelheid + ' m²';
+      case 'vast-variabel': return el.hoeveelheid + ' eenh.';
+      case 'kozijnen': return el.koz.reduce(function (s, k) { return s + k.aantal; }, 0) + ' st';
+      case 'custom': return '1 pst';
+      default: return '';
+    }
+  }
+
+  function stjCyFor(el, state) {
+    var sched = scheduleFor(el, state);
+    var stj = sched.length ? sched[0].jaar : conditionYear(el);
+    var cy = el.type === 'kozijnen' ? 'diverse' : (el.cyclus || 'eenmalig');
+    return { stj: stj, cy: cy };
+  }
+
   // ---------------------------------------------------------------------
   // State
   // ---------------------------------------------------------------------
@@ -745,7 +772,9 @@
     if (active && root.contains(active) && active.id) {
       focusInfo = { id: active.id, start: active.selectionStart, end: active.selectionEnd };
     }
-    root.innerHTML = state.screen === 'onboarding' ? renderOnboarding() : renderApp();
+    var mainHtml = state.screen === 'onboarding' ? renderOnboarding() : renderApp();
+    var printHtml = (state.screen === 'app' && state.building) ? renderPrintReport() : '';
+    root.innerHTML = '<div class="screen-view">' + mainHtml + '</div>' + printHtml;
     if (focusInfo) {
       var el = document.getElementById(focusInfo.id);
       if (el) {
@@ -1390,6 +1419,127 @@
     html += '</div></div>';
 
     html += '<div class="footer-note">Bronnen: PDOK Locatieserver en BAG (Public Domain Mark 1.0), 3D BAG van de TU Delft (CC BY 4.0). Kengetallen zijn indicatieve richtprijzen, geen offerte.</div>';
+    html += '</div>';
+    return html;
+  }
+
+  var PRINT_CATS = ['Dak', 'Gevel', 'Installaties', 'Binnen', 'Terrein', 'Overig'];
+
+  // Het afdrukbare/PDF-rapport: een jarenplan-tabel per hoofdgroep met een
+  // kostenkolom per jaar, naar het model van een professioneel MJOP-rapport
+  // (opbouw/kolommen — niet de huisstijl of tekst van een specifieke
+  // aanbieder). Onzichtbaar op het scherm, alleen zichtbaar bij afdrukken/
+  // opslaan als pdf (zie .print-report in style.css).
+  function renderPrintReport() {
+    var b = state.building;
+    var jaren = [];
+    for (var j = CURRENT_YEAR; j <= CURRENT_YEAR + HORIZON - 1; j++) jaren.push(j);
+    var rows = kasstroom(state);
+    var totaal = rows.reduce(function (a, r) { return a + r.kosten; }, 0);
+    var laagste = Math.min.apply(null, rows.map(function (r) { return r.saldo; }));
+    var eerste = rows.filter(function (r) { return r.saldo < 0; })[0];
+    var nodig = Math.max(5, Math.ceil((totaal - state.fonds) / (10 * 12 * Math.max(1, b.units)) / 5) * 5);
+    var vandaag = new Date().toLocaleDateString('nl-NL');
+    var cats = PRINT_CATS.filter(function (c) { return state.elements.some(function (el) { return el.categorie === c; }); });
+
+    var html = '<div class="print-report">';
+
+    html += '<div class="pr-page pr-cover">';
+    html += '<div class="pr-eyebrow">Meerjarenonderhoudsplan</div>';
+    html += '<h1>' + esc(b.adres) + '</h1>';
+    html += '<div class="pr-sub">MJOP ' + CURRENT_YEAR + '–' + (CURRENT_YEAR + HORIZON - 1) + ' · opgesteld met MJOP Live · ' + vandaag + '</div>';
+    html += '</div>';
+
+    html += '<div class="pr-page">';
+    html += '<div class="pr-section-title">Algemene objectgegevens</div>';
+    html += '<table class="pr-kv">';
+    [
+      ['Adres', esc(b.adres)],
+      ['Bouwjaar', b.bouwjaar || 'onbekend'],
+      ['Aantal appartementen', b.units],
+      ['Dakoppervlak', Math.round(b.dakM2 || 0) + ' m²'],
+      ['Geveloppervlak', Math.round(b.gevelM2 || 0) + ' m²'],
+      ['Werkhoogte', (b.werkhoogte || 0) + ' m'],
+      ['Reservefonds nu', eur(state.fonds)],
+      ['Bijdrage per appartement/mnd', eur(state.bijdrage)],
+      ['Prijspeil', CURRENT_YEAR],
+    ].forEach(function (row) {
+      html += '<tr><td class="pr-kv-label">' + row[0] + '</td><td>' + row[1] + '</td></tr>';
+    });
+    html += '</table>';
+
+    html += '<div class="pr-section-title">Conditiescore</div>';
+    html += '<table class="pr-legend">';
+    [1, 2, 3, 4, 5, 6].forEach(function (s) {
+      var colors = scoreColors(s);
+      html += '<tr><td><span class="pr-badge" style="background:' + colors[0] + ';color:' + colors[1] + '">' + s + '</span></td><td>' + CONDITIE_LABELS[s] + '</td></tr>';
+    });
+    html += '</table>';
+    html += '<div class="pr-note">Vereenvoudigde, zelf geïmplementeerde toepassing van de NEN 2767-systematiek (ernst/omvang/intensiteit → conditiescore) voor planningsdoeleinden — geen vervanging voor een inspectie door een gecertificeerd inspecteur.</div>';
+    html += '</div>';
+
+    html += '<div class="pr-page">';
+    html += '<div class="pr-section-title">Elementenoverzicht</div>';
+    html += '<table class="pr-table"><thead><tr><th class="pr-c-code">NL-SfB</th><th>Element</th><th class="pr-c-hvh">Hvh/Ehd</th><th class="pr-c-cond">Conditie</th></tr></thead><tbody>';
+    cats.forEach(function (cat) {
+      html += '<tr class="pr-group"><td colspan="4">' + cat + '</td></tr>';
+      state.elements.filter(function (el) { return el.categorie === cat; }).forEach(function (el) {
+        var score = conditionScore(el);
+        var colors = scoreColors(score);
+        html += '<tr><td class="pr-c-code">' + (el.sfb ? esc(el.sfb) : '–') + '</td><td>' + esc(el.naam) + '</td>';
+        html += '<td class="pr-c-hvh">' + hoeveelheidLabel(el) + '</td>';
+        html += '<td class="pr-c-cond"><span class="pr-badge" style="background:' + colors[0] + ';color:' + colors[1] + '">' + (score == null ? '?' : score) + '</span></td></tr>';
+      });
+    });
+    html += '</tbody></table>';
+    html += '</div>';
+
+    html += '<div class="pr-page pr-landscape">';
+    html += '<div class="pr-section-title">Jarenplan ' + CURRENT_YEAR + '–' + (CURRENT_YEAR + HORIZON - 1) + '</div>';
+    html += '<table class="pr-table pr-jaren"><thead><tr><th>Element</th><th class="pr-c-hvh">Hvh/Ehd</th><th class="pr-c-narrow">Stj</th><th class="pr-c-narrow">Cy</th>';
+    jaren.forEach(function (y) { html += '<th class="pr-c-year">' + y + '</th>'; });
+    html += '<th class="pr-c-year">Totaal</th></tr></thead><tbody>';
+
+    var grandPerYear = {};
+    cats.forEach(function (cat) {
+      html += '<tr class="pr-group"><td colspan="' + (5 + jaren.length) + '">' + cat + '</td></tr>';
+      var catPerYear = {};
+      state.elements.filter(function (el) { return el.categorie === cat; }).forEach(function (el) {
+        var ym = elementYearMap(el, state);
+        var sc = stjCyFor(el, state);
+        var elTotaal = 0;
+        html += '<tr><td>' + esc(el.naam) + '</td><td class="pr-c-hvh">' + hoeveelheidLabel(el) + '</td>';
+        html += '<td class="pr-c-narrow">' + sc.stj + '</td><td class="pr-c-narrow">' + sc.cy + '</td>';
+        jaren.forEach(function (y) {
+          var bedrag = ym[y] || 0;
+          elTotaal += bedrag;
+          catPerYear[y] = (catPerYear[y] || 0) + bedrag;
+          grandPerYear[y] = (grandPerYear[y] || 0) + bedrag;
+          html += '<td class="pr-c-year">' + (bedrag ? eur(bedrag) : '–') + '</td>';
+        });
+        html += '<td class="pr-c-year pr-strong">' + eur(elTotaal) + '</td></tr>';
+      });
+      var catTotaal = 0;
+      html += '<tr class="pr-subtotal"><td colspan="4">Subtotaal ' + cat + '</td>';
+      jaren.forEach(function (y) { catTotaal += (catPerYear[y] || 0); html += '<td class="pr-c-year">' + eur(catPerYear[y] || 0) + '</td>'; });
+      html += '<td class="pr-c-year">' + eur(catTotaal) + '</td></tr>';
+    });
+    var grandTotaal = 0;
+    html += '<tr class="pr-grandtotal"><td colspan="4">Totaal alle posten</td>';
+    jaren.forEach(function (y) { grandTotaal += (grandPerYear[y] || 0); html += '<td class="pr-c-year">' + eur(grandPerYear[y] || 0) + '</td>'; });
+    html += '<td class="pr-c-year">' + eur(grandTotaal) + '</td></tr>';
+    html += '</tbody></table>';
+    html += '</div>';
+
+    html += '<div class="pr-page">';
+    html += '<div class="pr-section-title">Voorstel voor de vergadering</div>';
+    html += '<div class="pr-proposal">' + eur(eerste ? nodig : state.bijdrage) + ' <span>per appartement per maand</span></div>';
+    html += '<div class="pr-note">' + (eerste
+      ? 'Bij de huidige bijdrage van ' + eur(state.bijdrage) + ' raakt het reservefonds in ' + eerste.jaar + ' leeg.'
+      : 'Bij ' + eur(state.bijdrage) + ' per maand blijft het reservefonds ' + HORIZON + ' jaar positief, met ' + eur(laagste) + ' als laagste stand.') + '</div>';
+    html += '<div class="pr-footer">Bronnen: PDOK Locatieserver en BAG (Public Domain Mark 1.0), 3D BAG van de TU Delft (CC BY 4.0). Kengetallen zijn indicatieve richtprijzen inclusief btw, geen offerte. Bedragen vanaf geïmporteerde posten zijn geïndexeerd met 3% per jaar vanaf het prijspeil van het brondocument. Afgedrukt op ' + vandaag + ' met MJOP Live.</div>';
+    html += '</div>';
+
     html += '</div>';
     return html;
   }

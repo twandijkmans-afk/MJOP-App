@@ -454,8 +454,58 @@ input[type=range]::-moz-range-thumb {
   }
 }
 
+/* Het afdrukbare/PDF-rapport (renderPrintReport in app.js): een losse,
+   op zichzelf staande weergave naar het model van een professioneel
+   MJOP-rapport (jarenplan-tabel per hoofdgroep, één kostenkolom per jaar).
+   Onzichtbaar op het scherm; vervangt de hele app-weergave zodra er
+   afgedrukt wordt of "opslaan als pdf" gekozen wordt. */
+.print-report { display: none; }
+
+@page { size: A4 landscape; margin: 14mm 12mm; }
+
 @media print {
   body { background: #fff; }
-  .app-shell { box-shadow: none; max-width: none; }
-  .tab-bar, .hero .top-nav, .no-print { display: none !important; }
+  .screen-view { display: none !important; }
+  .print-report { display: block; color: #111; font-family: var(--sans); }
+  .pr-page { page-break-after: always; padding: 0 4mm; }
+  .pr-page:last-child { page-break-after: auto; }
+
+  .pr-cover { display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; height: 160mm; page-break-after: always; }
+  .pr-eyebrow { font: 400 11px/1 var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--blue); }
+  .pr-cover h1 { font: 700 34px/1.25 var(--sans); margin: 14px 0 0; }
+  .pr-sub { font: 400 13px/1.5 var(--sans); color: #555; margin-top: 10px; }
+
+  .pr-section-title { font: 700 15px/1.3 var(--sans); color: var(--blue); margin: 0 0 10px; padding-bottom: 6px; border-bottom: 2px solid var(--blue); }
+  .pr-page > .pr-section-title ~ .pr-section-title { margin-top: 26px; }
+
+  .pr-kv { border-collapse: collapse; width: 100%; margin-bottom: 22px; }
+  .pr-kv td { padding: 5px 8px; font-size: 11.5px; border-bottom: 1px solid #eee; }
+  .pr-kv-label { color: #666; width: 220px; }
+
+  .pr-legend { border-collapse: collapse; margin-bottom: 10px; }
+  .pr-legend td { padding: 3px 8px; font-size: 11px; }
+
+  .pr-badge { display: inline-block; min-width: 18px; text-align: center; border-radius: 5px; padding: 2px 6px; font: 700 10.5px/1.4 var(--mono); }
+
+  .pr-note { font: 400 10.5px/1.5 var(--sans); color: #666; margin-top: 4px; max-width: 640px; }
+  .pr-footer { font: 400 9.5px/1.6 var(--sans); color: #777; margin-top: 26px; border-top: 1px solid #ddd; padding-top: 10px; }
+
+  .pr-table { border-collapse: collapse; width: 100%; font-size: 10.5px; }
+  .pr-table th { text-align: left; font: 700 9px/1.3 var(--sans); text-transform: uppercase; letter-spacing: .04em; color: #fff; background: var(--blue); padding: 6px 6px; }
+  .pr-table td { padding: 4px 6px; border-bottom: 1px solid #eee; vertical-align: top; }
+  .pr-table tr.pr-group td { background: var(--blue-tint); font-weight: 700; padding-top: 7px; padding-bottom: 3px; border-bottom: none; }
+  .pr-table tr.pr-subtotal td { font-weight: 700; border-top: 1px solid #999; background: #f7f7f7; }
+  .pr-table tr.pr-grandtotal td { font-weight: 700; border-top: 2px solid var(--blue); background: var(--blue-tint); font-size: 11px; }
+  .pr-table .pr-c-code { width: 62px; font-family: var(--mono); font-size: 9.5px; color: #777; }
+  .pr-table .pr-c-hvh { width: 80px; text-align: right; font-family: var(--mono); font-size: 9.5px; }
+  .pr-table .pr-c-cond { width: 60px; text-align: center; }
+  .pr-table .pr-c-narrow { width: 44px; text-align: right; font-family: var(--mono); font-size: 9.5px; }
+  .pr-table.pr-jaren th, .pr-table.pr-jaren td.pr-c-year { text-align: right; }
+  .pr-table .pr-c-year { width: 62px; font-family: var(--mono); font-size: 9.5px; white-space: nowrap; }
+  .pr-table .pr-strong { font-weight: 700; }
+  .pr-landscape thead { display: table-header-group; }
+  .pr-landscape tr { page-break-inside: avoid; }
+
+  .pr-proposal { font: 700 30px/1 var(--mono); color: var(--blue); margin: 10px 0 8px; }
+  .pr-proposal span { font: 400 12px/1 var(--sans); color: #666; margin-left: 8px; }
 }
