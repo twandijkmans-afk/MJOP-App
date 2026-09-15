@@ -1785,15 +1785,15 @@
     html += '<div class="section timeline">';
     rows.forEach(function (r) {
       var posten = plan.filter(function (p) { return p.jaar === r.jaar; });
-      html += '<div class="tl-row"><div class="tl-year" style="color:' + (r.saldo < 0 ? '#B4531F' : 'rgba(36,31,27,.55)') + '">' + r.jaar + '</div>';
-      html += '<div class="tl-dot-col"><div class="tl-dot" style="background:' + (r.saldo < 0 ? '#E8845C' : (posten.length ? '#1F4E79' : 'rgba(36,31,27,.2)')) + '"></div><div class="tl-line"></div></div>';
+      html += '<div class="tl-row"><div class="tl-year" style="color:' + (r.saldo < 0 ? 'var(--bad-fg)' : 'var(--ink-50)') + '">' + r.jaar + '</div>';
+      html += '<div class="tl-dot-col"><div class="tl-dot" style="background:' + (r.saldo < 0 ? 'var(--accent)' : (posten.length ? 'var(--blue)' : 'var(--ink-14)')) + '"></div><div class="tl-line"></div></div>';
       html += '<div class="tl-body">';
       if (!posten.length) html += '<div class="tl-empty">niets gepland</div>';
       posten.forEach(function (p) {
         html += '<div class="tl-post" data-act="open-element" data-id="' + p.elId + '" style="cursor:pointer"><div class="grow"><div class="name">' + esc(p.naam) + '</div><div class="meta">' + esc(p.meta) + '</div></div><div class="amount">' + eur(p.bedrag) + '</div></div>';
       });
       html += '</div>';
-      html += '<div class="tl-saldo" style="color:' + (r.saldo < 0 ? '#B4531F' : 'rgba(36,31,27,.38)') + '">' + (r.saldo < 0 ? '−' : '') + '€ ' + Math.round(Math.abs(r.saldo) / 1000) + 'k</div>';
+      html += '<div class="tl-saldo" style="color:' + (r.saldo < 0 ? 'var(--bad-fg)' : 'var(--ink-42)') + '">' + (r.saldo < 0 ? '−' : '') + '€ ' + Math.round(Math.abs(r.saldo) / 1000) + 'k</div>';
       html += '</div>';
     });
     html += '</div></div>';
