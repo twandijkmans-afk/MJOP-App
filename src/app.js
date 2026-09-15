@@ -774,6 +774,7 @@
     plansUi: { bezig: false, fout: '' },
     currentPlanId: null,
     lastSavedSnapshot: null,
+    confirmDeleteId: null, // id van het plan waarvoor net op "verwijderen" geklikt is, in afwachting van bevestiging
   };
 
   // Zet het gebouw vast. Als er nog geen elementen zijn (verse start) wordt
@@ -1204,6 +1205,7 @@
     else if (state.tab === 'planning') html += renderPlanning();
     else if (state.tab === 'rapport') html += renderRapport();
     else if (state.tab === 'account') html += renderAccount();
+    else if (state.tab === 'mijngebouwen') html += renderMijnGebouwen();
     html += renderTabBar();
     html += '</div>';
     return html;
@@ -1211,7 +1213,6 @@
 
   function renderTabBar() {
     var tabs = [['home', 'Overzicht'], ['gebouw', 'Gebouw'], ['planning', 'Planning'], ['rapport', 'Rapport']];
-    tabs.push(['account', state.session ? 'Account' : 'Inloggen']);
     var html = '<div class="tab-bar">';
     html += '<div class="tab-brand">MJOP Live</div>';
     tabs.forEach(function (t) {
@@ -1219,6 +1220,21 @@
       html += '<button class="tab-item' + (active ? ' active' : '') + '" data-act="set-tab" data-tab="' + t[0] + '">';
       html += '<span class="tab-dot"></span><span>' + t[1] + '</span></button>';
     });
+    // "Opslaan" is een actie, geen navigatie-tab — een klik slaat het
+    // huidige plan meteen op, het label is de status (zie
+    // SPEC_ACCOUNTS_AND_SAVING.md §8: "showing opgeslagen/niet opgeslagen
+    // status so it's clear whether changes are persisted").
+    if (state.session) {
+      var dirty = isDirty();
+      var saveLabel = state.plansUi.fout ? 'Opslaan mislukt'
+        : state.plansUi.bezig ? 'Bezig…'
+        : !state.currentPlanId ? 'Opslaan'
+        : dirty ? 'Wijzigingen' : 'Opgeslagen';
+      html += '<button class="tab-item' + (dirty || state.plansUi.fout ? ' dirty' : '') + '" data-act="save-plan">';
+      html += '<span class="tab-dot"></span><span>' + saveLabel + '</span></button>';
+    }
+    html += '<button class="tab-item' + (state.tab === 'account' ? ' active' : '') + '" data-act="set-tab" data-tab="account">';
+    html += '<span class="tab-dot"></span><span>' + (state.session ? 'Account' : 'Inloggen') + '</span></button>';
     html += '</div>';
     return html;
   }
@@ -1257,32 +1273,9 @@
       html += '<div class="btn-row"><div class="ghost-btn" data-act="logout">Uitloggen</div></div>';
       html += '</div></div>';
 
-      html += '<div class="section"><div class="section-title">Uw plan</div><div class="card pad" style="margin-top:11px">';
-      if (!state.building) {
-        html += '<div class="hint">Zoek eerst een adres op of begin met een voorbeeldgebouw — daarna kunt u het plan hier opslaan.</div>';
-      } else {
-        var dirty = isDirty();
-        html += '<div class="hint">' + esc(state.building.adres) + '</div>';
-        html += '<div style="font:600 14px/1.4 Inter,system-ui,sans-serif;margin-top:4px;color:' + (dirty ? 'var(--accent)' : 'var(--good-fg)') + '">' + (state.currentPlanId ? (dirty ? 'Niet-opgeslagen wijzigingen' : 'Opgeslagen') : 'Nog niet opgeslagen') + '</div>';
-        if (state.plansUi.fout) html += '<div class="notice error" style="margin-top:10px">' + esc(state.plansUi.fout) + '</div>';
-        html += '<div class="btn-row"><div class="primary-btn" data-act="save-plan">' + (state.plansUi.bezig ? 'Bezig…' : (state.currentPlanId ? 'Wijzigingen opslaan' : 'Plan opslaan')) + '</div></div>';
-      }
-      html += '</div></div>';
-
-      html += '<div class="section"><div class="section-title">Opgeslagen plannen</div><div class="card" style="margin-top:11px">';
-      if (state.plansUi.bezig && !state.plansLoaded) {
-        html += '<div class="row" style="border-top:none"><div class="grow meta">Bezig met laden…</div></div>';
-      } else if (!state.savedPlans.length) {
-        html += '<div class="row" style="border-top:none"><div class="grow meta">Nog geen opgeslagen plannen.</div></div>';
-      } else {
-        state.savedPlans.forEach(function (sp, i) {
-          var active = sp.id === state.currentPlanId;
-          html += '<div class="row" data-act="open-plan" data-id="' + sp.id + '" style="cursor:pointer' + (i === 0 ? ';border-top:none' : '') + '">';
-          html += '<div class="grow"><div class="name">' + esc(sp.label) + (active ? ' <span class="sfb-tag">geopend</span>' : '') + '</div><div class="meta">bijgewerkt ' + new Date(sp.updated_at).toLocaleDateString('nl-NL') + '</div></div>';
-          html += '<div class="chev">›</div></div>';
-        });
-      }
-      html += '</div></div>';
+      html += '<div class="section"><div class="action-box" data-act="set-tab" data-tab="mijngebouwen">';
+      html += '<div class="grow"><div class="title">Mijn gebouwen</div><div class="sub">' + state.savedPlans.length + ' opgeslagen plan' + (state.savedPlans.length === 1 ? '' : 'nen') + ' — bekijken, hernoemen of verwijderen</div></div>';
+      html += '<div class="arrow">›</div></div></div>';
 
       html += '</div>';
       return html;
@@ -1302,6 +1295,51 @@
       html += '<div class="btn-row"><div class="primary-btn" data-act="login-request">' + (a.bezig ? 'Bezig…' : 'Stuur inloglink') + '</div></div>';
     }
     html += '</div></div>';
+    html += '</div>';
+    return html;
+  }
+
+  function renderMijnGebouwen() {
+    var html = '<div style="padding:20px 0 8px">';
+    html += '<div class="top-nav"><div class="back-link" data-act="set-tab" data-tab="home">‹ Overzicht</div></div>';
+    html += '<div style="padding:0 22px">';
+    html += '<div class="page-title">Mijn gebouwen</div>';
+    html += '<div class="page-sub">Opgeslagen plannen — openen, hernoemen of verwijderen.</div>';
+    html += '</div>';
+
+    if (state.plansUi.fout) {
+      html += '<div class="section"><div class="notice error">' + esc(state.plansUi.fout) + '</div></div>';
+    }
+
+    if (state.plansUi.bezig && !state.plansLoaded) {
+      html += '<div class="section"><div class="hint" style="padding:0 22px">Bezig met laden…</div></div>';
+    } else if (state.savedPlans.length === 0) {
+      html += '<div class="empty-block"><div class="empty-card">';
+      html += '<div class="title">Nog geen opgeslagen plannen</div>';
+      html += '<div class="body">Sla het huidige plan op via "Opslaan" in de tabbalk hierboven — het verschijnt dan hier.</div>';
+      html += '</div></div>';
+    } else {
+      html += '<div class="section"><div class="card">';
+      state.savedPlans.forEach(function (p) {
+        var confirming = state.confirmDeleteId === p.id;
+        var isOpen = state.currentPlanId === p.id;
+        html += '<div class="row">';
+        html += '<div class="grow">';
+        html += '<input id="plan-label-' + p.id + '" data-bind="plan-label" data-change="plan-label" data-id="' + p.id + '" value="' + esc(p.label || '') + '" class="name" style="border:none;background:transparent;width:100%;padding:2px 0;font:400 13px/1.3 Inter,system-ui,sans-serif;color:var(--ink)" />';
+        html += '<div class="meta">' + (isOpen ? 'Nu geopend · ' : '') + 'bijgewerkt ' + esc(new Date(p.updated_at).toLocaleDateString('nl-NL')) + '</div>';
+        html += '</div>';
+        if (confirming) {
+          html += '<div class="linkish" data-act="delete-plan" data-id="' + p.id + '" style="color:var(--accent)">verwijder definitief</div>';
+          html += '<div class="linkish" data-act="delete-plan-cancel">annuleer</div>';
+        } else {
+          html += '<div class="linkish" data-act="open-plan" data-id="' + p.id + '">openen</div>';
+          html += '<div class="linkish" data-act="delete-plan-confirm" data-id="' + p.id + '">verwijder</div>';
+        }
+        html += '</div>';
+      });
+      html += '</div></div>';
+    }
+
     html += '</div>';
     return html;
   }
@@ -1363,6 +1401,16 @@
     html += '</div>';
     html += '<div class="stat-card"><div class="label">Kosten t/m ' + (CURRENT_YEAR + HORIZON - 1) + '</div><div class="amount">' + eur(totaal) + '</div></div>';
     html += '</div>';
+
+    // Toegangspunt tot "mijn gebouwen" — alleen relevant met een sessie
+    // (zie SPEC_ACCOUNTS_AND_SAVING.md §8: "reachable from the home
+    // screen when logged in").
+    if (state.session) {
+      var dirtyHome = isDirty();
+      html += '<div class="section"><div class="action-box" data-act="set-tab" data-tab="mijngebouwen">';
+      html += '<div class="grow"><div class="title">Mijn gebouwen</div><div class="sub">' + (state.currentPlanId ? (dirtyHome ? 'Niet-opgeslagen wijzigingen in dit plan' : 'Dit plan is opgeslagen') : 'Dit plan is nog niet opgeslagen') + '</div></div>';
+      html += '<div class="arrow">›</div></div></div>';
+    }
 
     var aandacht = state.elements.filter(needsAssessment);
     var eerstvolgende = fullPlan(state).filter(function (p) { return p.jaar <= CURRENT_YEAR + 1; }).slice(0, 3);
@@ -1961,6 +2009,28 @@
         state.plansUi.bezig = false; state.plansUi.fout = 'Kon geen verbinding maken. Probeer het opnieuw.'; render();
       });
     },
+    'delete-plan-confirm': function (d) { state.confirmDeleteId = d.id; render(); },
+    'delete-plan-cancel': function () { state.confirmDeleteId = null; render(); },
+    'delete-plan': function (d) {
+      if (!sb || !state.session) return;
+      state.plansUi.bezig = true; state.plansUi.fout = '';
+      render();
+      sb.from('saved_plans').delete().eq('id', d.id).then(function (res) {
+        state.plansUi.bezig = false;
+        state.confirmDeleteId = null;
+        if (res.error) { state.plansUi.fout = 'Verwijderen is niet gelukt.'; render(); return; }
+        state.savedPlans = state.savedPlans.filter(function (p) { return p.id !== d.id; });
+        // Het huidige plan blijft gewoon open in het scherm (geen verlies
+        // van in-memory werk) — alleen de koppeling met de zojuist
+        // verwijderde rij vervalt, zodat een volgende "Opslaan" een nieuw
+        // plan aanmaakt in plaats van de verwijderde rij te proberen bij
+        // te werken.
+        if (state.currentPlanId === d.id) { state.currentPlanId = null; state.lastSavedSnapshot = null; }
+        render();
+      }).catch(function () {
+        state.plansUi.bezig = false; state.plansUi.fout = 'Kon geen verbinding maken. Probeer het opnieuw.'; render();
+      });
+    },
     'goto-marketing': function () { state.screen = 'marketing'; render(); },
     'goto-login': function () { state.screen = 'login'; render(); },
     'goto-onboarding': function () { state.screen = 'onboarding'; render(); },
@@ -1979,7 +2049,7 @@
       });
     },
     'dismiss-idx': function () { state.idxBalk = false; render(); },
-    'set-tab': function (d) { state.tab = d.tab; state.activeElementId = null; render(); },
+    'set-tab': function (d) { state.tab = d.tab; state.activeElementId = null; state.confirmDeleteId = null; render(); },
     'set-filter': function (d) { state.filter = d.filter; render(); },
     'open-element': function (d) { state.tab = 'gebouw'; state.activeElementId = d.id; render(); },
     'close-element': function () { state.activeElementId = null; render(); },
@@ -2146,12 +2216,24 @@
     'upload-regel-cyclus': function (t, d) { state.upload.regels[+d.i].cyclus = t.value; },
     'upload-basisjaar': function (t) { state.upload.basisjaar = t.value; },
     'auth-email': function (t) { state.auth.email = t.value; },
+    'plan-label': function (t, d) {
+      var p = state.savedPlans.filter(function (x) { return x.id === d.id; })[0];
+      if (p) p.label = t.value;
+    },
   };
 
   var CHANGES = {
     'bijdrage': function (t) { state.bijdrage = +t.value; render(); },
     'koz-materiaal': function (t, d) { var el = findEl(d.id); if (el) el.koz[+d.i].materiaal = t.value; render(); },
     'upload-map': function (t, d) { state.upload.mapping[d.veld] = +t.value; render(); },
+    'plan-label': function (t, d) {
+      if (!sb || !state.session) return;
+      var p = state.savedPlans.filter(function (x) { return x.id === d.id; })[0];
+      if (!p) return;
+      sb.from('saved_plans').update({ label: p.label, updated_at: new Date().toISOString() }).eq('id', d.id).select().single().then(function (res) {
+        if (res.error) { state.plansUi.fout = 'Naam opslaan is niet gelukt.'; render(); }
+      });
+    },
   };
 
   function uploadError(err) {

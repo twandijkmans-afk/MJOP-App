@@ -61,25 +61,29 @@ er een echte sessie is (ingelogd via de link), of zodra het venster smaller
 wordt dan 960px, valt de marketing-/loginweergave automatisch terug op de
 gewone app-flow (`currentScreen()`, vlak boven `render()` in `src/app.js`).
 
-### Een plan opslaan en heropenen (fase 2, minimale versie)
+### Een plan opslaan, heropenen, hernoemen en verwijderen
 
-Fase 2 van `SPEC_ACCOUNTS_AND_SAVING.md` is geïmplementeerd: een tabel
-`saved_plans` in Supabase (met row-level security — een gebruiker kan
-uitsluitend zijn eigen rijen lezen/schrijven, zie de SQL in de spec) en de
-acties `save-plan`/`open-plan` in `src/app.js`. Ingelogde gebruikers zien
-op het "Account"-tabblad een "Uw plan"-kaart (opslaan, met een status
-opgeslagen/niet-opgeslagen/gewijzigd) en een lijst van eerder opgeslagen
-plannen om te heropenen.
+Fase 2 en fase 3 van `SPEC_ACCOUNTS_AND_SAVING.md` zijn geïmplementeerd:
+een tabel `saved_plans` in Supabase (met row-level security — een
+gebruiker kan uitsluitend zijn eigen rijen lezen/schrijven, zie de SQL in
+de spec) en de acties `save-plan`/`open-plan`/`delete-plan` in
+`src/app.js`.
 
-Dit is bewust nog de kale versie — precies de scope van fase 2, niet meer:
-- Opgeslagen wordt alleen het plan zelf (`serializePlan()`: gebouw,
-  elementen, fonds, bijdrage, offertes, bijvullen) — nooit navigatie- of
-  sessiestate.
-- Geen "niet-opgeslagen wijzigingen verlies je zomaar"-bescherming buiten
-  het Account-scherm, geen naam wijzigen, geen verwijderen, geen lege-
-  staat-verfraaiing, en geen apart "opslaan"-item in de tabbalk met eigen
-  status-indicator. Dat is fase 3 ("mijn gebouwen"-scherm), een apart
-  vervolg.
+Ingelogde gebruikers zien in de tabbalk een eigen "Opslaan"-item (geen
+navigatietab, maar een directe actie) waarvan het label de status van het
+huidige plan toont: *Opslaan* (nog nooit opgeslagen), *Bezig…*,
+*Wijzigingen* (niet-opgeslagen wijzigingen), *Opgeslagen*, of *Opslaan
+mislukt*. Vanaf het Overzicht- en het Account-scherm is er een kaart naar
+"Mijn gebouwen": een lijst van alle opgeslagen plannen met een
+inline-bewerkbare naam (opslaan bij het verlaten van het veld), een
+"openen"-link en een "verwijderen"-link met een expliciete
+bevestigingsstap. Een leeg overzicht toont een uitleg in plaats van een
+lege lijst; een mislukte serveractie toont een foutmelding zonder de
+in-memory staat van het huidige plan te verliezen.
+
+Opgeslagen wordt alleen het plan zelf (`serializePlan()`: gebouw,
+elementen, fonds, bijdrage, offertes, bijvullen) — nooit navigatie- of
+sessiestate.
 
 ## Hoe het werkt
 

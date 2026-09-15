@@ -300,6 +300,8 @@ input[type=range]::-moz-range-thumb {
 .tab-item.active .tab-dot { background: var(--blue); border-color: var(--blue); }
 .tab-item span { font: 500 10px/1 var(--sans); color: var(--ink-45); }
 .tab-item.active span { color: var(--blue); }
+.tab-item.dirty .tab-dot { background: var(--accent); border-color: var(--accent); }
+.tab-item.dirty span { color: var(--accent); }
 
 .idx-bar { margin: 0 18px 18px; padding: 12px 14px; border-radius: 8px; background: var(--page); display: flex; align-items: center; gap: 11px; cursor: pointer; }
 .idx-bar .pill { flex: none; padding: 3px 7px; border-radius: 6px; background: var(--ink); font: 500 9.5px/1 var(--mono); color: #fff; }
