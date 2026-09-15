@@ -789,7 +789,8 @@
   function applyBuilding(building) {
     state.building = building;
     if (!state.elements.length) {
-      state.fonds = building.units * 2500;
+      // Reservefonds start op 0 — de VvE vult het werkelijke saldo zelf in,
+      // wij kunnen dat niet raden op basis van het aantal appartementen.
       state.elements = buildDefaultElements(building);
     } else {
       state.elements.forEach(function (el) {
@@ -2201,7 +2202,6 @@
           metaTekst: 'geïmporteerd uit ' + (bestandsnaam || 'bestand'),
         });
       });
-      if (!state.fonds) state.fonds = defaultBuilding().units * 2500;
       state.upload = null;
       applyBuilding(state.building || defaultBuilding());
       render();
