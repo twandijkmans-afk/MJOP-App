@@ -752,6 +752,13 @@
     offertes: {}, // elId -> [{id, naam, btw, regels:[{naam,bedrag}]}]
     bijvullen: {}, // elId -> bool
     addForm: null,
+    // Login (fase 1 van SPEC_ACCOUNTS_AND_SAVING.md). session/user worden
+    // uitsluitend gezet vanuit de sb.auth.onAuthStateChange-listener
+    // (nooit los daarvan) zodat ze altijd de echte Supabase-sessie
+    // weerspiegelen; `auth` is puur lokale UI-state voor het inlogformulier.
+    session: null,
+    user: null,
+    auth: { email: '', code: '', stap: 'email', bezig: false, fout: '' },
   };
 
   // Zet het gebouw vast. Als er nog geen elementen zijn (verse start) wordt
@@ -777,6 +784,18 @@
     state.screen = 'app';
     state.tab = 'home';
   }
+
+  // ---------------------------------------------------------------------
+  // Supabase (inloggen — zie SPEC_ACCOUNTS_AND_SAVING.md, fase 1). Alleen
+  // e-mail/otp-login en sessie-state in deze fase; opslaan/laden van een
+  // plan komt in een latere fase. Zonder configuratie (src/config.js leeg
+  // gelaten) blijft `sb` null en werkt de rest van de app gewoon anoniem
+  // door — inloggen toont dan een duidelijke "nog niet geconfigureerd"
+  // melding in plaats van te crashen.
+  // ---------------------------------------------------------------------
+  var sb = (window.supabase && window.SUPABASE_CONFIG && window.SUPABASE_CONFIG.url && window.SUPABASE_CONFIG.anonKey)
+    ? window.supabase.createClient(window.SUPABASE_CONFIG.url, window.SUPABASE_CONFIG.anonKey)
+    : null;
 
   // ---------------------------------------------------------------------
   // Rendering
@@ -958,6 +977,7 @@
     else if (state.tab === 'gebouw') html += renderGebouw();
     else if (state.tab === 'planning') html += renderPlanning();
     else if (state.tab === 'rapport') html += renderRapport();
+    else if (state.tab === 'account') html += renderAccount();
     html += renderTabBar();
     html += '</div>';
     return html;
@@ -965,6 +985,7 @@
 
   function renderTabBar() {
     var tabs = [['home', 'Overzicht'], ['gebouw', 'Gebouw'], ['planning', 'Planning'], ['rapport', 'Rapport']];
+    tabs.push(['account', state.session ? 'Account' : 'Inloggen']);
     var html = '<div class="tab-bar">';
     html += '<div class="tab-brand">MJOP Live</div>';
     tabs.forEach(function (t) {
@@ -972,6 +993,55 @@
       html += '<button class="tab-item' + (active ? ' active' : '') + '" data-act="set-tab" data-tab="' + t[0] + '">';
       html += '<span class="tab-dot"></span><span>' + t[1] + '</span></button>';
     });
+    html += '</div>';
+    return html;
+  }
+
+  // Inloggen (fase 1 van SPEC_ACCOUNTS_AND_SAVING.md) — e-mail + code
+  // (OTP), geen wachtwoord. Opslaan/laden van een plan en "mijn
+  // gebouwen" volgen in een latere fase; dit scherm doet nu alleen
+  // inloggen, de sessie tonen, en uitloggen.
+  function renderAccount() {
+    var html = '<div style="padding:24px 0 8px">';
+    html += '<div style="padding:0 22px">';
+    html += '<div class="page-title">Account</div>';
+    html += '<div class="page-sub">Inloggen met een code per e-mail — geen wachtwoord.</div>';
+    html += '</div>';
+
+    if (!sb) {
+      html += '<div class="section"><div class="notice error">Inloggen is nog niet geconfigureerd. Vul de Supabase-projectgegevens (URL en anon-sleutel) in <code>src/config.js</code> in.</div></div>';
+      html += '</div>';
+      return html;
+    }
+
+    var a = state.auth;
+
+    if (state.session) {
+      html += '<div class="section"><div class="card pad">';
+      html += '<div class="hint">Ingelogd als</div>';
+      html += '<div style="font:500 15px/1.4 DM Mono,monospace;margin-top:6px">' + esc(state.user.email) + '</div>';
+      html += '<div class="hint" style="margin-top:12px">Een plan opslaan en heropenen (“mijn gebouwen”) komt in een volgende stap — inloggen en uitloggen werken al wel.</div>';
+      html += '<div class="btn-row"><div class="ghost-btn" data-act="logout">Uitloggen</div></div>';
+      html += '</div></div>';
+      html += '</div>';
+      return html;
+    }
+
+    html += '<div class="section"><div class="card pad">';
+    if (a.stap === 'code') {
+      html += '<div style="font:500 13.5px/1.35 DM Sans,sans-serif">Code ingevoerd bij ' + esc(a.email) + '</div>';
+      html += '<div class="hint" style="margin-top:6px">Check je inbox en vul de code hieronder in.</div>';
+      html += '<div class="input-row" style="margin-top:14px"><div class="label">Code</div><input id="auth-code" data-bind="auth-code" value="' + esc(a.code) + '" style="width:120px;text-align:center;letter-spacing:.15em" placeholder="123456" autocomplete="one-time-code" /></div>';
+      if (a.fout) html += '<div class="notice error" style="margin-top:10px">' + esc(a.fout) + '</div>';
+      html += '<div class="btn-row"><div class="primary-btn" data-act="login-verify">' + (a.bezig ? 'Bezig…' : 'Bevestig code') + '</div><div class="ghost-btn" data-act="login-change-email">Andere e-mail</div></div>';
+    } else {
+      html += '<div style="font:500 13.5px/1.35 DM Sans,sans-serif">Inloggen met e-mail</div>';
+      html += '<div class="hint" style="margin-top:6px">Je krijgt een code per e-mail toegestuurd.</div>';
+      html += '<div class="input-row" style="margin-top:14px"><div class="label">E-mailadres</div><input id="auth-email" data-bind="auth-email" value="' + esc(a.email) + '" class="wide" placeholder="naam@voorbeeld.nl" style="width:200px;text-align:left" autocomplete="email" /></div>';
+      if (a.fout) html += '<div class="notice error" style="margin-top:10px">' + esc(a.fout) + '</div>';
+      html += '<div class="btn-row"><div class="primary-btn" data-act="login-request">' + (a.bezig ? 'Bezig…' : 'Stuur inlogcode') + '</div></div>';
+    }
+    html += '</div></div>';
     html += '</div>';
     return html;
   }
@@ -1669,6 +1739,41 @@
       render();
     },
     'toggle-bijvullen': function (d) { state.bijvullen[d.id] = !state.bijvullen[d.id]; render(); },
+    'login-request': function () {
+      var a = state.auth;
+      if (!sb || !a.email.trim()) return;
+      a.bezig = true; a.fout = '';
+      render();
+      sb.auth.signInWithOtp({ email: a.email.trim() }).then(function (res) {
+        a.bezig = false;
+        if (res.error) { a.fout = res.error.message; render(); return; }
+        a.stap = 'code';
+        render();
+      }).catch(function () {
+        a.bezig = false; a.fout = 'Kon geen verbinding maken. Probeer het opnieuw.'; render();
+      });
+    },
+    'login-verify': function () {
+      var a = state.auth;
+      if (!sb || !a.code.trim()) return;
+      a.bezig = true; a.fout = '';
+      render();
+      sb.auth.verifyOtp({ email: a.email.trim(), token: a.code.trim(), type: 'email' }).then(function (res) {
+        a.bezig = false;
+        if (res.error) { a.fout = res.error.message; render(); return; }
+        // state.session/state.user worden gezet via de onAuthStateChange-listener.
+        a.email = ''; a.code = ''; a.stap = 'email';
+        render();
+      }).catch(function () {
+        a.bezig = false; a.fout = 'Kon geen verbinding maken. Probeer het opnieuw.'; render();
+      });
+    },
+    'login-change-email': function () {
+      var a = state.auth;
+      a.stap = 'email'; a.code = ''; a.fout = '';
+      render();
+    },
+    'logout': function () { if (sb) sb.auth.signOut(); },
     'print-rapport': function () { window.print(); },
     'export-csv': function () { exportCsv(); },
     'reset-upload': function () { state.upload = null; render(); },
@@ -1741,6 +1846,8 @@
     'upload-regel-bedrag': function (t, d) { state.upload.regels[+d.i].bedrag = t.value; },
     'upload-regel-cyclus': function (t, d) { state.upload.regels[+d.i].cyclus = t.value; },
     'upload-basisjaar': function (t) { state.upload.basisjaar = t.value; },
+    'auth-email': function (t) { state.auth.email = t.value; },
+    'auth-code': function (t) { state.auth.code = t.value; },
   };
 
   var CHANGES = {
@@ -1823,6 +1930,18 @@
   // ---------------------------------------------------------------------
   document.addEventListener('DOMContentLoaded', function () {
     root = document.getElementById('root');
+    // Enige plek die state.session/state.user zet: dit vuurt bij het
+    // laden meteen met de bestaande sessie (of null), en daarna bij elke
+    // in-/uitlog-actie — zo blijft een reload ingelogd (Supabase bewaart
+    // de sessie zelf in localStorage) zonder dat wij dat apart hoeven te
+    // regelen.
+    if (sb) {
+      sb.auth.onAuthStateChange(function (event, session) {
+        state.session = session;
+        state.user = session ? session.user : null;
+        render();
+      });
+    }
     root.addEventListener('click', function (e) {
       var t = e.target.closest('[data-act]');
       if (!t) return;
