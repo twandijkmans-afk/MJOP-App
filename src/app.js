@@ -46,38 +46,52 @@
     });
   }
 
-  function guessColumn(header, keywords) {
-    var idx = -1;
-    header.forEach(function (h, i) {
-      if (idx === -1 && keywords.some(function (k) { return String(h).toLowerCase().indexOf(k) > -1; })) idx = i;
-    });
-    return idx;
-  }
-
+  // Wijst kolommen toe zonder eenzelfde kolom aan twee velden te geven —
+  // anders leest bv. een header "Jaarbedrag" (bevat zowel "jaar" als
+  // "bedrag" als deelstring) voor beide velden dezelfde cel uit, en komt
+  // het jaartal als kostenbedrag het plan in.
   function guessMapping(header) {
+    var used = {};
+    function pick(keywords) {
+      var idx = -1;
+      header.forEach(function (h, i) {
+        if (idx === -1 && !used[i] && keywords.some(function (k) { return String(h).toLowerCase().indexOf(k) > -1; })) idx = i;
+      });
+      if (idx > -1) used[idx] = true;
+      return idx;
+    }
     return {
-      naam: guessColumn(header, ['element', 'omschrijving', 'post', 'onderdeel', 'naam']),
-      jaar: guessColumn(header, ['jaar']),
-      bedrag: guessColumn(header, ['bedrag', 'kosten', 'prijs', 'investering']),
-      sfb: guessColumn(header, ['sfb', 'code']),
-      conditie: guessColumn(header, ['conditie', 'score']),
+      naam: pick(['element', 'omschrijving', 'post', 'onderdeel', 'naam']),
+      jaar: pick(['jaar']),
+      bedrag: pick(['bedrag', 'kosten', 'prijs', 'investering']),
+      sfb: pick(['sfb', 'code']),
+      conditie: pick(['conditie', 'score']),
     };
   }
 
   // Zoekt regels met een jaartal én een bedrag erop — een MJOP-tabel
-  // geëxporteerd naar PDF staat meestal zo opgemaakt. Nooit perfect voor
-  // elke lay-out, daarom altijd gevolgd door de controleerbare regel-lijst.
+  // geëxporteerd naar PDF staat meestal zo opgemaakt. De kolomvolgorde
+  // (bedrag-voor-jaar of andersom) kan per document verschillen, dus het
+  // jaartal wordt eerst uit de regel gehaald en apart gehouden van de
+  // overige getallen — anders kan het jaartal zelf als bedrag gelezen
+  // worden. Nooit perfect voor elke lay-out, daarom altijd gevolgd door de
+  // controleerbare regel-lijst.
   function extractPdfRegels(fullText) {
     var lines = fullText.split('\n').map(function (l) { return l.trim(); }).filter(Boolean);
     var yearRe = /\b(20[2-6][0-9])\b/;
-    var amountRe = /([0-9]{1,3}(?:[.,][0-9]{3})*(?:[.,][0-9]{2})?)\s*(?:€|eur)?\s*$/i;
+    var amountRe = /[0-9]{1,3}(?:[.,][0-9]{3})+(?:[.,][0-9]{2})?|[0-9]+(?:[.,][0-9]{2})|[0-9]{3,}/g;
     var out = [];
     lines.forEach(function (line) {
       var ym = yearRe.exec(line);
-      var am = amountRe.exec(line);
-      if (!ym || !am) return;
-      var naam = line.slice(0, am.index).replace(ym[0], '').replace(/[€\-–.:]+$/, '').trim();
-      var bedrag = num(am[1]);
+      if (!ym) return;
+      var zonderJaar = line.slice(0, ym.index) + ' ' + line.slice(ym.index + ym[0].length);
+      var amounts = zonderJaar.match(amountRe);
+      if (!amounts || !amounts.length) return;
+      // grootste gevonden bedrag op de regel (na aftrek van het jaartal) —
+      // robuust ongeacht of bedrag of jaar eerst in de tabel staat.
+      var beste = amounts.reduce(function (a, b) { return num(b) > num(a) ? b : a; });
+      var bedrag = num(beste);
+      var naam = zonderJaar.slice(0, zonderJaar.indexOf(beste)).replace(/[€\-–.:]+$/, '').trim();
       if (naam && bedrag > 0) out.push({ naam: naam, jaar: +ym[1], bedrag: bedrag, sfb: '', conditie: '', include: true });
     });
     return out;
@@ -429,6 +443,17 @@
     });
   }
 
+  var INDEXATIE_PCT = 0.03; // 3% per jaar, standaard voor geïmporteerde MJOP-bedragen
+
+  // Geïmporteerde posten zijn genoteerd op het prijspeil van het oude MJOP
+  // (el.basisjaar). Kosten worden vanaf dat jaar met 3% per jaar
+  // samengesteld doorgerekend naar het jaar waarin de post daadwerkelijk
+  // wordt uitgevoerd.
+  function indexeerBedrag(bedrag, basisjaar, uitvoeringsjaar) {
+    if (basisjaar == null) return bedrag;
+    return Math.round(bedrag * Math.pow(1 + INDEXATIE_PCT, uitvoeringsjaar - basisjaar));
+  }
+
   function elementCost(el, state) {
     switch (el.type) {
       case 'dak': return el.hoeveelheid * el.kengetal;
@@ -437,7 +462,7 @@
       case 'steiger': return Math.round(el.hoeveelheid * (el.werkhoogte > 8 ? 11 : 6));
       case 'per-unit': return el.hoeveelheid * el.kengetal;
       case 'vast-variabel': return el.basis + el.hoeveelheid * el.perEenheid;
-      case 'custom': return el.bedrag;
+      case 'custom': return indexeerBedrag(el.bedrag, el.basisjaar, el.jaar);
       default: return 0;
     }
   }
@@ -452,7 +477,7 @@
       case 'steiger': return 'werkhoogte ' + el.werkhoogte + ' m';
       case 'per-unit': return el.hoeveelheid + ' units × ' + eur(el.kengetal);
       case 'vast-variabel': return eur(el.basis) + ' vast + ' + el.hoeveelheid + ' × ' + eur(el.perEenheid);
-      case 'custom': return el.metaTekst || 'eenmalige post';
+      case 'custom': return (el.metaTekst || 'eenmalige post') + (el.basisjaar != null ? ' · prijspeil ' + el.basisjaar + ', +3%/jaar' : '');
       default: return '';
     }
   }
@@ -484,9 +509,12 @@
     if (el.type === 'custom') {
       if (el.cyclus) {
         var j = nextOccurrence(el.cyclus, el.jaar);
-        while (j <= CURRENT_YEAR + HORIZON - 1) { out.push({ jaar: j, bedrag: el.bedrag, meta: elementMeta(el) }); j += el.cyclus; }
+        while (j <= CURRENT_YEAR + HORIZON - 1) {
+          out.push({ jaar: j, bedrag: indexeerBedrag(el.bedrag, el.basisjaar, j), meta: elementMeta(el) });
+          j += el.cyclus;
+        }
       } else if (el.jaar >= CURRENT_YEAR && el.jaar <= CURRENT_YEAR + HORIZON - 1) {
-        out.push({ jaar: el.jaar, bedrag: el.bedrag, meta: elementMeta(el) });
+        out.push({ jaar: el.jaar, bedrag: indexeerBedrag(el.bedrag, el.basisjaar, el.jaar), meta: elementMeta(el) });
       }
       return out;
     }
@@ -701,18 +729,29 @@
   }
 
   function renderUploadRegels(u) {
-    var html = '<div class="section"><div class="section-title">' + u.regels.length + ' regels gevonden</div>';
+    var basisjaar = num(u.basisjaar);
+    var html = '<div class="section"><div class="card pad">';
+    html += '<div style="font:500 13.5px/1.35 DM Sans,sans-serif">Prijspeil van dit MJOP</div>';
+    html += '<div class="input-row" style="margin-top:11px"><div class="label">De bedragen hieronder zijn genoteerd op prijspeil</div><input data-bind="upload-basisjaar" value="' + esc(u.basisjaar) + '" /></div>';
+    html += '<div class="hint">Bedragen worden automatisch met 3% per jaar geïndexeerd van dit jaar naar het jaar waarin de post daadwerkelijk gepland staat. Staat er al een actueel bedrag in het bestand? Zet het prijspeil dan gelijk aan het huidige jaar (' + CURRENT_YEAR + ') zodat er niet extra geïndexeerd wordt.</div>';
+    html += '</div></div>';
+
+    html += '<div class="section"><div class="section-title">' + u.regels.length + ' regels gevonden</div>';
     html += '<div class="card" style="margin-top:11px">';
     if (!u.regels.length) {
       html += '<div class="row" style="border-top:none"><div class="grow meta" style="font-size:12.5px">Geen regels herkend. Voeg ze hieronder handmatig toe, of annuleer en probeer een ander bestand.</div></div>';
     }
     u.regels.forEach(function (r, i) {
-      html += '<div class="row" style="align-items:center' + (i === 0 ? ';border-top:none' : '') + '">';
+      var geindexeerd = indexeerBedrag(num(r.bedrag), basisjaar, num(r.jaar));
+      html += '<div class="row" style="align-items:center;flex-wrap:wrap' + (i === 0 ? ';border-top:none' : '') + '">';
       html += '<div style="flex:none"><input type="checkbox" data-act="upload-toggle-regel" data-i="' + i + '"' + (r.include ? ' checked' : '') + ' /></div>';
-      html += '<input data-bind="upload-regel-naam" data-i="' + i + '" value="' + esc(r.naam) + '" style="flex:1;min-width:0;border:1px solid var(--ink-14);border-radius:8px;padding:6px 8px;font:400 12px DM Sans,sans-serif" />';
+      html += '<input data-bind="upload-regel-naam" data-i="' + i + '" value="' + esc(r.naam) + '" style="flex:1;min-width:100px;border:1px solid var(--ink-14);border-radius:8px;padding:6px 8px;font:400 12px DM Sans,sans-serif" />';
       html += '<input data-bind="upload-regel-jaar" data-i="' + i + '" value="' + esc(r.jaar) + '" style="flex:none;width:56px;border:1px solid var(--ink-14);border-radius:8px;padding:6px 6px;text-align:center;font:500 12px DM Mono,monospace" />';
       html += '<input data-bind="upload-regel-bedrag" data-i="' + i + '" value="' + esc(r.bedrag) + '" style="flex:none;width:76px;border:1px solid var(--ink-14);border-radius:8px;padding:6px 6px;text-align:right;font:500 12px DM Mono,monospace" />';
       html += '<button data-act="upload-del-regel" data-i="' + i + '" style="border:none;background:none;color:var(--ink-45);cursor:pointer;flex:none">×</button>';
+      if (geindexeerd !== num(r.bedrag)) {
+        html += '<div style="flex:none;width:100%;font:400 10.5px/1 DM Mono,monospace;color:var(--ink-50);padding-left:24px">→ ' + eur(geindexeerd) + ' in ' + esc(r.jaar) + ' (na indexering)</div>';
+      }
       html += '</div>';
     });
     html += '<div class="row" style="cursor:pointer" data-act="upload-add-regel"><div class="grow" style="font:500 13px DM Sans,sans-serif;color:var(--blue)">+ Regel toevoegen</div></div>';
@@ -1301,7 +1340,7 @@
         var conditie = m.conditie > -1 ? String(row[m.conditie] || '').trim() : '';
         return { naam: naam, jaar: jaar || (CURRENT_YEAR + 1), bedrag: bedrag, sfb: sfb, conditie: conditie, include: !!(naam && bedrag) };
       }).filter(function (r) { return r.naam; });
-      state.upload = { stap: 'regels', bestandsnaam: u.bestandsnaam, regels: regels };
+      state.upload = { stap: 'regels', bestandsnaam: u.bestandsnaam, regels: regels, basisjaar: String(CURRENT_YEAR - 1) };
       render();
     },
     'upload-toggle-regel': function (d) { state.upload.regels[+d.i].include = !state.upload.regels[+d.i].include; render(); },
@@ -1312,10 +1351,11 @@
     },
     'mjop-import-confirm': function () {
       var bestandsnaam = state.upload.bestandsnaam;
+      var basisjaar = num(state.upload.basisjaar) || CURRENT_YEAR;
       (state.upload.regels || []).filter(function (r) { return r.include && r.naam; }).forEach(function (r) {
         state.elements.push({
           id: uid('import'), naam: r.naam, categorie: 'Overig', type: 'custom',
-          cyclus: 0, jaar: num(r.jaar) || (CURRENT_YEAR + 1), bedrag: num(r.bedrag),
+          cyclus: 0, jaar: num(r.jaar) || (CURRENT_YEAR + 1), bedrag: num(r.bedrag), basisjaar: basisjaar,
           sfb: r.sfb || undefined,
           metaTekst: 'geïmporteerd uit ' + (bestandsnaam || 'bestand'),
         });
@@ -1352,12 +1392,13 @@
     'upload-regel-naam': function (t, d) { state.upload.regels[+d.i].naam = t.value; },
     'upload-regel-jaar': function (t, d) { state.upload.regels[+d.i].jaar = t.value; },
     'upload-regel-bedrag': function (t, d) { state.upload.regels[+d.i].bedrag = t.value; },
+    'upload-basisjaar': function (t) { state.upload.basisjaar = t.value; },
   };
 
   var CHANGES = {
     'bijdrage': function (t) { state.bijdrage = +t.value; render(); },
     'koz-materiaal': function (t, d) { var el = findEl(d.id); if (el) el.koz[+d.i].materiaal = t.value; render(); },
-    'upload-map': function (t, d) { state.upload.mapping[d.veld] = +t.value; },
+    'upload-map': function (t, d) { state.upload.mapping[d.veld] = +t.value; render(); },
   };
 
   function uploadError(err) {
@@ -1391,7 +1432,7 @@
       }).catch(uploadError);
     } else if (ext === 'pdf') {
       readFileAsArrayBuffer(file).then(extractPdfText).then(function (text) {
-        state.upload = { stap: 'regels', bestandsnaam: file.name, regels: extractPdfRegels(text) };
+        state.upload = { stap: 'regels', bestandsnaam: file.name, regels: extractPdfRegels(text), basisjaar: String(CURRENT_YEAR - 1) };
         render();
       }).catch(uploadError);
     } else {
