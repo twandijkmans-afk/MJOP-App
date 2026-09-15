@@ -976,7 +976,12 @@
     html += '</div></div>';
 
     html += '<div class="stat-pair">';
-    html += '<div class="stat-card"><div class="label">Reservefonds nu</div><div class="amount">' + eur(state.fonds) + '</div></div>';
+    html += '<div class="stat-card"><div class="label">Reservefonds nu</div>';
+    html += '<div style="display:flex;align-items:baseline;gap:3px;margin-top:7px">';
+    html += '<span style="font:500 19px/1 DM Mono,monospace">€</span>';
+    html += '<input id="fonds-bedrag" data-bind="fonds-bedrag" value="' + state.fonds + '" style="border:none;background:none;outline:none;padding:0;width:100%;min-width:0;font:500 19px/1 DM Mono,monospace;color:var(--ink)" /></div>';
+    html += '<div class="hint" style="margin-top:5px">huidig saldo, zelf in te vullen</div>';
+    html += '</div>';
     html += '<div class="stat-card"><div class="label">Kosten t/m ' + (CURRENT_YEAR + HORIZON - 1) + '</div><div class="amount">' + eur(totaal) + '</div></div>';
     html += '</div>';
 
@@ -1540,6 +1545,7 @@
     'el-cyclus': function (t, d) { var el = findEl(d.id); if (el) el.cyclus = num(t.value); },
     'el-bedrag': function (t, d) { var el = findEl(d.id); if (el) el.bedrag = num(t.value); },
     'el-basisjaar': function (t, d) { var el = findEl(d.id); if (el) el.basisjaar = num(t.value); },
+    'fonds-bedrag': function (t) { state.fonds = num(t.value); },
     'add-el-naam': function (t) { state.addForm.naam = t.value; },
     'add-el-jaar': function (t) { state.addForm.jaar = t.value; },
     'add-el-bedrag': function (t) { state.addForm.bedrag = t.value; },

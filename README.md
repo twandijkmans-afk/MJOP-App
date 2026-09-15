@@ -26,7 +26,10 @@ en open `http://localhost:8000`. Direct openen van `index.html` via
    API's om bouwjaar, appartementen, dakoppervlak, geveloppervlak en
    gebouwhoogte op te halen voor een adres. Lukt de opzoeking niet, dan kan
    met "Begin met een voorbeeldgebouw" een demo-portiekflat (1978, 8
-   appartementen) gebruikt worden.
+   appartementen) gebruikt worden. Het reservefonds is geen overheidsdata
+   (dat bestaat niet) en start als richtgetal (€ 2.500 per appartement);
+   het bedrag op het overzicht ("Reservefonds nu") is direct te bewerken
+   naar het werkelijke saldo uit de VvE-administratie.
 2. **Elementenbibliotheek** (`ELEMENT_LIBRARY`) — ~20 gangbare VvE-
    onderhoudsposten (dak, gevel, kozijnen, installaties, binnen, terrein),
    elk met een NL-SfB-code (de Nederlandse coderingssystematiek voor
