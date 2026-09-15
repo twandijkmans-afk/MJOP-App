@@ -69,30 +69,56 @@
     };
   }
 
+  function isPdfNoiseLine(line) {
+    if (/^\d{1,4}$/.test(line)) return true; // los paginanummer
+    if (/^(pagina|blz\.?|page)\b/i.test(line)) return true;
+    if (/^\d{1,2}[-\/]\d{1,2}[-\/]\d{2,4}$/.test(line)) return true; // datum
+    return false;
+  }
+
   // Zoekt regels met een jaartal én een bedrag erop — een MJOP-tabel
   // geëxporteerd naar PDF staat meestal zo opgemaakt. De kolomvolgorde
   // (bedrag-voor-jaar of andersom) kan per document verschillen, dus het
   // jaartal wordt eerst uit de regel gehaald en apart gehouden van de
   // overige getallen — anders kan het jaartal zelf als bedrag gelezen
-  // worden. Nooit perfect voor elke lay-out, daarom altijd gevolgd door de
-  // controleerbare regel-lijst.
+  // worden. Een omschrijving die op haar eigen regel staat (tekst wrapt in
+  // veel pdf-tabellen) wordt bewaard en aan de eerstvolgende regel met een
+  // jaartal + bedrag geplakt. Nooit perfect voor elke lay-out, daarom altijd
+  // gevolgd door de controleerbare regel-lijst — en de ruwe tekst blijft
+  // zichtbaar voor wat de automatische herkenning gemist heeft.
   function extractPdfRegels(fullText) {
-    var lines = fullText.split('\n').map(function (l) { return l.trim(); }).filter(Boolean);
+    var lines = fullText.split('\n').map(function (l) { return l.trim(); }).filter(Boolean).filter(function (l) { return !isPdfNoiseLine(l); });
     var yearRe = /\b(20[2-6][0-9])\b/;
     var amountRe = /[0-9]{1,3}(?:[.,][0-9]{3})+(?:[.,][0-9]{2})?|[0-9]+(?:[.,][0-9]{2})|[0-9]{3,}/g;
     var out = [];
+    var pendingNaam = '';
     lines.forEach(function (line) {
       var ym = yearRe.exec(line);
-      if (!ym) return;
+      if (!ym) {
+        // geen jaartal op deze regel: mogelijk een omschrijving die wrapt
+        // naar de volgende regel met de cijfers erop. Een omschrijving mag
+        // best een getal bevatten (bv. "conditie 4"), zolang de regel niet
+        // zelf enkel uit cijfers/bedrag bestaat.
+        var isEnkelGetal = /^[0-9.,€\s]+$/.test(line);
+        pendingNaam = (/[a-zA-Z]/.test(line) && !isEnkelGetal && line.length >= 3) ? line : '';
+        return;
+      }
       var zonderJaar = line.slice(0, ym.index) + ' ' + line.slice(ym.index + ym[0].length);
-      var amounts = zonderJaar.match(amountRe);
-      if (!amounts || !amounts.length) return;
+      var amounts = (zonderJaar.match(amountRe) || [])
+        // sluit andere kale jaartal-achtige getallen uit (bv. een titel als
+        // "MJOP 2019-2029" heeft twee jaartallen; zonder deze filter wordt
+        // het tweede als bedrag gelezen). Een echt bedrag boven de duizend
+        // euro heeft vrijwel altijd een duizendtal-scheiding of decimalen.
+        .filter(function (tok) { return !/^20[0-9]{2}$/.test(tok); });
+      if (!amounts.length) { pendingNaam = ''; return; }
       // grootste gevonden bedrag op de regel (na aftrek van het jaartal) —
       // robuust ongeacht of bedrag of jaar eerst in de tabel staat.
       var beste = amounts.reduce(function (a, b) { return num(b) > num(a) ? b : a; });
       var bedrag = num(beste);
-      var naam = zonderJaar.slice(0, zonderJaar.indexOf(beste)).replace(/[€\-–.:]+$/, '').trim();
-      if (naam && bedrag > 0) out.push({ naam: naam, jaar: +ym[1], bedrag: bedrag, sfb: '', conditie: '', include: true });
+      var naamHier = zonderJaar.slice(0, zonderJaar.indexOf(beste)).replace(/[€\-–.:]+$/, '').trim();
+      var naam = naamHier.length >= 3 ? naamHier : pendingNaam;
+      pendingNaam = '';
+      if (naam && naam.length >= 3 && bedrag >= 100) out.push({ naam: naam, jaar: +ym[1], bedrag: bedrag, sfb: '', conditie: '', include: true });
     });
     return out;
   }
@@ -739,23 +765,31 @@
     html += '<div class="section"><div class="section-title">' + u.regels.length + ' regels gevonden</div>';
     html += '<div class="card" style="margin-top:11px">';
     if (!u.regels.length) {
-      html += '<div class="row" style="border-top:none"><div class="grow meta" style="font-size:12.5px">Geen regels herkend. Voeg ze hieronder handmatig toe, of annuleer en probeer een ander bestand.</div></div>';
+      html += '<div class="row" style="border-top:none"><div class="grow meta" style="font-size:12.5px">Geen regels herkend. Voeg ze hieronder handmatig toe, of gebruik de ruwe tekst hieronder om ze zelf over te nemen.</div></div>';
     }
     u.regels.forEach(function (r, i) {
       var geindexeerd = indexeerBedrag(num(r.bedrag), basisjaar, num(r.jaar));
-      html += '<div class="row" style="align-items:center;flex-wrap:wrap' + (i === 0 ? ';border-top:none' : '') + '">';
-      html += '<div style="flex:none"><input type="checkbox" data-act="upload-toggle-regel" data-i="' + i + '"' + (r.include ? ' checked' : '') + ' /></div>';
-      html += '<input data-bind="upload-regel-naam" data-i="' + i + '" value="' + esc(r.naam) + '" style="flex:1;min-width:100px;border:1px solid var(--ink-14);border-radius:8px;padding:6px 8px;font:400 12px DM Sans,sans-serif" />';
-      html += '<input data-bind="upload-regel-jaar" data-i="' + i + '" value="' + esc(r.jaar) + '" style="flex:none;width:56px;border:1px solid var(--ink-14);border-radius:8px;padding:6px 6px;text-align:center;font:500 12px DM Mono,monospace" />';
-      html += '<input data-bind="upload-regel-bedrag" data-i="' + i + '" value="' + esc(r.bedrag) + '" style="flex:none;width:76px;border:1px solid var(--ink-14);border-radius:8px;padding:6px 6px;text-align:right;font:500 12px DM Mono,monospace" />';
-      html += '<button data-act="upload-del-regel" data-i="' + i + '" style="border:none;background:none;color:var(--ink-45);cursor:pointer;flex:none">×</button>';
-      if (geindexeerd !== num(r.bedrag)) {
-        html += '<div style="flex:none;width:100%;font:400 10.5px/1 DM Mono,monospace;color:var(--ink-50);padding-left:24px">→ ' + eur(geindexeerd) + ' in ' + esc(r.jaar) + ' (na indexering)</div>';
-      }
+      html += '<div style="padding:14px 16px' + (i === 0 ? ';border-top:none' : ';border-top:1px solid var(--ink-08)') + '">';
+      html += '<div style="display:flex;align-items:center;gap:10px">';
+      html += '<input type="checkbox" data-act="upload-toggle-regel" data-i="' + i + '"' + (r.include ? ' checked' : '') + ' />';
+      html += '<input data-bind="upload-regel-naam" data-i="' + i + '" value="' + esc(r.naam) + '" placeholder="element" style="flex:1;min-width:0;border:1px solid var(--ink-14);border-radius:8px;padding:7px 9px;font:500 13.5px DM Sans,sans-serif" />';
+      html += '<button data-act="upload-del-regel" data-i="' + i + '" style="border:none;background:none;color:var(--ink-45);cursor:pointer;flex:none;font-size:16px">×</button>';
+      html += '</div>';
+      html += '<div style="display:flex;align-items:center;gap:14px;margin-top:9px;padding-left:26px">';
+      html += '<div style="display:flex;align-items:center;gap:6px"><span class="eyebrow" style="font-size:9.5px">Jaar</span><input data-bind="upload-regel-jaar" data-i="' + i + '" value="' + esc(r.jaar) + '" style="width:52px;border:1px solid var(--ink-14);border-radius:7px;padding:5px 6px;text-align:center;font:500 12px DM Mono,monospace" /></div>';
+      html += '<div style="display:flex;align-items:center;gap:6px"><span class="eyebrow" style="font-size:9.5px">Prijspeil ' + basisjaar + '</span><input data-bind="upload-regel-bedrag" data-i="' + i + '" value="' + esc(r.bedrag) + '" style="width:72px;border:1px solid var(--ink-14);border-radius:7px;padding:5px 6px;text-align:right;font:500 12px DM Mono,monospace" /></div>';
+      html += '</div>';
+      html += '<div style="margin-top:9px;padding-left:26px;font:500 15px/1 DM Mono,monospace;color:var(--blue)">→ ' + eur(geindexeerd) + ' <span style="font:400 11px/1 DM Sans,sans-serif;color:var(--ink-50)">in ' + esc(r.jaar) + '</span></div>';
       html += '</div>';
     });
     html += '<div class="row" style="cursor:pointer" data-act="upload-add-regel"><div class="grow" style="font:500 13px DM Sans,sans-serif;color:var(--blue)">+ Regel toevoegen</div></div>';
     html += '</div></div>';
+
+    if (u.ruweTekst) {
+      html += '<div class="section"><details><summary style="cursor:pointer;font:500 12.5px DM Sans,sans-serif;color:var(--blue)">Ruwe tekst uit de pdf bekijken</summary>';
+      html += '<div class="card pad" style="margin-top:9px"><div class="hint" style="margin-bottom:8px">Heeft de app een regel gemist? Gebruik deze tekst om hem hierboven handmatig toe te voegen.</div>';
+      html += '<pre style="white-space:pre-wrap;font:400 10.5px/1.5 DM Mono,monospace;color:var(--ink-60);max-height:220px;overflow:auto;margin:0">' + esc(u.ruweTekst) + '</pre></div></details></div>';
+    }
 
     html += '<div class="section"><div class="hint">Elke regel wordt een post in het plan op het opgegeven jaar. Je kunt hierna nog het adres koppelen voor de echte gebouwgegevens — de geïmporteerde regels blijven dan staan.</div>';
     html += '<div class="btn-row">';
@@ -1432,7 +1466,7 @@
       }).catch(uploadError);
     } else if (ext === 'pdf') {
       readFileAsArrayBuffer(file).then(extractPdfText).then(function (text) {
-        state.upload = { stap: 'regels', bestandsnaam: file.name, regels: extractPdfRegels(text), basisjaar: String(CURRENT_YEAR - 1) };
+        state.upload = { stap: 'regels', bestandsnaam: file.name, regels: extractPdfRegels(text), basisjaar: String(CURRENT_YEAR - 1), ruweTekst: text };
         render();
       }).catch(uploadError);
     } else {
