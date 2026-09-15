@@ -411,7 +411,47 @@ input[type=range]::-moz-range-thumb {
     min-height: 100vh;
     box-shadow: 0 0 60px rgba(36,31,27,.08);
   }
-  .app-shell:not(:has(.tab-bar)) { max-width: 720px; }
+  /* Adres-opzoekscherm en mjop-upload-wizard hebben geen tabbalk. Die
+     blijven op tablet een gecentreerde kaart (zie 640px-regel hierboven),
+     maar op een laptop/desktop wordt de bovenste "hero"-balk een volledig
+     linkerscherm met branding, en staat het eigenlijke formulier rechts
+     — een gebruikelijke split-screen-indeling die de volle breedte
+     gebruikt in plaats van een kaart met lege marges aan weerszijden. */
+  .app-shell:not(:has(.tab-bar)) {
+    max-width: none;
+    width: 100%;
+    flex-direction: row;
+    align-items: stretch;
+    box-shadow: none;
+  }
+  .app-shell:not(:has(.tab-bar)) > .hero {
+    flex: 0 0 40%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 60px;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    box-sizing: border-box;
+  }
+  .app-shell:not(:has(.tab-bar)) > .hero h1 { font-size: 36px; margin-top: 14px; }
+  .app-shell:not(:has(.tab-bar)) > .hero p { font-size: 14px; max-width: 380px; }
+  .app-shell:not(:has(.tab-bar)) > .shell-body {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    background: var(--card);
+  }
+  .app-shell:not(:has(.tab-bar)) > .shell-body > * {
+    width: 100%;
+    max-width: 480px;
+    margin-left: auto;
+    margin-right: auto;
+    box-sizing: border-box;
+  }
 }
 
 @media print {

@@ -765,6 +765,7 @@
     html += '<h1>MJOP voor kleine VvE’s</h1>';
     html += '<p>Typ een adres. De app haalt bouwjaar en appartementen uit de BAG, en het echte dakoppervlak, muuroppervlak en de hoogte uit de 3D BAG.</p></div>';
 
+    html += '<div class="shell-body">';
     html += '<div class="section">';
     html += '<div class="field"><div class="eyebrow">Adres</div>';
     html += '<input id="addr-search" data-bind="addr-q" value="' + esc(s.q) + '" placeholder="bv. Kastanjelaan 12 Amersfoort" autocomplete="off" /></div>';
@@ -795,6 +796,7 @@
 
     html += '<div class="footer-note">Kengetallen zijn indicatieve richtprijzen inclusief btw, geen offerte. Bronnen: PDOK Locatieserver en BAG (Public Domain Mark 1.0) en 3D BAG van de TU Delft (CC BY 4.0).</div>';
     html += '</div>';
+    html += '</div>';
     return html;
   }
 
@@ -805,6 +807,7 @@
     html += '<h1>' + esc(u.bestandsnaam || 'Bestand') + '</h1>';
     html += '<p>Controleer wat de app herkend heeft — er gaat pas iets het plan in na jouw bevestiging.</p></div>';
 
+    html += '<div class="shell-body">';
     if (u.stap === 'laden') {
       html += '<div class="section"><div class="notice">Bestand wordt gelezen…</div></div>';
     } else if (u.stap === 'fout') {
@@ -815,6 +818,7 @@
     } else if (u.stap === 'regels') {
       html += renderUploadRegels(u);
     }
+    html += '</div>';
 
     html += '</div>';
     return html;
