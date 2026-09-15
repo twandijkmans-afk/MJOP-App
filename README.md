@@ -39,6 +39,14 @@ en open `http://localhost:8000`. Direct openen van `index.html` via
    bewerkbare regel-lijst — er gaat pas iets het plan in na bevestiging.
    xlsx-parsing gebruikt [SheetJS](https://sheetjs.com/), pdf-tekstextractie
    gebruikt [pdf.js](https://mozilla.github.io/pdf.js/), beide via CDN.
+   Geïmporteerde posten worden op basis van hun NL-SfB-code (indien
+   aanwezig) of trefwoorden in de omschrijving automatisch verdeeld over
+   Dak/Gevel/Installaties/Binnen/Terrein in plaats van allemaal onder
+   "Overig" te belanden; alleen posten die nergens op passen blijven
+   "Overig". Na import kan bij elke geïmporteerde post het jaar, de cyclus
+   en het bedrag alsnog worden aangepast (bijvoorbeeld zodra een offerte
+   binnen is), en kunnen net als bij de bibliotheek-elementen gebreken
+   worden vastgelegd.
 4. **Gebreken (NEN 2767-methodiek)** — in plaats van één losse conditie-
    schuif legt elk element gebreken vast met ernst, omvang en intensiteit
    (elk 1–3); het zwaarste gebrek bepaalt de conditiescore (1–6, "uitstekend"

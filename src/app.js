@@ -384,6 +384,44 @@
     return found;
   }
 
+  // Categorie raden voor een geïmporteerde of handmatig toegevoegde post,
+  // zodat niet alles in "Overig" belandt. Eerst op NL-SfB-hoofdgroep (uit
+  // de bibliotheek zelf afgeleid), dan op trefwoorden in de naam — werkt
+  // dus ook zonder SfB-code en met opmaak van andere MJOP-leveranciers.
+  var SFB_HOOFDGROEP_CATEGORIE = {};
+  ELEMENT_LIBRARY.forEach(function (d) {
+    String(d.sfb).split('/').forEach(function (code) {
+      var hoofd = code.split('.')[0].trim();
+      if (hoofd && !SFB_HOOFDGROEP_CATEGORIE[hoofd]) SFB_HOOFDGROEP_CATEGORIE[hoofd] = d.categorie;
+    });
+  });
+
+  var CATEGORIE_KEYWORDS = [
+    ['Dak', ['dak', 'goot', 'hemelwaterafvoer', 'dakkapel', 'dakraam', 'dakisolatie', 'dakterras']],
+    ['Gevel', ['gevel', 'kozijn', 'voeg', 'metselwerk', 'buitenschilder', 'schilderwerk buiten', 'balkon', 'hekwerk', 'borstwering', 'steiger', 'stucwerk', 'raam', 'buitendeur', 'pui']],
+    ['Installaties', ['lift', 'cv-installatie', 'cv-ketel', 'ketel', 'elektra', 'elektrisch', 'verlichting', 'riool', 'riolering', 'waterleiding', 'intercom', 'brandveilig', 'blusmiddel', 'rookmelder', 'ventilatie', 'installatie', 'verwarming', 'gasleiding', 'zonnepaneel', 'noodverlichting', 'video-deuropener']],
+    ['Binnen', ['trappenhuis', 'trapportaal', 'vloerafwerking', 'entree', 'plafond', 'binnenschilder', 'gemeenschappelijke ruimte', 'liftschacht']],
+    ['Terrein', ['bestrating', 'terrein', 'tuin', 'erfafscheiding', 'fietsenstalling', 'berging', 'parkeer']],
+  ];
+
+  function guessCategorie(naam, sfb) {
+    if (sfb) {
+      var codes = String(sfb).split('/');
+      for (var i = 0; i < codes.length; i++) {
+        var hoofd = codes[i].split('.')[0].trim();
+        if (SFB_HOOFDGROEP_CATEGORIE[hoofd]) return SFB_HOOFDGROEP_CATEGORIE[hoofd];
+      }
+    }
+    var lower = (naam || '').toLowerCase();
+    for (var c = 0; c < CATEGORIE_KEYWORDS.length; c++) {
+      var woorden = CATEGORIE_KEYWORDS[c][1];
+      for (var w = 0; w < woorden.length; w++) {
+        if (lower.indexOf(woorden[w]) > -1) return CATEGORIE_KEYWORDS[c][0];
+      }
+    }
+    return 'Overig';
+  }
+
   function bronWaarde(bron, b) {
     if (bron === 'dakM2') return b.dakM2;
     if (bron === 'gevelM2') return b.gevelM2;
@@ -572,6 +610,12 @@
   }
 
   function conditionYear(el) {
+    if (el.type === 'custom') {
+      // Een geïmporteerde/handmatige post heeft al een concreet jaar uit
+      // het bronbestand; dat blijft leidend (gebreken erop vastleggen mag,
+      // maar schuift dit jaar niet op — dat zou het brondocument tegenspreken).
+      return el.cyclus ? nextOccurrence(el.cyclus, el.jaar) : el.jaar;
+    }
     return yearForCycle(el.cyclus, el.laatsteBeurt, conditionScore(el));
   }
 
@@ -1040,7 +1084,8 @@
     if (el.type === 'kozijnen') html += renderKozijnen(el);
     if (el.type === 'dak' || el.type === 'gevel' || el.type === 'per-unit') html += renderHoeveelheidKengetal(el);
     if (el.type === 'steiger') html += renderSteiger(el);
-    if (el.type !== 'custom') html += renderGebreken(el);
+    if (el.type === 'custom') html += renderCustomBewerken(el);
+    html += renderGebreken(el);
 
     var jaar = conditionYear(el);
     var bedrag = elementCost(el, state);
@@ -1053,6 +1098,19 @@
     html += renderOffertes(el);
 
     html += '</div>';
+    return html;
+  }
+
+  function renderCustomBewerken(el) {
+    var prijspeil = el.basisjaar != null ? el.basisjaar : CURRENT_YEAR;
+    var html = '<div class="section"><div class="section-title">Post bewerken</div>';
+    html += '<div class="card pad" style="margin-top:11px">';
+    html += '<div class="input-row" style="margin-top:0"><div class="label">Jaar</div><input data-bind="el-jaar" data-id="' + el.id + '" value="' + el.jaar + '" /></div>';
+    html += '<div class="input-row"><div class="label">Cyclus (jaar, 0 = eenmalig)</div><input data-bind="el-cyclus" data-id="' + el.id + '" value="' + (el.cyclus || 0) + '" /></div>';
+    html += '<div class="input-row"><div class="label">Bedrag</div><input data-bind="el-bedrag" data-id="' + el.id + '" value="' + el.bedrag + '" /></div>';
+    html += '<div class="input-row"><div class="label">Prijspeil van dit bedrag</div><input data-bind="el-basisjaar" data-id="' + el.id + '" value="' + prijspeil + '" /></div>';
+    html += '<div class="hint">Heb je inmiddels een offerte met een actueel bedrag? Vul dat bedrag in en zet het prijspeil op ' + CURRENT_YEAR + ', dan wordt het niet meer extra geïndexeerd.</div>';
+    html += '</div></div>';
     return html;
   }
 
@@ -1375,9 +1433,9 @@
       var f = state.addForm;
       if (!f.naam) return;
       state.elements.push({
-        id: uid('custom'), naam: f.naam, categorie: 'Overig', type: 'custom',
+        id: uid('custom'), naam: f.naam, categorie: guessCategorie(f.naam), type: 'custom',
         cyclus: f.cyclus ? num(f.cyclus) : 0, jaar: num(f.jaar) || CURRENT_YEAR, bedrag: num(f.bedrag),
-        metaTekst: 'handmatig toegevoegd',
+        gebreken: [], metaTekst: 'handmatig toegevoegd',
       });
       state.addForm = null;
       render();
@@ -1435,9 +1493,9 @@
       var basisjaar = num(state.upload.basisjaar) || CURRENT_YEAR;
       (state.upload.regels || []).filter(function (r) { return r.include && r.naam; }).forEach(function (r) {
         state.elements.push({
-          id: uid('import'), naam: r.naam, categorie: 'Overig', type: 'custom',
+          id: uid('import'), naam: r.naam, categorie: guessCategorie(r.naam, r.sfb), type: 'custom',
           cyclus: num(r.cyclus) || 0, jaar: num(r.jaar) || (CURRENT_YEAR + 1), bedrag: num(r.bedrag), basisjaar: basisjaar,
-          sfb: r.sfb || undefined,
+          sfb: r.sfb || undefined, gebreken: [],
           metaTekst: 'geïmporteerd uit ' + (bestandsnaam || 'bestand'),
         });
       });
@@ -1464,6 +1522,10 @@
     'el-werkhoogte': function (t, d) { var el = findEl(d.id); if (el) el.werkhoogte = num(t.value); },
     'koz-tarief': function (t, d) { var el = findEl(d.id); if (el) el.koz[+d.i].eigenTarief = t.value === '' ? null : num(t.value); },
     'gb-naam': function (t, d) { var el = findEl(d.id); if (el && el.gebreken[+d.gi]) el.gebreken[+d.gi].omschrijving = t.value; },
+    'el-jaar': function (t, d) { var el = findEl(d.id); if (el) el.jaar = num(t.value); },
+    'el-cyclus': function (t, d) { var el = findEl(d.id); if (el) el.cyclus = num(t.value); },
+    'el-bedrag': function (t, d) { var el = findEl(d.id); if (el) el.bedrag = num(t.value); },
+    'el-basisjaar': function (t, d) { var el = findEl(d.id); if (el) el.basisjaar = num(t.value); },
     'add-el-naam': function (t) { state.addForm.naam = t.value; },
     'add-el-jaar': function (t) { state.addForm.jaar = t.value; },
     'add-el-bedrag': function (t) { state.addForm.bedrag = t.value; },
