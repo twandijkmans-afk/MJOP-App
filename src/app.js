@@ -763,6 +763,17 @@
     session: null,
     user: null,
     auth: { email: '', stap: 'email', bezig: false, fout: '' },
+    // Opslaan/heropenen (fase 2 van SPEC_ACCOUNTS_AND_SAVING.md). savedPlans
+    // is alleen de lichte lijst (id/label/updated_at), niet de volledige
+    // blobs — zie loadSavedPlans(). lastSavedSnapshot is een JSON-snapshot
+    // van serializePlan() op het moment van de laatste save/load, om
+    // "niet-opgeslagen wijzigingen" te kunnen tonen zonder een aparte
+    // dirty-vlag door de hele app heen te moeten bijhouden.
+    savedPlans: [],
+    plansLoaded: false,
+    plansUi: { bezig: false, fout: '' },
+    currentPlanId: null,
+    lastSavedSnapshot: null,
   };
 
   // Zet het gebouw vast. Als er nog geen elementen zijn (verse start) wordt
@@ -787,6 +798,57 @@
     }
     state.screen = 'app';
     state.tab = 'home';
+  }
+
+  // ---------------------------------------------------------------------
+  // Opslaan/heropenen (fase 2 van SPEC_ACCOUNTS_AND_SAVING.md). De
+  // opgeslagen blob is uitsluitend het plan zelf (building/elements/fonds/
+  // bijdrage/offertes/bijvullen) — nooit navigatie- of sessie-state
+  // (screen/tab/onboarding/upload/auth/session), die hoort niet in een
+  // opgeslagen rij thuis en zou bij het heropenen alleen maar verwarren.
+  // ---------------------------------------------------------------------
+  function serializePlan() {
+    return {
+      building: state.building,
+      elements: state.elements,
+      fonds: state.fonds,
+      bijdrage: state.bijdrage,
+      offertes: state.offertes,
+      bijvullen: state.bijvullen,
+    };
+  }
+
+  function applyPlanBlob(blob) {
+    state.building = blob.building || null;
+    state.elements = blob.elements || [];
+    state.fonds = blob.fonds || 0;
+    state.bijdrage = blob.bijdrage || 55;
+    state.offertes = blob.offertes || {};
+    state.bijvullen = blob.bijvullen || {};
+  }
+
+  function isDirty() {
+    return !state.currentPlanId || JSON.stringify(serializePlan()) !== state.lastSavedSnapshot;
+  }
+
+  // Alleen de lichte kolommen (geen state-blob) — de "mijn gebouwen"-lijst
+  // hoeft niet elke opgeslagen plan-inhoud te downloaden om te tonen.
+  // Geen eigen .eq('user_id', ...)-filter: de select-policy op saved_plans
+  // laat sowieso alleen de eigen rijen van de ingelogde gebruiker door, en
+  // dat or moet de echte grens zijn (zie SPEC_ACCOUNTS_AND_SAVING.md §4.3)
+  // — een applicatie-filter zou alleen maar de indruk wekken dat de
+  // beveiliging hier zit, terwijl die in de database hoort.
+  function loadSavedPlans() {
+    if (!sb || !state.session) return;
+    state.plansUi.bezig = true; state.plansUi.fout = '';
+    render();
+    sb.from('saved_plans').select('id,label,updated_at').order('updated_at', { ascending: false }).then(function (res) {
+      state.plansUi.bezig = false;
+      state.plansLoaded = true;
+      if (res.error) { state.plansUi.fout = res.error.message; render(); return; }
+      state.savedPlans = res.data || [];
+      render();
+    });
   }
 
   // ---------------------------------------------------------------------
@@ -1192,9 +1254,36 @@
       html += '<div class="section"><div class="card pad">';
       html += '<div class="hint">Ingelogd als</div>';
       html += '<div style="font:500 15px/1.4 Inter,system-ui,sans-serif;margin-top:6px">' + esc(state.user.email) + '</div>';
-      html += '<div class="hint" style="margin-top:12px">Een plan opslaan en heropenen (“mijn gebouwen”) komt in een volgende stap — inloggen en uitloggen werken al wel.</div>';
       html += '<div class="btn-row"><div class="ghost-btn" data-act="logout">Uitloggen</div></div>';
       html += '</div></div>';
+
+      html += '<div class="section"><div class="section-title">Uw plan</div><div class="card pad" style="margin-top:11px">';
+      if (!state.building) {
+        html += '<div class="hint">Zoek eerst een adres op of begin met een voorbeeldgebouw — daarna kunt u het plan hier opslaan.</div>';
+      } else {
+        var dirty = isDirty();
+        html += '<div class="hint">' + esc(state.building.adres) + '</div>';
+        html += '<div style="font:600 14px/1.4 Inter,system-ui,sans-serif;margin-top:4px;color:' + (dirty ? 'var(--accent)' : 'var(--good-fg)') + '">' + (state.currentPlanId ? (dirty ? 'Niet-opgeslagen wijzigingen' : 'Opgeslagen') : 'Nog niet opgeslagen') + '</div>';
+        if (state.plansUi.fout) html += '<div class="notice error" style="margin-top:10px">' + esc(state.plansUi.fout) + '</div>';
+        html += '<div class="btn-row"><div class="primary-btn" data-act="save-plan">' + (state.plansUi.bezig ? 'Bezig…' : (state.currentPlanId ? 'Wijzigingen opslaan' : 'Plan opslaan')) + '</div></div>';
+      }
+      html += '</div></div>';
+
+      html += '<div class="section"><div class="section-title">Opgeslagen plannen</div><div class="card" style="margin-top:11px">';
+      if (state.plansUi.bezig && !state.plansLoaded) {
+        html += '<div class="row" style="border-top:none"><div class="grow meta">Bezig met laden…</div></div>';
+      } else if (!state.savedPlans.length) {
+        html += '<div class="row" style="border-top:none"><div class="grow meta">Nog geen opgeslagen plannen.</div></div>';
+      } else {
+        state.savedPlans.forEach(function (sp, i) {
+          var active = sp.id === state.currentPlanId;
+          html += '<div class="row" data-act="open-plan" data-id="' + sp.id + '" style="cursor:pointer' + (i === 0 ? ';border-top:none' : '') + '">';
+          html += '<div class="grow"><div class="name">' + esc(sp.label) + (active ? ' <span class="sfb-tag">geopend</span>' : '') + '</div><div class="meta">bijgewerkt ' + new Date(sp.updated_at).toLocaleDateString('nl-NL') + '</div></div>';
+          html += '<div class="chev">›</div></div>';
+        });
+      }
+      html += '</div></div>';
+
       html += '</div>';
       return html;
     }
@@ -1826,7 +1915,52 @@
 
   var ACTIONS = {
     'skip-onboarding': function () { applyBuilding(defaultBuilding()); render(); },
-    'wijzig-adres': function () { state.screen = 'onboarding'; state.onboarding = { q: '', sug: [], bezig: false, bezigTekst: '', fout: '', gezocht: false }; render(); },
+    'wijzig-adres': function () {
+      state.screen = 'onboarding'; state.onboarding = { q: '', sug: [], bezig: false, bezigTekst: '', fout: '', gezocht: false };
+      // Zonder dit zou "opslaan" na het wijzigen van adres het oude
+      // opgeslagen plan overschrijven met een hybride van het nieuwe adres
+      // en de herschaalde oude elementen (applyBuilding hergebruikt
+      // bestaande elementen zolang die er al zijn) — currentPlanId loskoppelen
+      // zorgt dat een volgende save in plaats daarvan een nieuw plan aanmaakt.
+      state.currentPlanId = null; state.lastSavedSnapshot = null;
+      render();
+    },
+    'save-plan': function () {
+      if (!sb || !state.session || !state.building) return;
+      var p = state.plansUi;
+      p.bezig = true; p.fout = '';
+      render();
+      var blob = serializePlan();
+      var label = state.building.adres || 'MJOP';
+      var query = state.currentPlanId
+        ? sb.from('saved_plans').update({ label: label, state: blob, updated_at: new Date().toISOString() }).eq('id', state.currentPlanId).select().single()
+        : sb.from('saved_plans').insert({ user_id: state.user.id, label: label, state: blob }).select().single();
+      query.then(function (res) {
+        p.bezig = false;
+        if (res.error) { p.fout = res.error.message; render(); return; }
+        state.currentPlanId = res.data.id;
+        state.lastSavedSnapshot = JSON.stringify(blob);
+        loadSavedPlans();
+      }).catch(function () {
+        p.bezig = false; p.fout = 'Kon geen verbinding maken. Probeer het opnieuw.'; render();
+      });
+    },
+    'open-plan': function (d) {
+      if (!sb || !state.session) return;
+      state.plansUi.bezig = true; state.plansUi.fout = '';
+      render();
+      sb.from('saved_plans').select('id,state').eq('id', d.id).single().then(function (res) {
+        state.plansUi.bezig = false;
+        if (res.error || !res.data) { state.plansUi.fout = 'Dit plan kon niet geopend worden.'; render(); return; }
+        applyPlanBlob(res.data.state);
+        state.currentPlanId = res.data.id;
+        state.lastSavedSnapshot = JSON.stringify(res.data.state);
+        state.screen = 'app'; state.tab = 'home';
+        render();
+      }).catch(function () {
+        state.plansUi.bezig = false; state.plansUi.fout = 'Kon geen verbinding maken. Probeer het opnieuw.'; render();
+      });
+    },
     'goto-marketing': function () { state.screen = 'marketing'; render(); },
     'goto-login': function () { state.screen = 'login'; render(); },
     'goto-onboarding': function () { state.screen = 'onboarding'; render(); },
@@ -2103,6 +2237,16 @@
       sb.auth.onAuthStateChange(function (event, session) {
         state.session = session;
         state.user = session ? session.user : null;
+        if (session) {
+          if (!state.plansLoaded) loadSavedPlans();
+        } else {
+          // Opgeslagen-plannen-state hoort bij de sessie die 'm heeft
+          // opgehaald; bij uitloggen (of op een gedeelde computer: bij het
+          // wisselen naar een andere sessie) mag dat nooit blijven hangen
+          // voor de volgende (mogelijk andere) gebruiker.
+          state.savedPlans = []; state.plansLoaded = false;
+          state.currentPlanId = null; state.lastSavedSnapshot = null;
+        }
         render();
       });
       // Een verlopen/al-gebruikte inloglink komt terug als #error=...

@@ -61,6 +61,26 @@ er een echte sessie is (ingelogd via de link), of zodra het venster smaller
 wordt dan 960px, valt de marketing-/loginweergave automatisch terug op de
 gewone app-flow (`currentScreen()`, vlak boven `render()` in `src/app.js`).
 
+### Een plan opslaan en heropenen (fase 2, minimale versie)
+
+Fase 2 van `SPEC_ACCOUNTS_AND_SAVING.md` is geïmplementeerd: een tabel
+`saved_plans` in Supabase (met row-level security — een gebruiker kan
+uitsluitend zijn eigen rijen lezen/schrijven, zie de SQL in de spec) en de
+acties `save-plan`/`open-plan` in `src/app.js`. Ingelogde gebruikers zien
+op het "Account"-tabblad een "Uw plan"-kaart (opslaan, met een status
+opgeslagen/niet-opgeslagen/gewijzigd) en een lijst van eerder opgeslagen
+plannen om te heropenen.
+
+Dit is bewust nog de kale versie — precies de scope van fase 2, niet meer:
+- Opgeslagen wordt alleen het plan zelf (`serializePlan()`: gebouw,
+  elementen, fonds, bijdrage, offertes, bijvullen) — nooit navigatie- of
+  sessiestate.
+- Geen "niet-opgeslagen wijzigingen verlies je zomaar"-bescherming buiten
+  het Account-scherm, geen naam wijzigen, geen verwijderen, geen lege-
+  staat-verfraaiing, en geen apart "opslaan"-item in de tabbalk met eigen
+  status-indicator. Dat is fase 3 ("mijn gebouwen"-scherm), een apart
+  vervolg.
+
 ## Hoe het werkt
 
 1. **Adres opzoeken** (`src/app.js`, `suggestAddress` / `lookupBuilding`) —
