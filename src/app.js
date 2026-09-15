@@ -73,53 +73,88 @@
     if (/^\d{1,4}$/.test(line)) return true; // los paginanummer
     if (/^(pagina|blz\.?|page)\b/i.test(line)) return true;
     if (/^\d{1,2}[-\/]\d{1,2}[-\/]\d{2,4}$/.test(line)) return true; // datum
+    // herhaalde tabelkop, bv. "Code/Element/Handeling ... Hvh Ehd Stj Cy 2023 2024 ...":
+    // komt op elke pagina terug en heeft zelf geen hoeveelheid/bedrag.
+    var kopwoorden = ['element', 'handeling', 'hoeveelheid', 'ehd', 'stj', 'cy', 'totaal', 'hoofdgroep'];
+    var treffers = kopwoorden.reduce(function (n, w) { return n + (line.toLowerCase().indexOf(w) > -1 ? 1 : 0); }, 0);
+    if (treffers >= 2) return true;
     return false;
   }
 
-  // Zoekt regels met een jaartal én een bedrag erop — een MJOP-tabel
-  // geëxporteerd naar PDF staat meestal zo opgemaakt. De kolomvolgorde
-  // (bedrag-voor-jaar of andersom) kan per document verschillen, dus het
-  // jaartal wordt eerst uit de regel gehaald en apart gehouden van de
-  // overige getallen — anders kan het jaartal zelf als bedrag gelezen
-  // worden. Een omschrijving die op haar eigen regel staat (tekst wrapt in
-  // veel pdf-tabellen) wordt bewaard en aan de eerstvolgende regel met een
-  // jaartal + bedrag geplakt. Nooit perfect voor elke lay-out, daarom altijd
-  // gevolgd door de controleerbare regel-lijst — en de ruwe tekst blijft
-  // zichtbaar voor wat de automatische herkenning gemist heeft.
-  function extractPdfRegels(fullText) {
-    var lines = fullText.split('\n').map(function (l) { return l.trim(); }).filter(Boolean).filter(function (l) { return !isPdfNoiseLine(l); });
-    var yearRe = /\b(20[2-6][0-9])\b/;
+  function isVervolgregel(line) {
+    // een omschrijving die wrapt naar haar eigen regel (geen cijfers, geen
+    // nieuwe NL-SfB-code aan het begin, kort genoeg om een los woord/zin te zijn).
+    if (!line || line.length >= 40 || /[0-9]/.test(line)) return false;
+    if (/^\d{2,4}\s/.test(line)) return false; // nieuwe elementregel met eigen code
+    return /[a-zA-Z]/.test(line);
+  }
+
+  // Probeert het prijspeil-jaar van het MJOP zelf te herkennen (professionele
+  // MJOP-software vermeldt dit meestal expliciet), zodat de indexering vanaf
+  // het juiste jaar begint in plaats van een gok.
+  function detectPrijspeilJaar(fullText) {
+    // "Prijspeil" wordt meestal gevolgd door een datum (bv. "1-4-2023"); zoek
+    // de eerste aaneengesloten reeks van 4 cijfers erna, ongeacht het
+    // precieze datumformaat.
+    var m = /prijspeil[^\n]{0,40}?(\d{4})(?!\d)/i.exec(fullText);
+    return m ? +m[1] : null;
+  }
+
+  var PDF_EENHEID = 'm1|m2|m3|st|pst|ver\\.?|stuks?|kg|ton|u|uur';
+  // Kenmerkend voor professionele MJOP-tabellen (NEN-2767-achtige software):
+  // hoeveelheid + eenheid, gevolgd door het startjaar en desgewenst de cyclus
+  // in jaren, vóór de kostenkolommen. Herkent dit patroon ongeacht waar het
+  // in de regel staat, zodat het niet aan één specifieke opmaak vastzit.
+  var STJ_CY_RE = new RegExp('([0-9]+(?:[.,][0-9]+)?)\\s*(?:' + PDF_EENHEID + ')\\.?\\s+(20[0-6][0-9])(?:\\s+([0-9]{1,3})\\b)?', 'i');
+
+  function eersteBedragNa(tekst) {
     var amountRe = /[0-9]{1,3}(?:[.,][0-9]{3})+(?:[.,][0-9]{2})?|[0-9]+(?:[.,][0-9]{2})|[0-9]{3,}/g;
+    var m;
+    while ((m = amountRe.exec(tekst))) {
+      if (/^20[0-9]{2}$/.test(m[0])) continue; // sluit een ander kaal jaartal uit (bv. "MJOP 2019-2029")
+      var bedrag = num(m[0]);
+      if (bedrag >= 100) return bedrag;
+    }
+    return 0;
+  }
+
+  // Zoekt regels met een hoeveelheid+eenheid+jaar (het patroon van
+  // professionele MJOP-tabellen, zie STJ_CY_RE) en valt terug op "een
+  // jaartal met een bedrag erop" voor eenvoudiger exports. Nooit perfect
+  // voor elke lay-out, daarom altijd gevolgd door de controleerbare
+  // regel-lijst — en de ruwe tekst blijft zichtbaar voor wat de
+  // automatische herkenning gemist heeft.
+  function extractPdfRegels(fullText) {
+    var rawLines = fullText.split('\n').map(function (l) { return l.trim(); });
     var out = [];
-    var pendingNaam = '';
-    lines.forEach(function (line) {
-      var ym = yearRe.exec(line);
-      if (!ym) {
-        // geen jaartal op deze regel: mogelijk een omschrijving die wrapt
-        // naar de volgende regel met de cijfers erop. Een omschrijving mag
-        // best een getal bevatten (bv. "conditie 4"), zolang de regel niet
-        // zelf enkel uit cijfers/bedrag bestaat.
-        var isEnkelGetal = /^[0-9.,€\s]+$/.test(line);
-        pendingNaam = (/[a-zA-Z]/.test(line) && !isEnkelGetal && line.length >= 3) ? line : '';
-        return;
+    for (var i = 0; i < rawLines.length; i++) {
+      var line = rawLines[i];
+      if (!line || isPdfNoiseLine(line)) continue;
+
+      var stj = STJ_CY_RE.exec(line);
+      var naam, jaar, cyclus, bedrag;
+      if (stj) {
+        naam = line.slice(0, stj.index).replace(/[€\-–.:]+$/, '').trim();
+        jaar = +stj[2];
+        cyclus = stj[3] ? +stj[3] : 0;
+        bedrag = eersteBedragNa(line.slice(stj.index + stj[0].length));
+      } else {
+        var ym = /\b(20[2-6][0-9])\b/.exec(line);
+        if (!ym) continue;
+        var zonderJaar = line.slice(0, ym.index) + ' ' + line.slice(ym.index + ym[0].length);
+        bedrag = eersteBedragNa(zonderJaar);
+        if (!bedrag) continue;
+        naam = zonderJaar.slice(0, zonderJaar.search(/[0-9]/)).replace(/[€\-–.:]+$/, '').trim() || zonderJaar.replace(/[0-9.,€\s]+/g, ' ').trim();
+        jaar = +ym[1];
+        cyclus = 0;
       }
-      var zonderJaar = line.slice(0, ym.index) + ' ' + line.slice(ym.index + ym[0].length);
-      var amounts = (zonderJaar.match(amountRe) || [])
-        // sluit andere kale jaartal-achtige getallen uit (bv. een titel als
-        // "MJOP 2019-2029" heeft twee jaartallen; zonder deze filter wordt
-        // het tweede als bedrag gelezen). Een echt bedrag boven de duizend
-        // euro heeft vrijwel altijd een duizendtal-scheiding of decimalen.
-        .filter(function (tok) { return !/^20[0-9]{2}$/.test(tok); });
-      if (!amounts.length) { pendingNaam = ''; return; }
-      // grootste gevonden bedrag op de regel (na aftrek van het jaartal) —
-      // robuust ongeacht of bedrag of jaar eerst in de tabel staat.
-      var beste = amounts.reduce(function (a, b) { return num(b) > num(a) ? b : a; });
-      var bedrag = num(beste);
-      var naamHier = zonderJaar.slice(0, zonderJaar.indexOf(beste)).replace(/[€\-–.:]+$/, '').trim();
-      var naam = naamHier.length >= 3 ? naamHier : pendingNaam;
-      pendingNaam = '';
-      if (naam && naam.length >= 3 && bedrag >= 100) out.push({ naam: naam, jaar: +ym[1], bedrag: bedrag, sfb: '', conditie: '', include: true });
-    });
+      // omschrijving die op haar eigen regel wrapt (komt vaak voor in
+      // pdf-tabellen) hoort bij de net gevonden regel.
+      if (isVervolgregel(rawLines[i + 1])) { naam = (naam + ' ' + rawLines[i + 1]).trim(); i++; }
+      if (naam && naam.length >= 3 && bedrag >= 100) {
+        out.push({ naam: naam, jaar: jaar, bedrag: bedrag, cyclus: cyclus, sfb: '', conditie: '', include: true });
+      }
+    }
     return out;
   }
 
@@ -148,15 +183,26 @@
       return pageNums.reduce(function (chain, n) {
         return chain.then(function (acc) {
           return doc.getPage(n).then(function (page) { return page.getTextContent(); }).then(function (tc) {
-            var lastY = null, line = '';
+            var lastY = null, bucket = [];
             var lines = [];
+            function flush() {
+              if (!bucket.length) return;
+              // pdf.js levert tekstfragmenten in tekenvolgorde van het
+              // PDF-bestand, niet per se van links naar rechts — vooral in
+              // tabellen die kolom voor kolom getekend zijn kan dat de
+              // volgorde door elkaar husselen. Op x-positie sorteren
+              // herstelt de leesvolgorde binnen elke regel.
+              bucket.sort(function (a, b) { return a.x - b.x; });
+              lines.push(bucket.map(function (b) { return b.str; }).join(' '));
+              bucket = [];
+            }
             tc.items.forEach(function (it) {
-              var y = it.transform[5];
-              if (lastY != null && Math.abs(y - lastY) > 2) { lines.push(line); line = ''; }
-              line += it.str + ' ';
+              var y = it.transform[5], x = it.transform[4];
+              if (lastY != null && Math.abs(y - lastY) > 2) flush();
+              if (it.str.trim()) bucket.push({ x: x, str: it.str });
               lastY = y;
             });
-            if (line.trim()) lines.push(line);
+            flush();
             return acc + lines.join('\n') + '\n';
           });
         });
@@ -775,9 +821,10 @@
       html += '<input data-bind="upload-regel-naam" data-i="' + i + '" value="' + esc(r.naam) + '" placeholder="element" style="flex:1;min-width:0;border:1px solid var(--ink-14);border-radius:8px;padding:7px 9px;font:500 13.5px DM Sans,sans-serif" />';
       html += '<button data-act="upload-del-regel" data-i="' + i + '" style="border:none;background:none;color:var(--ink-45);cursor:pointer;flex:none;font-size:16px">×</button>';
       html += '</div>';
-      html += '<div style="display:flex;align-items:center;gap:14px;margin-top:9px;padding-left:26px">';
+      html += '<div style="display:flex;align-items:center;gap:14px;margin-top:9px;padding-left:26px;flex-wrap:wrap">';
       html += '<div style="display:flex;align-items:center;gap:6px"><span class="eyebrow" style="font-size:9.5px">Jaar</span><input data-bind="upload-regel-jaar" data-i="' + i + '" value="' + esc(r.jaar) + '" style="width:52px;border:1px solid var(--ink-14);border-radius:7px;padding:5px 6px;text-align:center;font:500 12px DM Mono,monospace" /></div>';
       html += '<div style="display:flex;align-items:center;gap:6px"><span class="eyebrow" style="font-size:9.5px">Prijspeil ' + basisjaar + '</span><input data-bind="upload-regel-bedrag" data-i="' + i + '" value="' + esc(r.bedrag) + '" style="width:72px;border:1px solid var(--ink-14);border-radius:7px;padding:5px 6px;text-align:right;font:500 12px DM Mono,monospace" /></div>';
+      html += '<div style="display:flex;align-items:center;gap:6px"><span class="eyebrow" style="font-size:9.5px">Cyclus (jaar, 0 = eenmalig)</span><input data-bind="upload-regel-cyclus" data-i="' + i + '" value="' + esc(r.cyclus || 0) + '" style="width:44px;border:1px solid var(--ink-14);border-radius:7px;padding:5px 6px;text-align:center;font:500 12px DM Mono,monospace" /></div>';
       html += '</div>';
       html += '<div style="margin-top:9px;padding-left:26px;font:500 15px/1 DM Mono,monospace;color:var(--blue)">→ ' + eur(geindexeerd) + ' <span style="font:400 11px/1 DM Sans,sans-serif;color:var(--ink-50)">in ' + esc(r.jaar) + '</span></div>';
       html += '</div>';
@@ -1380,7 +1427,7 @@
     'upload-toggle-regel': function (d) { state.upload.regels[+d.i].include = !state.upload.regels[+d.i].include; render(); },
     'upload-del-regel': function (d) { state.upload.regels.splice(+d.i, 1); render(); },
     'upload-add-regel': function () {
-      state.upload.regels.push({ naam: '', jaar: CURRENT_YEAR + 1, bedrag: 0, sfb: '', conditie: '', include: true });
+      state.upload.regels.push({ naam: '', jaar: CURRENT_YEAR + 1, bedrag: 0, cyclus: 0, sfb: '', conditie: '', include: true });
       render();
     },
     'mjop-import-confirm': function () {
@@ -1389,7 +1436,7 @@
       (state.upload.regels || []).filter(function (r) { return r.include && r.naam; }).forEach(function (r) {
         state.elements.push({
           id: uid('import'), naam: r.naam, categorie: 'Overig', type: 'custom',
-          cyclus: 0, jaar: num(r.jaar) || (CURRENT_YEAR + 1), bedrag: num(r.bedrag), basisjaar: basisjaar,
+          cyclus: num(r.cyclus) || 0, jaar: num(r.jaar) || (CURRENT_YEAR + 1), bedrag: num(r.bedrag), basisjaar: basisjaar,
           sfb: r.sfb || undefined,
           metaTekst: 'geïmporteerd uit ' + (bestandsnaam || 'bestand'),
         });
@@ -1426,6 +1473,7 @@
     'upload-regel-naam': function (t, d) { state.upload.regels[+d.i].naam = t.value; },
     'upload-regel-jaar': function (t, d) { state.upload.regels[+d.i].jaar = t.value; },
     'upload-regel-bedrag': function (t, d) { state.upload.regels[+d.i].bedrag = t.value; },
+    'upload-regel-cyclus': function (t, d) { state.upload.regels[+d.i].cyclus = t.value; },
     'upload-basisjaar': function (t) { state.upload.basisjaar = t.value; },
   };
 
@@ -1466,7 +1514,11 @@
       }).catch(uploadError);
     } else if (ext === 'pdf') {
       readFileAsArrayBuffer(file).then(extractPdfText).then(function (text) {
-        state.upload = { stap: 'regels', bestandsnaam: file.name, regels: extractPdfRegels(text), basisjaar: String(CURRENT_YEAR - 1), ruweTekst: text };
+        var prijspeil = detectPrijspeilJaar(text);
+        state.upload = {
+          stap: 'regels', bestandsnaam: file.name, regels: extractPdfRegels(text),
+          basisjaar: String(prijspeil || (CURRENT_YEAR - 1)), ruweTekst: text,
+        };
         render();
       }).catch(uploadError);
     } else {
