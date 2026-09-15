@@ -2050,13 +2050,24 @@
     'goto-onboarding': function () { state.screen = 'onboarding'; render(); },
     'kies-adres': function (d) {
       var s = state.onboarding;
-      s.sug = []; s.q = d.naam; s.bezig = true; s.bezigTekst = 'Adres opzoeken in de BAG…'; s.fout = '';
+      s.sug = []; s.q = d.naam; s.bezig = true; s.bezigTekst = 'Pand opzoeken in de BAG…'; s.fout = '';
       render();
+      // Puur cosmetisch: dit tikt alleen de bezigTekst door terwijl
+      // lookupBuilding() draait, los van de echte fetch-keten daarbinnen
+      // (die blijft ongewijzigd) — het narrateert wat er onder water al
+      // gebeurt (PDOK-adres -> BAG-pand -> 3D BAG), zodat het wachten op
+      // echte bouwdata voelbaar is in plaats van één stille spinner.
+      var stapTimers = [
+        setTimeout(function () { if (state.onboarding === s && s.bezig) { s.bezigTekst = 'Bouwjaar en appartementen ophalen uit de BAG…'; render(); } }, 700),
+        setTimeout(function () { if (state.onboarding === s && s.bezig) { s.bezigTekst = 'Dakoppervlak, gevels en hoogte berekenen uit de 3D BAG…'; render(); } }, 1800),
+      ];
       lookupBuilding(d.id, d.naam).then(function (building) {
+        stapTimers.forEach(clearTimeout);
         s.bezig = false;
         applyBuilding(building);
         render();
       }).catch(function (err) {
+        stapTimers.forEach(clearTimeout);
         s.bezig = false;
         s.fout = 'Dit adres lukt niet: ' + (err && err.message ? err.message : 'onbekende fout') + '. Probeer een ander huisnummer, of begin met een voorbeeldgebouw.';
         render();
