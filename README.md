@@ -6,7 +6,10 @@ werkelijke dakoppervlak, muuroppervlak en de gebouwhoogte.
 
 Dit is een implementatie van het "MJOP Live" / "MJOP Kleine VvE" ontwerp uit
 Claude Design, omgezet naar een echte, statische web-app zonder build-stap
-of dependencies.
+of dependencies. Visuele stijl: navy (`#223555`) als hoofdkleur, een
+oranjerode accentkleur (`#C2410C`) voor primaire call-to-actions, Rubik
+voor koppen en Inter voor body/cijfers — bewust zakelijker en minder rond
+dan de eerdere afgeronde/blauwe stijl.
 
 ## Draaien
 
@@ -39,6 +42,24 @@ duidelijke melding op het "Inloggen"-tabblad. Om het aan te zetten:
    "Magic Link"-e-mailsjabloon (met een link, geen code) — de body
    daarvan is dan niet aan te passen. Dat is precies waarom deze app een
    link verwacht in plaats van een in te typen code.
+
+### Marketing-homepage en login-gate (desktop)
+
+Een niet-ingelogde bezoeker op desktopbreedte (≥960px) krijgt eerst een
+marketing-homepage te zien (`renderMarketing` in `src/app.js`) in plaats
+van direct het adres-opzoekscherm: header met logo/navigatie, een hero met
+een vervaagde/vergrendelde mockup van het Overzicht-scherm, een
+featuressectie en "hoe het werkt". "Inloggen en MJOP starten" gaat naar een
+los loginscherm (`renderLoginScreen`); "Bekijk een voorbeeldplan" gaat
+direct door naar het gewone adres-opzoekscherm, ook zonder account.
+
+Dit is puur een landingsscherm, geen harde toegangscontrole: het adres
+opzoeken, het voorbeeldgebouw en het bekijken/bewerken van een plan blijven
+volledig zonder account werken, precies zoals voorheen. Op telefoon/tablet
+(<960px) wordt dit scherm nooit getoond — die ervaring is ongewijzigd. Zodra
+er een echte sessie is (ingelogd via de link), of zodra het venster smaller
+wordt dan 960px, valt de marketing-/loginweergave automatisch terug op de
+gewone app-flow (`currentScreen()`, vlak boven `render()` in `src/app.js`).
 
 ## Hoe het werkt
 

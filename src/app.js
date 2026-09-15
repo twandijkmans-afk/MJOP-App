@@ -738,7 +738,11 @@
   // State
   // ---------------------------------------------------------------------
   var state = {
-    screen: 'onboarding',
+    // 'marketing' is de bedoelde standaard-landingsplek; currentScreen()
+    // (zie hieronder bij Rendering) toont 'm alleen daadwerkelijk op
+    // desktopbreedte zonder sessie — anders valt dat vanzelf terug op de
+    // gewone onboarding-flow, ook op dit allereerste scherm.
+    screen: 'marketing',
     onboarding: { q: '', sug: [], bezig: false, bezigTekst: '', fout: '', gezocht: false },
     upload: null, // zie renderUploadWizard voor de vorm van dit object
     building: null,
@@ -802,14 +806,42 @@
   // ---------------------------------------------------------------------
   var root;
 
+  // Desktopbreedte-drempel: dezelfde 960px-grens als de bestaande
+  // zijbalk-lay-out hierboven in style.css, zodat "desktop" overal in de
+  // app hetzelfde betekent.
+  function isDesktopWidth() {
+    return typeof window.matchMedia === 'function' && window.matchMedia('(min-width: 960px)').matches;
+  }
+
+  // state.screen is de bedoelde navigatie ("waar wilde de gebruiker
+  // heen"); currentScreen() is wat daadwerkelijk getoond wordt. De
+  // marketing-homepage en het loginscherm zijn alleen een desktop-gate
+  // voor niet-ingelogde bezoekers: op een smallere viewport, of zodra er
+  // een echte sessie is, vallen ze terug op de gewone (nooit-gated)
+  // onboarding/app-flow — ook als state.screen nog op 'marketing'/'login'
+  // staat, bv. na het smaller maken van het venster.
+  function currentScreen() {
+    if (state.screen === 'marketing' || state.screen === 'login') {
+      if (!isDesktopWidth()) return 'onboarding';
+      if (state.session) return 'onboarding';
+      return state.screen;
+    }
+    return state.screen;
+  }
+
   function render() {
     var active = document.activeElement;
     var focusInfo = null;
     if (active && root.contains(active) && active.id) {
       focusInfo = { id: active.id, start: active.selectionStart, end: active.selectionEnd };
     }
-    var mainHtml = state.screen === 'onboarding' ? renderOnboarding() : renderApp();
-    var printHtml = (state.screen === 'app' && state.building) ? renderPrintReport() : '';
+    var screen = currentScreen();
+    var mainHtml;
+    if (screen === 'marketing') mainHtml = renderMarketing();
+    else if (screen === 'login') mainHtml = renderLoginScreen();
+    else if (screen === 'onboarding') mainHtml = renderOnboarding();
+    else mainHtml = renderApp();
+    var printHtml = (screen === 'app' && state.building) ? renderPrintReport() : '';
     root.innerHTML = '<div class="screen-view">' + mainHtml + '</div>' + printHtml;
     if (focusInfo) {
       var el = document.getElementById(focusInfo.id);
@@ -820,6 +852,138 @@
         }
       }
     }
+  }
+
+  // ---------------------------------------------------------------------
+  // Marketing-homepage + loginscherm — getoond aan niet-ingelogde
+  // bezoekers op desktopbreedte i.p.v. het adres-opzoekscherm (zie
+  // currentScreen()/isDesktopWidth() bij de boot-code onderaan). Mobiel/
+  // tablet en ingelogde gebruikers slaan dit altijd over.
+  // ---------------------------------------------------------------------
+  var MKT_ICONS = {
+    lock: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>',
+    lockBig: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>',
+    pin: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6.5-7-11a7 7 0 0 1 14 0c0 4.5-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>',
+    clipboard: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="12" height="17" rx="2"/><rect x="9" y="2" width="6" height="4" rx="1"/><path d="M9 12h6M9 16h6"/></svg>',
+    trend: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg>',
+  };
+
+  function mktLogo(wordmarkOnly) {
+    return '<div class="mkt-logo" data-act="goto-marketing"><div class="mark">M</div>' + (wordmarkOnly ? '' : '<div class="word">MJOP Live</div>') + '</div>';
+  }
+
+  function renderMarketingHeader() {
+    var html = '<div class="mkt-header">';
+    html += mktLogo();
+    html += '<div class="mkt-nav">';
+    html += '<a href="#mkt-features">Functies</a>';
+    html += '<a href="#mkt-how">Hoe het werkt</a>';
+    html += '<a data-act="goto-onboarding">Voorbeeldplan</a>';
+    html += '</div>';
+    html += '<div class="mkt-login-btn" data-act="goto-login">' + MKT_ICONS.lock + '<span>Inloggen</span></div>';
+    html += '</div>';
+    return html;
+  }
+
+  function renderMarketing() {
+    var html = '<div class="mkt">';
+    html += renderMarketingHeader();
+
+    html += '<div class="mkt-hero">';
+    html += '<div class="mkt-hero-copy">';
+    html += '<div class="mkt-eyebrow">MJOP Live</div>';
+    html += '<h1 class="mkt-h1">Een onderhoudsplan voor uw VvE, gebaseerd op echte bouwdata</h1>';
+    html += '<p class="mkt-sub">MJOP Live haalt bouwjaar, dakoppervlak en gevelmaten automatisch op uit de BAG en 3D BAG. Log in om uw eigen plan te maken en te bewaren.</p>';
+    html += '<div class="mkt-cta-row">';
+    html += '<div class="mkt-cta-primary" data-act="goto-login">Inloggen en MJOP starten →</div>';
+    html += '<div class="mkt-cta-secondary" data-act="goto-onboarding">Bekijk een voorbeeldplan</div>';
+    html += '</div>';
+    html += '<div class="mkt-fineprint">Geen wachtwoord nodig — u ontvangt een eenmalige inloglink per e-mail.</div>';
+    html += '</div>';
+
+    html += '<div class="mkt-hero-visual">';
+    html += '<div class="mkt-browserframe"><div class="mkt-browserframe-bar"><span></span><span></span><span></span></div>';
+    html += '<div class="mkt-browserframe-body">';
+    html += '<div class="eyebrow" style="color:var(--ink-42)">VOORBEELDGEBOUW — PORTIEKFLAT</div>';
+    html += '<div style="font:700 20px/1.3 ' + "'Rubik'" + ',sans-serif;margin-top:6px">Sparen we genoeg?</div>';
+    html += '<div style="margin-top:14px;background:var(--blue);border-radius:10px;padding:16px;color:#fff">';
+    html += '<div style="display:flex;justify-content:space-between;font:500 12px/1 Inter,sans-serif"><span>Bijdrage per appartement</span><span>€ 55</span></div>';
+    html += '<div style="display:flex;align-items:flex-end;gap:3px;height:40px;margin-top:12px">' +
+      [18, 26, 14, 10, 16, 22, 12, 24].map(function (h) { return '<div style="flex:1;height:' + h + 'px;background:rgba(255,255,255,.85);border-radius:2px 2px 0 0"></div>'; }).join('') +
+      '</div></div>';
+    html += '<div style="display:flex;gap:10px;margin-top:14px">';
+    html += '<div style="flex:1;border:1px solid var(--ink-08);border-radius:8px;padding:10px"><div style="font:400 10.5px/1 Inter,sans-serif;color:var(--ink-50)">Reservefonds nu</div><div style="font:600 15px/1 Inter,sans-serif;margin-top:5px">€ 20.000</div></div>';
+    html += '<div style="flex:1;border:1px solid var(--ink-08);border-radius:8px;padding:10px"><div style="font:400 10.5px/1 Inter,sans-serif;color:var(--ink-50)">Kosten t/m 2035</div><div style="font:600 15px/1 Inter,sans-serif;margin-top:5px">€ 55.148</div></div>';
+    html += '</div>';
+    html += '</div></div>';
+    html += '<div class="mkt-lock-overlay">';
+    html += '<div class="mkt-lock-icon">' + MKT_ICONS.lockBig + '</div>';
+    html += '<div class="mkt-lock-title">Log in om uw plan te bekijken en te bewerken</div>';
+    html += '<div class="mkt-lock-sub">Adres opzoeken en het voorbeeldplan bekijken kan zonder account</div>';
+    html += '</div>';
+    html += '</div>';
+    html += '</div>';
+
+    html += '<div class="mkt-section shaded" id="mkt-features"><div class="mkt-section-inner">';
+    html += '<div class="mkt-section-title">Alles wat een bestuur nodig heeft</div>';
+    html += '<div class="mkt-section-sub">Geen los rekenblad meer bijhouden — MJOP Live combineert bouwdata, conditie en kosten in één plan.</div>';
+    html += '<div class="mkt-feature-grid">';
+    [
+      [MKT_ICONS.pin, 'Echte bouwdata', 'Bouwjaar, dakoppervlak en gevelmaten komen automatisch uit de BAG en 3D BAG — geen handmatig opmeten nodig.'],
+      [MKT_ICONS.clipboard, 'NEN 2767 conditiescore', 'Leg gebreken vast per element; de conditiescore bepaalt zelf wanneer een post echt aan de beurt is.'],
+      [MKT_ICONS.trend, 'Realistisch fondsadvies', 'Een 10-jaars kasstroomprojectie laat zien of de huidige bijdrage genoeg is, en wat er nodig is als dat niet zo is.'],
+    ].forEach(function (f) {
+      html += '<div class="mkt-feature-card"><div class="mkt-feature-icon">' + f[0] + '</div>';
+      html += '<div class="mkt-feature-title">' + f[1] + '</div><div class="mkt-feature-body">' + f[2] + '</div></div>';
+    });
+    html += '</div></div></div>';
+
+    html += '<div class="mkt-section" id="mkt-how">';
+    html += '<div class="mkt-section-title">Hoe het werkt</div>';
+    html += '<div class="mkt-steps">';
+    [
+      ['Log in met uw e-mail', 'Geen wachtwoord — u ontvangt een eenmalige inloglink.'],
+      ['Zoek uw adres op', 'De app haalt bouwjaar, dakoppervlak en gevelmaten automatisch op.'],
+      ['Beoordeel en exporteer', 'Leg de conditie per element vast en exporteer het plan als pdf of csv.'],
+    ].forEach(function (s, i) {
+      html += '<div class="mkt-step"><div class="mkt-step-num">' + (i + 1) + '</div>';
+      html += '<div class="mkt-step-title">' + s[0] + '</div><div class="mkt-step-body">' + s[1] + '</div></div>';
+    });
+    html += '</div></div>';
+
+    html += '<div class="mkt-footer"><div class="mkt-footer-inner">';
+    html += mktLogo();
+    html += '<div class="mkt-footer-links"><a href="#mkt-features">Functies</a><a data-act="goto-login">Inloggen</a><a href="mailto:info@mjoplive.nl">Contact</a></div>';
+    html += '</div></div>';
+
+    html += '</div>';
+    return html;
+  }
+
+  function renderLoginScreen() {
+    var a = state.auth;
+    var html = '<div class="login-screen"><div class="login-card">';
+    html += mktLogo();
+    html += '<div class="login-title">Inloggen</div>';
+
+    if (!sb) {
+      html += '<div class="notice error" style="margin-top:18px">Inloggen is nog niet geconfigureerd. Vul de Supabase-projectgegevens (URL en anon-sleutel) in <code>src/config.js</code> in.</div>';
+    } else if (a.stap === 'sent') {
+      html += '<div class="login-sub">We hebben een inloglink gestuurd naar<br><strong>' + esc(a.email) + '</strong></div>';
+      html += '<div class="hint" style="text-align:center;margin-top:14px">Open de e-mail en klik op de link — u komt dan hier terug, automatisch ingelogd. Geen mail ontvangen? Controleer de spamfolder, of vraag hieronder een nieuwe aan.</div>';
+      if (a.fout) html += '<div class="notice error" style="margin-top:14px">' + esc(a.fout) + '</div>';
+      html += '<div class="btn-row" style="margin-top:18px"><div class="ghost-btn" style="flex:1;text-align:center" data-act="login-change-email">Andere e-mail / opnieuw versturen</div></div>';
+    } else {
+      html += '<div class="login-sub">Vul uw e-mailadres in om een MJOP te maken of uw opgeslagen plannen te openen.</div>';
+      html += '<div class="input-row" style="margin-top:20px"><input id="auth-email" data-bind="auth-email" value="' + esc(a.email) + '" placeholder="naam@voorbeeld.nl" autocomplete="email" style="flex:1;width:100%;text-align:left;border-radius:6px;padding:12px 14px;font-size:14px" /></div>';
+      if (a.fout) html += '<div class="notice error" style="margin-top:14px">' + esc(a.fout) + '</div>';
+      html += '<div class="btn-row" style="margin-top:16px"><div class="primary-btn" data-act="login-request">' + (a.bezig ? 'Bezig…' : 'Verstuur inloglink') + '</div></div>';
+      html += '<div class="hint" style="text-align:center;margin-top:14px">Geen wachtwoord nodig. U ontvangt een eenmalige link die 15 minuten geldig is.</div>';
+    }
+
+    html += '<div class="login-back" data-act="goto-marketing">← Terug naar de homepage</div>';
+    html += '</div></div>';
+    return html;
   }
 
   function renderOnboarding() {
@@ -857,7 +1021,7 @@
     html += '</div></div>';
 
     html += '<div class="section"><div class="card pad">';
-    html += '<div style="font:500 13.5px/1.35 DM Sans,sans-serif">Al een MJOP?</div>';
+    html += '<div style="font:500 13.5px/1.35 Inter,system-ui,sans-serif">Al een MJOP?</div>';
     html += '<div class="hint" style="margin-top:6px">Upload een bestaand plan (csv, Excel of pdf) — de app haalt de regels eruit, jij controleert ze, en het plan hoeft dan alleen nog geactualiseerd te worden.</div>';
     html += '<div class="btn-row"><label class="ghost-btn" for="mjop-file-input" style="cursor:pointer">Upload bestaand MJOP</label>';
     html += '<input id="mjop-file-input" type="file" accept=".csv,.xlsx,.xls,.pdf" style="display:none" /></div>';
@@ -928,7 +1092,7 @@
   function renderUploadRegels(u) {
     var basisjaar = num(u.basisjaar);
     var html = '<div class="section"><div class="card pad">';
-    html += '<div style="font:500 13.5px/1.35 DM Sans,sans-serif">Prijspeil van dit MJOP</div>';
+    html += '<div style="font:500 13.5px/1.35 Inter,system-ui,sans-serif">Prijspeil van dit MJOP</div>';
     html += '<div class="input-row" style="margin-top:11px"><div class="label">De bedragen hieronder zijn genoteerd op prijspeil</div><input data-bind="upload-basisjaar" value="' + esc(u.basisjaar) + '" /></div>';
     html += '<div class="hint">Bedragen worden automatisch met 3% per jaar geïndexeerd van dit jaar naar het jaar waarin de post daadwerkelijk gepland staat. Staat er al een actueel bedrag in het bestand? Zet het prijspeil dan gelijk aan het huidige jaar (' + CURRENT_YEAR + ') zodat er niet extra geïndexeerd wordt.</div>';
     html += '</div></div>';
@@ -943,24 +1107,24 @@
       html += '<div style="padding:14px 16px' + (i === 0 ? ';border-top:none' : ';border-top:1px solid var(--ink-08)') + '">';
       html += '<div style="display:flex;align-items:center;gap:10px">';
       html += '<input type="checkbox" data-act="upload-toggle-regel" data-i="' + i + '"' + (r.include ? ' checked' : '') + ' />';
-      html += '<input data-bind="upload-regel-naam" data-i="' + i + '" value="' + esc(r.naam) + '" placeholder="element" style="flex:1;min-width:0;border:1px solid var(--ink-14);border-radius:8px;padding:7px 9px;font:500 13.5px DM Sans,sans-serif" />';
+      html += '<input data-bind="upload-regel-naam" data-i="' + i + '" value="' + esc(r.naam) + '" placeholder="element" style="flex:1;min-width:0;border:1px solid var(--ink-14);border-radius:8px;padding:7px 9px;font:500 13.5px Inter,system-ui,sans-serif" />';
       html += '<button data-act="upload-del-regel" data-i="' + i + '" style="border:none;background:none;color:var(--ink-45);cursor:pointer;flex:none;font-size:16px">×</button>';
       html += '</div>';
       html += '<div style="display:flex;align-items:center;gap:14px;margin-top:9px;padding-left:26px;flex-wrap:wrap">';
-      html += '<div style="display:flex;align-items:center;gap:6px"><span class="eyebrow" style="font-size:9.5px">Jaar</span><input data-bind="upload-regel-jaar" data-i="' + i + '" value="' + esc(r.jaar) + '" style="width:52px;border:1px solid var(--ink-14);border-radius:7px;padding:5px 6px;text-align:center;font:500 12px DM Mono,monospace" /></div>';
-      html += '<div style="display:flex;align-items:center;gap:6px"><span class="eyebrow" style="font-size:9.5px">Prijspeil ' + basisjaar + '</span><input data-bind="upload-regel-bedrag" data-i="' + i + '" value="' + esc(r.bedrag) + '" style="width:72px;border:1px solid var(--ink-14);border-radius:7px;padding:5px 6px;text-align:right;font:500 12px DM Mono,monospace" /></div>';
-      html += '<div style="display:flex;align-items:center;gap:6px"><span class="eyebrow" style="font-size:9.5px">Cyclus (jaar, 0 = eenmalig)</span><input data-bind="upload-regel-cyclus" data-i="' + i + '" value="' + esc(r.cyclus || 0) + '" style="width:44px;border:1px solid var(--ink-14);border-radius:7px;padding:5px 6px;text-align:center;font:500 12px DM Mono,monospace" /></div>';
+      html += '<div style="display:flex;align-items:center;gap:6px"><span class="eyebrow" style="font-size:9.5px">Jaar</span><input data-bind="upload-regel-jaar" data-i="' + i + '" value="' + esc(r.jaar) + '" style="width:52px;border:1px solid var(--ink-14);border-radius:7px;padding:5px 6px;text-align:center;font:500 12px Inter,system-ui,sans-serif" /></div>';
+      html += '<div style="display:flex;align-items:center;gap:6px"><span class="eyebrow" style="font-size:9.5px">Prijspeil ' + basisjaar + '</span><input data-bind="upload-regel-bedrag" data-i="' + i + '" value="' + esc(r.bedrag) + '" style="width:72px;border:1px solid var(--ink-14);border-radius:7px;padding:5px 6px;text-align:right;font:500 12px Inter,system-ui,sans-serif" /></div>';
+      html += '<div style="display:flex;align-items:center;gap:6px"><span class="eyebrow" style="font-size:9.5px">Cyclus (jaar, 0 = eenmalig)</span><input data-bind="upload-regel-cyclus" data-i="' + i + '" value="' + esc(r.cyclus || 0) + '" style="width:44px;border:1px solid var(--ink-14);border-radius:7px;padding:5px 6px;text-align:center;font:500 12px Inter,system-ui,sans-serif" /></div>';
       html += '</div>';
-      html += '<div style="margin-top:9px;padding-left:26px;font:500 15px/1 DM Mono,monospace;color:var(--blue)">→ ' + eur(geindexeerd) + ' <span style="font:400 11px/1 DM Sans,sans-serif;color:var(--ink-50)">in ' + esc(r.jaar) + '</span></div>';
+      html += '<div style="margin-top:9px;padding-left:26px;font:500 15px/1 Inter,system-ui,sans-serif;color:var(--blue)">→ ' + eur(geindexeerd) + ' <span style="font:400 11px/1 Inter,system-ui,sans-serif;color:var(--ink-50)">in ' + esc(r.jaar) + '</span></div>';
       html += '</div>';
     });
-    html += '<div class="row" style="cursor:pointer" data-act="upload-add-regel"><div class="grow" style="font:500 13px DM Sans,sans-serif;color:var(--blue)">+ Regel toevoegen</div></div>';
+    html += '<div class="row" style="cursor:pointer" data-act="upload-add-regel"><div class="grow" style="font:500 13px Inter,system-ui,sans-serif;color:var(--blue)">+ Regel toevoegen</div></div>';
     html += '</div></div>';
 
     if (u.ruweTekst) {
-      html += '<div class="section"><details><summary style="cursor:pointer;font:500 12.5px DM Sans,sans-serif;color:var(--blue)">Ruwe tekst uit de pdf bekijken</summary>';
+      html += '<div class="section"><details><summary style="cursor:pointer;font:500 12.5px Inter,system-ui,sans-serif;color:var(--blue)">Ruwe tekst uit de pdf bekijken</summary>';
       html += '<div class="card pad" style="margin-top:9px"><div class="hint" style="margin-bottom:8px">Heeft de app een regel gemist? Gebruik deze tekst om hem hierboven handmatig toe te voegen.</div>';
-      html += '<pre style="white-space:pre-wrap;font:400 10.5px/1.5 DM Mono,monospace;color:var(--ink-60);max-height:220px;overflow:auto;margin:0">' + esc(u.ruweTekst) + '</pre></div></details></div>';
+      html += '<pre style="white-space:pre-wrap;font:400 10.5px/1.5 Inter,system-ui,sans-serif;color:var(--ink-60);max-height:220px;overflow:auto;margin:0">' + esc(u.ruweTekst) + '</pre></div></details></div>';
     }
 
     html += '<div class="section"><div class="hint">Elke regel wordt een post in het plan op het opgegeven jaar. Je kunt hierna nog het adres koppelen voor de echte gebouwgegevens — de geïmporteerde regels blijven dan staan.</div>';
@@ -1027,7 +1191,7 @@
     if (state.session) {
       html += '<div class="section"><div class="card pad">';
       html += '<div class="hint">Ingelogd als</div>';
-      html += '<div style="font:500 15px/1.4 DM Mono,monospace;margin-top:6px">' + esc(state.user.email) + '</div>';
+      html += '<div style="font:500 15px/1.4 Inter,system-ui,sans-serif;margin-top:6px">' + esc(state.user.email) + '</div>';
       html += '<div class="hint" style="margin-top:12px">Een plan opslaan en heropenen (“mijn gebouwen”) komt in een volgende stap — inloggen en uitloggen werken al wel.</div>';
       html += '<div class="btn-row"><div class="ghost-btn" data-act="logout">Uitloggen</div></div>';
       html += '</div></div>';
@@ -1037,12 +1201,12 @@
 
     html += '<div class="section"><div class="card pad">';
     if (a.stap === 'sent') {
-      html += '<div style="font:500 13.5px/1.35 DM Sans,sans-serif">Inloglink verstuurd naar ' + esc(a.email) + '</div>';
+      html += '<div style="font:500 13.5px/1.35 Inter,system-ui,sans-serif">Inloglink verstuurd naar ' + esc(a.email) + '</div>';
       html += '<div class="hint" style="margin-top:6px">Open de e-mail en klik op de link — je komt dan hier terug, automatisch ingelogd. De link is eenmalig geldig; kom je op een foutmelding uit, vraag dan hieronder een nieuwe aan.</div>';
       if (a.fout) html += '<div class="notice error" style="margin-top:10px">' + esc(a.fout) + '</div>';
       html += '<div class="btn-row"><div class="ghost-btn" data-act="login-change-email">Andere e-mail / opnieuw versturen</div></div>';
     } else {
-      html += '<div style="font:500 13.5px/1.35 DM Sans,sans-serif">Inloggen met e-mail</div>';
+      html += '<div style="font:500 13.5px/1.35 Inter,system-ui,sans-serif">Inloggen met e-mail</div>';
       html += '<div class="hint" style="margin-top:6px">Je krijgt een eenmalige inloglink per e-mail toegestuurd.</div>';
       html += '<div class="input-row" style="margin-top:14px"><div class="label">E-mailadres</div><input id="auth-email" data-bind="auth-email" value="' + esc(a.email) + '" class="wide" placeholder="naam@voorbeeld.nl" style="width:200px;text-align:left" autocomplete="email" /></div>';
       if (a.fout) html += '<div class="notice error" style="margin-top:10px">' + esc(a.fout) + '</div>';
@@ -1104,8 +1268,8 @@
     html += '<div class="stat-pair">';
     html += '<div class="stat-card"><div class="label">Reservefonds nu</div>';
     html += '<div style="display:flex;align-items:baseline;gap:3px;margin-top:7px">';
-    html += '<span style="font:500 19px/1 DM Mono,monospace">€</span>';
-    html += '<input id="fonds-bedrag" data-bind="fonds-bedrag" value="' + state.fonds + '" style="border:none;background:none;outline:none;padding:0;width:100%;min-width:0;font:500 19px/1 DM Mono,monospace;color:var(--ink)" /></div>';
+    html += '<span style="font:500 19px/1 Inter,system-ui,sans-serif">€</span>';
+    html += '<input id="fonds-bedrag" data-bind="fonds-bedrag" value="' + state.fonds + '" style="border:none;background:none;outline:none;padding:0;width:100%;min-width:0;font:500 19px/1 Inter,system-ui,sans-serif;color:var(--ink)" /></div>';
     html += '<div class="hint" style="margin-top:5px">huidig saldo, zelf in te vullen</div>';
     html += '</div>';
     html += '<div class="stat-card"><div class="label">Kosten t/m ' + (CURRENT_YEAR + HORIZON - 1) + '</div><div class="amount">' + eur(totaal) + '</div></div>';
@@ -1220,7 +1384,7 @@
     html += '</div></div>';
 
     html += '<div class="section"><div class="card pad">';
-    html += '<div style="font:500 13.5px/1.35 DM Sans,sans-serif">Of leg een eigen post vast</div>';
+    html += '<div style="font:500 13.5px/1.35 Inter,system-ui,sans-serif">Of leg een eigen post vast</div>';
     html += '<div class="input-row" style="margin-top:11px"><div class="label">Naam</div><input id="add-el-naam" data-bind="add-el-naam" value="' + esc(f.naam) + '" style="width:170px;text-align:left" /></div>';
     html += '<div class="input-row"><div class="label">Jaar</div><input id="add-el-jaar" data-bind="add-el-jaar" value="' + f.jaar + '" /></div>';
     html += '<div class="input-row"><div class="label">Bedrag</div><input id="add-el-bedrag" data-bind="add-el-bedrag" value="' + f.bedrag + '" class="wide" /></div>';
@@ -1284,10 +1448,10 @@
     el.gebreken.forEach(function (g, gi) {
       html += '<div class="row" style="align-items:flex-start' + (gi === 0 ? ';border-top:none' : '') + '">';
       html += '<div class="grow">';
-      html += '<input id="gb-naam-' + el.id + '-' + gi + '" data-bind="gb-naam" data-id="' + el.id + '" data-gi="' + gi + '" value="' + esc(g.omschrijving) + '" list="gb-sug-' + el.id + '" style="width:100%;box-sizing:border-box;border:1px solid var(--ink-14);border-radius:8px;padding:6px 8px;font:500 12.5px DM Sans,sans-serif" placeholder="omschrijving gebrek" />';
+      html += '<input id="gb-naam-' + el.id + '-' + gi + '" data-bind="gb-naam" data-id="' + el.id + '" data-gi="' + gi + '" value="' + esc(g.omschrijving) + '" list="gb-sug-' + el.id + '" style="width:100%;box-sizing:border-box;border:1px solid var(--ink-14);border-radius:8px;padding:6px 8px;font:500 12.5px Inter,system-ui,sans-serif" placeholder="omschrijving gebrek" />';
       ['ernst', 'omvang', 'intensiteit'].forEach(function (dim) {
         html += '<div style="display:flex;align-items:center;gap:8px;margin-top:8px">';
-        html += '<div style="width:64px;font:400 11px/1.3 DM Sans,sans-serif;color:var(--ink-50);text-transform:capitalize">' + dim + '</div>';
+        html += '<div style="width:64px;font:400 11px/1.3 Inter,system-ui,sans-serif;color:var(--ink-50);text-transform:capitalize">' + dim + '</div>';
         html += '<div class="seg" style="margin-top:0;flex:1">';
         [1, 2, 3].forEach(function (v) {
           html += '<div class="seg-opt' + (g[dim] === v ? ' active' : '') + '" style="padding:7px 0" data-act="gb-set" data-id="' + el.id + '" data-gi="' + gi + '" data-dim="' + dim + '" data-val="' + v + '">' + v + '</div>';
@@ -1299,7 +1463,7 @@
       html += '</div>';
     });
     html += '<datalist id="gb-sug-' + el.id + '">' + suggesties.map(function (s) { return '<option value="' + esc(s) + '">'; }).join('') + '</datalist>';
-    html += '<div class="row" style="cursor:pointer" data-act="gb-add" data-id="' + el.id + '"><div class="grow" style="font:500 13px DM Sans,sans-serif;color:var(--blue)">+ Gebrek toevoegen</div></div>';
+    html += '<div class="row" style="cursor:pointer" data-act="gb-add" data-id="' + el.id + '"><div class="grow" style="font:500 13px Inter,system-ui,sans-serif;color:var(--blue)">+ Gebrek toevoegen</div></div>';
     html += '</div>';
 
     html += '<div class="result-box' + (score == null ? '' : (score >= 4 ? ' bad' : ' good')) + '">';
@@ -1379,14 +1543,14 @@
       html += '<div class="name" style="font-weight:500">' + esc(o.naam) + '</div>';
       o.regels.forEach(function (r, ri) {
         html += '<div style="display:flex;gap:8px;margin-top:6px">';
-        html += '<input id="of-' + o.id + '-naam-' + ri + '" data-bind="of-regel-naam" data-oid="' + o.id + '" data-ri="' + ri + '" value="' + esc(r.naam) + '" style="flex:1;border:1px solid var(--ink-14);border-radius:8px;padding:5px 7px;font:400 11.5px DM Sans,sans-serif" placeholder="regel" />';
-        html += '<input id="of-' + o.id + '-bedrag-' + ri + '" data-bind="of-regel-bedrag" data-oid="' + o.id + '" data-ri="' + ri + '" value="' + esc(r.bedrag) + '" style="width:80px;border:1px solid var(--ink-14);border-radius:8px;padding:5px 7px;text-align:right;font:500 11.5px DM Mono,monospace" placeholder="€" />';
+        html += '<input id="of-' + o.id + '-naam-' + ri + '" data-bind="of-regel-naam" data-oid="' + o.id + '" data-ri="' + ri + '" value="' + esc(r.naam) + '" style="flex:1;border:1px solid var(--ink-14);border-radius:8px;padding:5px 7px;font:400 11.5px Inter,system-ui,sans-serif" placeholder="regel" />';
+        html += '<input id="of-' + o.id + '-bedrag-' + ri + '" data-bind="of-regel-bedrag" data-oid="' + o.id + '" data-ri="' + ri + '" value="' + esc(r.bedrag) + '" style="width:80px;border:1px solid var(--ink-14);border-radius:8px;padding:5px 7px;text-align:right;font:500 11.5px Inter,system-ui,sans-serif" placeholder="€" />';
         html += '<button data-act="of-del-regel" data-oid="' + o.id + '" data-ri="' + ri + '" style="border:none;background:none;color:var(--ink-45);cursor:pointer">×</button>';
         html += '</div>';
       });
       html += '<div style="margin-top:8px" class="linkish" data-act="of-add-regel" data-oid="' + o.id + '">+ regel toevoegen</div>';
       html += '<div class="toggle-row" style="margin-top:9px" data-act="of-toggle-btw" data-oid="' + o.id + '">';
-      html += '<div class="grow" style="font:400 11.5px DM Sans,sans-serif">' + (o.btw ? 'inclusief 21% btw' : 'exclusief btw') + '</div>';
+      html += '<div class="grow" style="font:400 11.5px Inter,system-ui,sans-serif">' + (o.btw ? 'inclusief 21% btw' : 'exclusief btw') + '</div>';
       html += '<div class="toggle' + (o.btw ? ' on' : '') + '"><div class="knob"></div></div></div>';
       html += '</div>';
       html += '<div style="text-align:right"><div class="value" style="font-size:14px">' + eur(totaal) + '</div>';
@@ -1394,7 +1558,7 @@
       html += '</div>';
     });
     html += '<div class="row" style="cursor:pointer" data-act="of-add">';
-    html += '<div class="grow" style="font:500 13px DM Sans,sans-serif;color:var(--blue)">+ Offerte toevoegen</div></div>';
+    html += '<div class="grow" style="font:500 13px Inter,system-ui,sans-serif;color:var(--blue)">+ Offerte toevoegen</div></div>';
     html += '</div>';
 
     if (offs.length >= 2) html += renderOfferteVergelijk(el, offs, bijvul);
@@ -1458,7 +1622,7 @@
     html += '</div></div>';
 
     html += '<div class="toggle-row" style="margin-top:12px;background:#fff;border:1px solid var(--ink-10);border-radius:18px;padding:15px 16px" data-act="toggle-bijvullen" data-id="' + el.id + '">';
-    html += '<div class="grow" style="font:400 12.5px/1.45 DM Sans,sans-serif">' + (bijvul ? 'Ontbrekende regels bijgevuld met het gemiddelde van de andere offertes' : 'Alleen wat de aannemers hebben opgeschreven') + '</div>';
+    html += '<div class="grow" style="font:400 12.5px/1.45 Inter,system-ui,sans-serif">' + (bijvul ? 'Ontbrekende regels bijgevuld met het gemiddelde van de andere offertes' : 'Alleen wat de aannemers hebben opgeschreven') + '</div>';
     html += '<div class="toggle' + (bijvul ? ' on' : '') + '"><div class="knob"></div></div></div>';
     html += '</div>';
     return html;
@@ -1503,16 +1667,16 @@
     html += '<div class="page-sub">' + esc(b.adres) + ' · ' + beoordeeld + ' van ' + state.elements.length + ' elementen beoordeeld</div></div>';
 
     html += '<div class="section"><div class="card pad">';
-    html += '<div style="font:500 14.5px/1.3 DM Sans,sans-serif">MJOP ' + CURRENT_YEAR + '–' + (CURRENT_YEAR + HORIZON - 1) + '</div>';
+    html += '<div style="font:500 14.5px/1.3 Inter,system-ui,sans-serif">MJOP ' + CURRENT_YEAR + '–' + (CURRENT_YEAR + HORIZON - 1) + '</div>';
     html += '<div class="hint" style="margin-top:5px">Conditie per element, kostenopbouw en het voorstel voor de maandbijdrage.</div>';
     html += '<div class="btn-row"><div class="primary-btn" data-act="print-rapport">Afdrukken / PDF</div><div class="ghost-btn" data-act="export-csv">Exporteer CSV</div></div>';
     html += '</div></div>';
 
     html += '<div class="section"><div class="card pad">';
-    html += '<div style="font:500 13.5px/1.3 DM Sans,sans-serif">Voorstel voor de vergadering</div>';
+    html += '<div style="font:500 13.5px/1.3 Inter,system-ui,sans-serif">Voorstel voor de vergadering</div>';
     html += '<div style="display:flex;align-items:baseline;gap:9px;margin-top:10px">';
-    html += '<div style="font:500 26px/1 DM Mono,monospace;color:var(--blue)">' + eur(eerste ? nodig : state.bijdrage) + '</div>';
-    html += '<div style="font:400 12px/1.3 DM Sans,sans-serif;color:var(--ink-60)">per appartement per maand</div></div>';
+    html += '<div style="font:500 26px/1 Inter,system-ui,sans-serif;color:var(--blue)">' + eur(eerste ? nodig : state.bijdrage) + '</div>';
+    html += '<div style="font:400 12px/1.3 Inter,system-ui,sans-serif;color:var(--ink-60)">per appartement per maand</div></div>';
     html += '<div class="hint">' + (eerste
       ? 'Bij de huidige bijdrage van ' + eur(state.bijdrage) + ' raakt het fonds in ' + eerste.jaar + ' leeg.'
       : 'Bij ' + eur(state.bijdrage) + ' per maand blijft het fonds ' + HORIZON + ' jaar positief, met ' + eur(laagste) + ' als laagste stand.') + '</div>';
@@ -1663,6 +1827,9 @@
   var ACTIONS = {
     'skip-onboarding': function () { applyBuilding(defaultBuilding()); render(); },
     'wijzig-adres': function () { state.screen = 'onboarding'; state.onboarding = { q: '', sug: [], bezig: false, bezigTekst: '', fout: '', gezocht: false }; render(); },
+    'goto-marketing': function () { state.screen = 'marketing'; render(); },
+    'goto-login': function () { state.screen = 'login'; render(); },
+    'goto-onboarding': function () { state.screen = 'onboarding'; render(); },
     'kies-adres': function (d) {
       var s = state.onboarding;
       s.sug = []; s.q = d.naam; s.bezig = true; s.bezigTekst = 'Adres opzoeken in de BAG…'; s.fout = '';
@@ -1954,6 +2121,14 @@
         history.replaceState(null, '', window.location.pathname + window.location.search);
       }
     }
+    // currentScreen() re-evaluates isDesktopWidth() on every render, maar
+    // resizen zelf triggert geen render — zonder deze listener zou de
+    // marketing-gate pas verschijnen/verdwijnen bij de eerstvolgende klik.
+    var resizeTimer;
+    window.addEventListener('resize', function () {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(render, 150);
+    });
     root.addEventListener('click', function (e) {
       var t = e.target.closest('[data-act]');
       if (!t) return;
