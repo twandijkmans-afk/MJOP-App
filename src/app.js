@@ -758,7 +758,7 @@
     // weerspiegelen; `auth` is puur lokale UI-state voor het inlogformulier.
     session: null,
     user: null,
-    auth: { email: '', code: '', stap: 'email', bezig: false, fout: '' },
+    auth: { email: '', stap: 'email', bezig: false, fout: '' },
   };
 
   // Zet het gebouw vast. Als er nog geen elementen zijn (verse start) wordt
@@ -997,15 +997,23 @@
     return html;
   }
 
-  // Inloggen (fase 1 van SPEC_ACCOUNTS_AND_SAVING.md) — e-mail + code
-  // (OTP), geen wachtwoord. Opslaan/laden van een plan en "mijn
-  // gebouwen" volgen in een latere fase; dit scherm doet nu alleen
-  // inloggen, de sessie tonen, en uitloggen.
+  // Inloggen (fase 1 van SPEC_ACCOUNTS_AND_SAVING.md) — e-mail-magic-link,
+  // geen wachtwoord. Was oorspronkelijk als code-per-e-mail (OTP) gebouwd,
+  // maar Supabase's gratis standaard-mailversturing staat geen aangepast
+  // sjabloon toe (dat vereist een eigen SMTP-provider) — het vaste
+  // "Magic Link"-sjabloon met alleen een link werkt zonder verdere
+  // configuratie, dus daar is op overgestapt. supabase-js detecteert de
+  // sessie na een klik op de link automatisch uit de url
+  // (detectSessionInUrl, standaard aan) en meldt dat via de
+  // onAuthStateChange-listener, net als bij elke andere in-/uitlog-actie.
+  // Opslaan/laden van een plan en "mijn gebouwen" volgen in een latere
+  // fase; dit scherm doet nu alleen inloggen, de sessie tonen, en
+  // uitloggen.
   function renderAccount() {
     var html = '<div style="padding:24px 0 8px">';
     html += '<div style="padding:0 22px">';
     html += '<div class="page-title">Account</div>';
-    html += '<div class="page-sub">Inloggen met een code per e-mail — geen wachtwoord.</div>';
+    html += '<div class="page-sub">Inloggen met een eenmalige link per e-mail — geen wachtwoord.</div>';
     html += '</div>';
 
     if (!sb) {
@@ -1028,18 +1036,17 @@
     }
 
     html += '<div class="section"><div class="card pad">';
-    if (a.stap === 'code') {
-      html += '<div style="font:500 13.5px/1.35 DM Sans,sans-serif">Code ingevoerd bij ' + esc(a.email) + '</div>';
-      html += '<div class="hint" style="margin-top:6px">Check je inbox en vul de code hieronder in.</div>';
-      html += '<div class="input-row" style="margin-top:14px"><div class="label">Code</div><input id="auth-code" data-bind="auth-code" value="' + esc(a.code) + '" style="width:120px;text-align:center;letter-spacing:.15em" placeholder="123456" autocomplete="one-time-code" /></div>';
+    if (a.stap === 'sent') {
+      html += '<div style="font:500 13.5px/1.35 DM Sans,sans-serif">Inloglink verstuurd naar ' + esc(a.email) + '</div>';
+      html += '<div class="hint" style="margin-top:6px">Open de e-mail en klik op de link — je komt dan hier terug, automatisch ingelogd. De link is eenmalig geldig; kom je op een foutmelding uit, vraag dan hieronder een nieuwe aan.</div>';
       if (a.fout) html += '<div class="notice error" style="margin-top:10px">' + esc(a.fout) + '</div>';
-      html += '<div class="btn-row"><div class="primary-btn" data-act="login-verify">' + (a.bezig ? 'Bezig…' : 'Bevestig code') + '</div><div class="ghost-btn" data-act="login-change-email">Andere e-mail</div></div>';
+      html += '<div class="btn-row"><div class="ghost-btn" data-act="login-change-email">Andere e-mail / opnieuw versturen</div></div>';
     } else {
       html += '<div style="font:500 13.5px/1.35 DM Sans,sans-serif">Inloggen met e-mail</div>';
-      html += '<div class="hint" style="margin-top:6px">Je krijgt een code per e-mail toegestuurd.</div>';
+      html += '<div class="hint" style="margin-top:6px">Je krijgt een eenmalige inloglink per e-mail toegestuurd.</div>';
       html += '<div class="input-row" style="margin-top:14px"><div class="label">E-mailadres</div><input id="auth-email" data-bind="auth-email" value="' + esc(a.email) + '" class="wide" placeholder="naam@voorbeeld.nl" style="width:200px;text-align:left" autocomplete="email" /></div>';
       if (a.fout) html += '<div class="notice error" style="margin-top:10px">' + esc(a.fout) + '</div>';
-      html += '<div class="btn-row"><div class="primary-btn" data-act="login-request">' + (a.bezig ? 'Bezig…' : 'Stuur inlogcode') + '</div></div>';
+      html += '<div class="btn-row"><div class="primary-btn" data-act="login-request">' + (a.bezig ? 'Bezig…' : 'Stuur inloglink') + '</div></div>';
     }
     html += '</div></div>';
     html += '</div>';
@@ -1744,25 +1751,16 @@
       if (!sb || !a.email.trim()) return;
       a.bezig = true; a.fout = '';
       render();
-      sb.auth.signInWithOtp({ email: a.email.trim() }).then(function (res) {
+      // emailRedirectTo = de huidige pagina zonder query/hash, zodat dit
+      // zowel lokaal (elke dev-poort) als op het echte GitHub Pages-adres
+      // vanzelf naar de juiste plek terugstuurt. Moet wel voorkomen op de
+      // "Redirect URLs"-lijst in Supabase (Authentication -> URL
+      // Configuration), anders weigert Supabase de link.
+      var redirectTo = window.location.origin + window.location.pathname;
+      sb.auth.signInWithOtp({ email: a.email.trim(), options: { emailRedirectTo: redirectTo } }).then(function (res) {
         a.bezig = false;
         if (res.error) { a.fout = res.error.message; render(); return; }
-        a.stap = 'code';
-        render();
-      }).catch(function () {
-        a.bezig = false; a.fout = 'Kon geen verbinding maken. Probeer het opnieuw.'; render();
-      });
-    },
-    'login-verify': function () {
-      var a = state.auth;
-      if (!sb || !a.code.trim()) return;
-      a.bezig = true; a.fout = '';
-      render();
-      sb.auth.verifyOtp({ email: a.email.trim(), token: a.code.trim(), type: 'email' }).then(function (res) {
-        a.bezig = false;
-        if (res.error) { a.fout = res.error.message; render(); return; }
-        // state.session/state.user worden gezet via de onAuthStateChange-listener.
-        a.email = ''; a.code = ''; a.stap = 'email';
+        a.stap = 'sent';
         render();
       }).catch(function () {
         a.bezig = false; a.fout = 'Kon geen verbinding maken. Probeer het opnieuw.'; render();
@@ -1770,7 +1768,7 @@
     },
     'login-change-email': function () {
       var a = state.auth;
-      a.stap = 'email'; a.code = ''; a.fout = '';
+      a.stap = 'email'; a.fout = '';
       render();
     },
     'logout': function () { if (sb) sb.auth.signOut(); },
@@ -1847,7 +1845,6 @@
     'upload-regel-cyclus': function (t, d) { state.upload.regels[+d.i].cyclus = t.value; },
     'upload-basisjaar': function (t) { state.upload.basisjaar = t.value; },
     'auth-email': function (t) { state.auth.email = t.value; },
-    'auth-code': function (t) { state.auth.code = t.value; },
   };
 
   var CHANGES = {
@@ -1941,6 +1938,21 @@
         state.user = session ? session.user : null;
         render();
       });
+      // Een verlopen/al-gebruikte inloglink komt terug als #error=...
+      // i.p.v. sessie-tokens (die vangt supabase-js zelf al af via
+      // detectSessionInUrl). Toon dat op het inlogscherm i.p.v. de
+      // gebruiker gewoon uitgelogd op het beginscherm te laten belanden
+      // zonder enige verklaring. Een mailclient opent de link vaak in een
+      // nieuwe, verse tab (screen nog op 'onboarding') — daarom hier ook
+      // meteen naar het voorbeeldgebouw, anders is er geen tabbalk om het
+      // accountscherm mee te bereiken.
+      if (window.location.hash.indexOf('error=') > -1) {
+        var errParams = new URLSearchParams(window.location.hash.slice(1));
+        state.auth.fout = errParams.get('error_description') || 'Inloggen via de link is niet gelukt. Vraag een nieuwe link aan.';
+        if (state.screen !== 'app') applyBuilding(defaultBuilding());
+        state.tab = 'account';
+        history.replaceState(null, '', window.location.pathname + window.location.search);
+      }
     }
     root.addEventListener('click', function (e) {
       var t = e.target.closest('[data-act]');

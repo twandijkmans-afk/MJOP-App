@@ -21,17 +21,24 @@ en open `http://localhost:8000`. Direct openen van `index.html` via
 
 ### Inloggen configureren (optioneel)
 
-Inloggen (zie `SPEC_ACCOUNTS_AND_SAVING.md`) gebruikt Supabase. Zonder
+Inloggen (zie `SPEC_ACCOUNTS_AND_SAVING.md`) gebruikt Supabase, met een
+eenmalige inloglink per e-mail (magic link) — geen wachtwoord. Zonder
 configuratie werkt de rest van de app gewoon door — er verschijnt dan een
 duidelijke melding op het "Inloggen"-tabblad. Om het aan te zetten:
 
 1. Maak een gratis project aan op [supabase.com](https://supabase.com).
-2. Zet in **Authentication → Providers → Email** de instelling "Confirm
-   email" desgewenst uit voor sneller testen, en zorg dat "Email OTP" aan
-   staat (standaard aan).
-3. Kopieer de **Project URL** en de **anon public key** (Project Settings
-   → API) naar `src/config.js`. De anon-sleutel is bedoeld om publiek te
-   zijn; zet er nooit de *service role*-sleutel in.
+2. Zet in **Authentication → URL Configuration** de **Site URL** en voeg
+   bij **Redirect URLs** het adres toe waar de app draait — voor de live
+   versie `https://<gebruiker>.github.io/<repo>/`, voor lokaal draaien
+   erbij `http://localhost:<poort>/index.html`. Zonder dit op de
+   redirect-lijst weigert Supabase de inloglink.
+3. Kopieer de **Project URL** en de **publishable/anon key** (Project
+   Settings → API) naar `src/config.js`. Die sleutel is bedoeld om
+   publiek te zijn; zet er nooit de *secret*/*service role*-sleutel in.
+4. Zonder eigen SMTP-provider gebruikt Supabase altijd het standaard
+   "Magic Link"-e-mailsjabloon (met een link, geen code) — de body
+   daarvan is dan niet aan te passen. Dat is precies waarom deze app een
+   link verwacht in plaats van een in te typen code.
 
 ## Hoe het werkt
 
@@ -107,11 +114,11 @@ duidelijke melding op het "Inloggen"-tabblad. Om het aan te zetten:
    laptop/desktop een zijbalk-navigatie die de volle breedte van het
    scherm gebruikt in plaats van een smal telefoonformaat met lege
    marges ernaast.
-10. **Inloggen** (`SPEC_ACCOUNTS_AND_SAVING.md`, fase 1) — e-mail + code
-   (OTP) via Supabase, geen wachtwoord. Alleen in-/uitloggen en sessie-
-   status; een plan opslaan en heropenen ("mijn gebouwen") volgt in een
-   latere fase. Zonder configuratie (zie hierboven) blijft de rest van de
-   app volledig anoniem bruikbaar.
+10. **Inloggen** (`SPEC_ACCOUNTS_AND_SAVING.md`, fase 1) — een eenmalige
+   inloglink per e-mail via Supabase, geen wachtwoord. Alleen in-/
+   uitloggen en sessiestatus; een plan opslaan en heropenen ("mijn
+   gebouwen") volgt in een latere fase. Zonder configuratie (zie
+   hierboven) blijft de rest van de app volledig anoniem bruikbaar.
 
 ## Bronnen
 
