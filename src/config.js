@@ -11,6 +11,6 @@
 // Leeg laten (zoals hieronder) betekent: inloggen staat uit, de rest
 // van de app werkt gewoon anoniem door.
 window.SUPABASE_CONFIG = {
-  url: '',      // bv. https://xxxxxxxxxxxx.supabase.co
-  anonKey: '',  // Project Settings -> API -> Project API keys -> anon public
+  url: 'https://tcxmkmbupbknklwiijoq.supabase.co',
+  anonKey: 'sb_publishable_IfhXai-_KQiHnf2tNcXeLQ_k2FsUaN0',
 };
