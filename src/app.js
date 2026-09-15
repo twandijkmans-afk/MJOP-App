@@ -366,6 +366,7 @@
     { key: 'dakisolatie', naam: 'Dakisolatie na-isoleren', categorie: 'Dak', sfb: '47.2', type: 'dak', cyclus: 30, kengetal: 60, bron: 'dakM2', optioneel: true },
 
     { key: 'gevel-metselwerk', naam: 'Gevelreiniging en metselwerkherstel', categorie: 'Gevel', sfb: '21.1', type: 'gevel', cyclus: 15, kengetal: 26, bron: 'gevelM2' },
+    { key: 'schilderwerk-buiten', naam: 'Schilderwerk buitenkozijnen en gevelhoutwerk', categorie: 'Gevel', sfb: '31.2', type: 'gevel', cyclus: 6, kengetal: 22, bron: 'gevelM2' },
     { key: 'kozijnen-onderhoud', naam: 'Onderhoud buitenkozijnen', categorie: 'Gevel', sfb: '31.1', type: 'kozijnen', cyclus: 6 },
     { key: 'steiger', naam: 'Steiger of hoogwerker', categorie: 'Gevel', sfb: '21', type: 'steiger', cyclus: 6, bron: 'gevelM2' },
     { key: 'voegwerk', naam: 'Voegwerk buitengevel', categorie: 'Gevel', sfb: '21.1', type: 'gevel', cyclus: 30, kengetal: 45, bron: 'gevelM2', optioneel: true },

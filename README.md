@@ -30,8 +30,10 @@ en open `http://localhost:8000`. Direct openen van `index.html` via
 2. **Elementenbibliotheek** (`ELEMENT_LIBRARY`) — ~20 gangbare VvE-
    onderhoudsposten (dak, gevel, kozijnen, installaties, binnen, terrein),
    elk met een NL-SfB-code (de Nederlandse coderingssystematiek voor
-   bouwdelen). Een kernset staat standaard in het plan; de rest is optioneel
-   toe te voegen via "Element toevoegen → uit bibliotheek".
+   bouwdelen). Een kernset staat standaard in het plan — waaronder
+   schilderwerk buitenkozijnen/gevelhoutwerk, meestal een van de grootste
+   posten in een MJOP en los van de kozijnen zelf begroot — de rest is
+   optioneel toe te voegen via "Element toevoegen → uit bibliotheek".
 3. **Upload een bestaand MJOP** — csv, Excel (xlsx/xls) of pdf. Csv/Excel
    worden kolom-voor-kolom herkend (element, jaar, bedrag, NL-SfB, conditie)
    met een controleerbare mapping; pdf wordt op tekst doorzocht naar
