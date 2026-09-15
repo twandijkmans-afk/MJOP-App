@@ -81,6 +81,14 @@
     return false;
   }
 
+  // Onvoorziene kosten/reserveringspost is een percentage- of vaste
+  // opslag op het totaal, geen onderhoudselement — die hoort niet als
+  // losse post in het plan (en al helemaal niet aan een gebouwdeel of
+  // categorie gekoppeld).
+  function isOnvoorzienPost(naam) {
+    return /onvoorzien/i.test(naam || '');
+  }
+
   function isVervolgregel(line) {
     // een omschrijving die wrapt naar haar eigen regel (geen cijfers, geen
     // nieuwe NL-SfB-code aan het begin, kort genoeg om een los woord/zin te zijn).
@@ -151,7 +159,7 @@
       // omschrijving die op haar eigen regel wrapt (komt vaak voor in
       // pdf-tabellen) hoort bij de net gevonden regel.
       if (isVervolgregel(rawLines[i + 1])) { naam = (naam + ' ' + rawLines[i + 1]).trim(); i++; }
-      if (naam && naam.length >= 3 && bedrag >= 100) {
+      if (naam && naam.length >= 3 && bedrag >= 100 && !isOnvoorzienPost(naam)) {
         out.push({ naam: naam, jaar: jaar, bedrag: bedrag, cyclus: cyclus, sfb: '', conditie: '', include: true });
       }
     }
@@ -904,6 +912,7 @@
   function renderTabBar() {
     var tabs = [['home', 'Overzicht'], ['gebouw', 'Gebouw'], ['planning', 'Planning'], ['rapport', 'Rapport']];
     var html = '<div class="tab-bar">';
+    html += '<div class="tab-brand">MJOP Live</div>';
     tabs.forEach(function (t) {
       var active = state.tab === t[0];
       html += '<button class="tab-item' + (active ? ' active' : '') + '" data-act="set-tab" data-tab="' + t[0] + '">';
@@ -1478,7 +1487,7 @@
         var sfb = m.sfb > -1 ? String(row[m.sfb] || '').trim() : '';
         var conditie = m.conditie > -1 ? String(row[m.conditie] || '').trim() : '';
         return { naam: naam, jaar: jaar || (CURRENT_YEAR + 1), bedrag: bedrag, sfb: sfb, conditie: conditie, include: !!(naam && bedrag) };
-      }).filter(function (r) { return r.naam; });
+      }).filter(function (r) { return r.naam && !isOnvoorzienPost(r.naam); });
       state.upload = { stap: 'regels', bestandsnaam: u.bestandsnaam, regels: regels, basisjaar: String(CURRENT_YEAR - 1) };
       render();
     },

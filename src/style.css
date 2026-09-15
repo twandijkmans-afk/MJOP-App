@@ -333,8 +333,85 @@ input[type=range]::-moz-range-thumb {
 .linkish { color: var(--blue); cursor: pointer; }
 .linkish:hover { text-decoration: underline; }
 
+.tab-brand { display: none; }
+
 @media (max-width: 480px) {
   .compare-grid { gap: 8px; }
+}
+
+/* Tablet (bv. iPad rechtop): het smalle telefoonformaat wordt een breder,
+   duidelijk als kaart gepresenteerd scherm — nog steeds met de onderste
+   tabbalk, want dit blijft een aanraakscherm-formaat. */
+@media (min-width: 640px) {
+  .app-shell { max-width: 640px; box-shadow: 0 0 60px rgba(36,31,27,.12); }
+}
+
+/* Laptop/desktop: zijbalk-navigatie in plaats van een onderste tabbalk,
+   zodat de volle breedte van het scherm gebruikt wordt in plaats van een
+   telefoonkaart met lege marges. Alleen van toepassing op het app-scherm
+   (met tabbalk) — het adres-opzoekscherm en de mjop-upload-wizard hebben
+   geen tabbalk en blijven een gecentreerde kaart, ook op een groot scherm. */
+@media (min-width: 960px) {
+  .app-shell:has(.tab-bar) {
+    max-width: none;
+    width: 100%;
+    flex-direction: row;
+    align-items: stretch;
+    box-shadow: none;
+    background: var(--page);
+  }
+  .app-shell:has(.tab-bar) > .tab-bar {
+    order: -1;
+    flex: none;
+    width: 232px;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
+    gap: 3px;
+    padding: 30px 16px;
+    border-top: none;
+    border-right: 1px solid var(--ink-10);
+    position: sticky;
+    top: 0;
+    bottom: auto;
+    height: 100vh;
+    backdrop-filter: none;
+    background: var(--card);
+  }
+  .app-shell:has(.tab-bar) > .tab-bar .tab-brand {
+    display: block;
+    font: 700 16px/1.2 var(--sans);
+    letter-spacing: -.01em;
+    color: var(--blue);
+    padding: 2px 12px 22px;
+  }
+  .app-shell:has(.tab-bar) > .tab-bar .tab-item {
+    flex-direction: row;
+    justify-content: flex-start;
+    align-items: center;
+    gap: 12px;
+    padding: 11px 12px;
+    border-radius: 12px;
+  }
+  .app-shell:has(.tab-bar) > .tab-bar .tab-item:hover { background: var(--panel); }
+  .app-shell:has(.tab-bar) > .tab-bar .tab-item.active { background: var(--blue-tint); }
+  .app-shell:has(.tab-bar) > .tab-bar .tab-dot { width: 9px; height: 9px; border-radius: 50%; }
+  .app-shell:has(.tab-bar) > .tab-bar .tab-item span:last-child { font: 500 13px/1 var(--sans); }
+
+  /* De feitelijke inhoud (altijd de andere rechtstreekse child van
+     .app-shell dan .tab-bar) krijgt terug een leesbare kaartbreedte,
+     maar dan binnen de volle schermhoogte/-breedte in plaats van een
+     smalle strook met kale marges ernaast. */
+  .app-shell:has(.tab-bar) > div:not(.tab-bar) {
+    flex: 1;
+    min-width: 0;
+    max-width: 760px;
+    margin: 0 auto;
+    background: var(--card);
+    min-height: 100vh;
+    box-shadow: 0 0 60px rgba(36,31,27,.08);
+  }
+  .app-shell:not(:has(.tab-bar)) { max-width: 720px; }
 }
 
 @media print {

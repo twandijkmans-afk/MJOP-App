@@ -72,6 +72,12 @@ en open `http://localhost:8000`. Direct openen van `index.html` via
    van alle elementen (inclusief NL-SfB-code en conditiescore) en een
    print-/PDF-knop (`window.print()` met een printstylesheet).
 
+9. **Verschillend per schermformaat** — op een telefoon een app met een
+   onderste tabbalk, op een tablet dezelfde kaart maar breder, en op een
+   laptop/desktop een zijbalk-navigatie die de volle breedte van het
+   scherm gebruikt in plaats van een smal telefoonformaat met lege
+   marges ernaast.
+
 ## Bronnen
 
 PDOK Locatieserver en BAG (Public Domain Mark 1.0), 3D BAG van de TU Delft
@@ -86,7 +92,9 @@ offerte.
 - De pdf-import van een bestaand MJOP is best-effort tekst-/regelherkenning
   op basis van jaartal + bedrag per regel — geen lay-outanalyse. Werkt goed
   voor eenvoudige tabellen, minder goed voor complexe pdf-opmaak; controleer
-  daarom altijd de regel-lijst voor het importeren.
+  daarom altijd de regel-lijst voor het importeren. Een regel met
+  "onvoorzien" in de omschrijving (een reserveringspost, geen onderhouds-
+  element) wordt bij csv/Excel/pdf-import automatisch overgeslagen.
 - De NEN 2767-gebrekenmethodiek in de app is een vereenvoudigde, zelf
   geïmplementeerde toepassing van de systematiek (ernst/omvang/intensiteit
   → conditiescore), niet de officiële NEN/SBR-defectcatalogus en geen
