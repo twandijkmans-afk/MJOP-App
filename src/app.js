@@ -1224,7 +1224,7 @@
   function renderTabBar() {
     var tabs = [['home', 'Overzicht'], ['gebouw', 'Gebouw'], ['planning', 'Planning'], ['rapport', 'Rapport']];
     var html = '<div class="tab-bar">';
-    html += '<div class="tab-brand" data-act="goto-marketing" style="cursor:pointer">MJOP Live</div>';
+    html += '<div class="tab-brand">' + mktLogo() + '</div>';
     tabs.forEach(function (t) {
       var active = state.tab === t[0];
       html += '<button class="tab-item' + (active ? ' active' : '') + '" data-act="set-tab" data-tab="' + t[0] + '">';
@@ -1429,14 +1429,14 @@
     var rowsHtml = [];
     aandacht.forEach(function (el) {
       rowsHtml.push('<div class="attn-row" data-act="open-element" data-id="' + el.id + '">' +
-        '<div class="attn-icon" style="background:#FBE9DF;color:#B4531F">?</div>' +
+        '<div class="attn-icon" style="background:var(--bad-bg);color:var(--bad-fg)">?</div>' +
         '<div class="grow"><div class="title">' + esc(el.naam) + ' nog niet beoordeeld</div>' +
         '<div class="sub">Beoordeel de conditie — dit bepaalt het jaar van vervanging</div></div>' +
         '<div class="chev">›</div></div>');
     });
     eerstvolgende.forEach(function (p) {
       rowsHtml.push('<div class="attn-row" data-act="open-element" data-id="' + p.elId + '">' +
-        '<div class="attn-icon" style="background:#F6E6C8;color:#8A6414">' + p.jaar + '</div>' +
+        '<div class="attn-icon" style="background:var(--warn2-bg);color:var(--warn2-fg)">' + p.jaar + '</div>' +
         '<div class="grow"><div class="title">' + esc(p.naam) + '</div>' +
         '<div class="sub">Gepland in ' + p.jaar + ' · ' + eur(p.bedrag) + '</div></div>' +
         '<div class="chev">›</div></div>');
@@ -1454,10 +1454,10 @@
   function isAssessed(el) { return el.type === 'custom' || conditionScore(el) != null; }
 
   function scoreColors(score) {
-    if (score == null) return ['#EFE7DA', 'rgba(36,31,27,.45)'];
-    if (score <= 2) return ['#E3EDE2', '#3F6B46'];
-    if (score === 3) return ['#F6EFD9', '#7D6318'];
-    return ['#FBE9DF', '#8A3D14'];
+    if (score == null) return ['var(--ink-08)', 'var(--ink-45)'];
+    if (score <= 2) return ['var(--good-bg)', 'var(--good-fg)'];
+    if (score === 3) return ['var(--warn-bg)', 'var(--warn-fg)'];
+    return ['var(--bad-bg)', 'var(--bad-fg)'];
   }
 
   function renderGebouw() {
@@ -1751,7 +1751,7 @@
     html += '<div class="ct-head"><div class="c1">REGEL</div>';
     offs.forEach(function (o, oi) {
       var rang = orde.indexOf(oi) + 1;
-      html += '<div class="ct-head-col"><span class="ct-rang" style="background:' + (rang === 1 ? '#E7EFE6' : 'rgba(36,31,27,.06)') + ';color:' + (rang === 1 ? '#3F6B46' : 'rgba(36,31,27,.5)') + '">#' + rang + '</span><div class="ct-colname">' + esc(o.naam) + '</div></div>';
+      html += '<div class="ct-head-col"><span class="ct-rang" style="background:' + (rang === 1 ? 'var(--good-bg)' : 'rgba(27,36,48,.06)') + ';color:' + (rang === 1 ? 'var(--good-fg)' : 'var(--ink-50)') + '">#' + rang + '</span><div class="ct-colname">' + esc(o.naam) + '</div></div>';
     });
     html += '</div>';
     regelNamen.forEach(function (naam) {
@@ -1760,7 +1760,7 @@
         var v = cellValue(o, naam);
         var missing = v == null;
         var shown = missing ? (bijvul ? fallbackFor(naam, oi) : null) : v;
-        html += '<div class="ct-cell" style="background:' + (missing && bijvul ? '#F6EFD9' : 'transparent') + ';color:' + (missing ? '#8A6414' : 'rgba(36,31,27,.7)') + '">' + (shown == null ? '—' : shown.toLocaleString('nl-NL')) + '</div>';
+        html += '<div class="ct-cell" style="background:' + (missing && bijvul ? 'var(--warn-bg)' : 'transparent') + ';color:' + (missing ? 'var(--warn2-fg)' : 'rgba(27,36,48,.7)') + '">' + (shown == null ? '—' : shown.toLocaleString('nl-NL')) + '</div>';
       });
       html += '</div>';
     });

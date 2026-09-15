@@ -390,10 +390,7 @@ input[type=range]::-moz-range-thumb {
   }
   .app-shell:has(.tab-bar) > .tab-bar .tab-brand {
     display: block;
-    font: 700 16px/1.2 var(--heading);
-    letter-spacing: -.01em;
-    color: var(--blue);
-    padding: 2px 12px 22px;
+    padding: 2px 12px 24px;
   }
   .app-shell:has(.tab-bar) > .tab-bar .tab-item {
     flex-direction: row;
