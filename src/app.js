@@ -775,6 +775,11 @@
     currentPlanId: null,
     lastSavedSnapshot: null,
     confirmDeleteId: null, // id van het plan waarvoor net op "verwijderen" geklikt is, in afwachting van bevestiging
+    // Met een sessie valt 'marketing' normaal automatisch terug op de app
+    // (zie currentScreen()) — dat geldt niet als de gebruiker zelf op het
+    // logo klikt om er expliciet naartoe te gaan. Alleen 'goto-marketing'
+    // zet dit op true.
+    forceMarketing: false,
   };
 
   // Zet het gebouw vast. Als er nog geen elementen zijn (verse start) wordt
@@ -886,7 +891,7 @@
   function currentScreen() {
     if (state.screen === 'marketing' || state.screen === 'login') {
       if (!isDesktopWidth()) return 'onboarding';
-      if (state.session) return 'onboarding';
+      if (state.session && !state.forceMarketing) return 'onboarding';
       return state.screen;
     }
     return state.screen;
@@ -943,7 +948,9 @@
     html += '<a href="#mkt-how">Hoe het werkt</a>';
     html += '<a data-act="goto-onboarding">Voorbeeldplan</a>';
     html += '</div>';
-    html += '<div class="mkt-login-btn" data-act="goto-login">' + MKT_ICONS.lock + '<span>Inloggen</span></div>';
+    html += state.session
+      ? '<div class="mkt-login-btn" data-act="goto-app">' + MKT_ICONS.lock + '<span>Naar mijn plan</span></div>'
+      : '<div class="mkt-login-btn" data-act="goto-login">' + MKT_ICONS.lock + '<span>Inloggen</span></div>';
     html += '</div>';
     return html;
   }
@@ -958,10 +965,12 @@
     html += '<h1 class="mkt-h1">Een onderhoudsplan voor uw VvE, gebaseerd op echte bouwdata</h1>';
     html += '<p class="mkt-sub">MJOP Live haalt bouwjaar, dakoppervlak en gevelmaten automatisch op uit de BAG en 3D BAG. Log in om uw eigen plan te maken en te bewaren.</p>';
     html += '<div class="mkt-cta-row">';
-    html += '<div class="mkt-cta-primary" data-act="goto-login">Inloggen en MJOP starten →</div>';
+    html += state.session
+      ? '<div class="mkt-cta-primary" data-act="goto-app">Naar mijn plan →</div>'
+      : '<div class="mkt-cta-primary" data-act="goto-login">Inloggen en MJOP starten →</div>';
     html += '<div class="mkt-cta-secondary" data-act="goto-onboarding">Bekijk een voorbeeldplan</div>';
     html += '</div>';
-    html += '<div class="mkt-fineprint">Geen wachtwoord nodig — u ontvangt een eenmalige inloglink per e-mail.</div>';
+    html += state.session ? '' : '<div class="mkt-fineprint">Geen wachtwoord nodig — u ontvangt een eenmalige inloglink per e-mail.</div>';
     html += '</div>';
 
     html += '<div class="mkt-hero-visual">';
@@ -1214,7 +1223,7 @@
   function renderTabBar() {
     var tabs = [['home', 'Overzicht'], ['gebouw', 'Gebouw'], ['planning', 'Planning'], ['rapport', 'Rapport']];
     var html = '<div class="tab-bar">';
-    html += '<div class="tab-brand">MJOP Live</div>';
+    html += '<div class="tab-brand" data-act="goto-marketing" style="cursor:pointer">MJOP Live</div>';
     tabs.forEach(function (t) {
       var active = state.tab === t[0];
       html += '<button class="tab-item' + (active ? ' active' : '') + '" data-act="set-tab" data-tab="' + t[0] + '">';
@@ -2031,7 +2040,12 @@
         state.plansUi.bezig = false; state.plansUi.fout = 'Kon geen verbinding maken. Probeer het opnieuw.'; render();
       });
     },
-    'goto-marketing': function () { state.screen = 'marketing'; render(); },
+    'goto-marketing': function () { state.screen = 'marketing'; state.forceMarketing = true; render(); },
+    // Alleen zichtbaar op de homepage als er al een sessie is (via het
+    // logo teruggeklikt) — dan is "opnieuw inloggen" niet van toepassing,
+    // ga direct terug naar het gebouw dat al in het geheugen staat, of
+    // anders (nog geen gebouw gekozen deze sessie) naar het adresscherm.
+    'goto-app': function () { state.screen = state.building ? 'app' : 'onboarding'; render(); },
     'goto-login': function () { state.screen = 'login'; render(); },
     'goto-onboarding': function () { state.screen = 'onboarding'; render(); },
     'kies-adres': function (d) {
