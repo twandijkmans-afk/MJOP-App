@@ -24,19 +24,30 @@ en open `http://localhost:8000`. Direct openen van `index.html` via
 1. **Adres opzoeken** (`src/app.js`, `suggestAddress` / `lookupBuilding`) —
    gebruikt de publieke, sleutelloze PDOK Locatieserver, BAG en 3D BAG
    API's om bouwjaar, appartementen, dakoppervlak, geveloppervlak en
-   gebouwhoogte op te halen voor een adres. Lukt de opzoeking niet, dan kan
-   met "Begin met een voorbeeldgebouw" een demo-portiekflat (1978, 8
+   gebouwhoogte op te halen voor een adres. Levert de adreszoekbalk geen
+   suggesties op, dan verschijnt een duidelijke melding in plaats van een
+   ogenschijnlijk kapotte zoekbalk. Lukt de opzoeking niet, dan kan met
+   "Begin met een voorbeeldgebouw" een demo-portiekflat (1978, 8
    appartementen) gebruikt worden. Het reservefonds is geen overheidsdata
    (dat bestaat niet) en start als richtgetal (€ 2.500 per appartement);
    het bedrag op het overzicht ("Reservefonds nu") is direct te bewerken
-   naar het werkelijke saldo uit de VvE-administratie.
+   naar het werkelijke saldo uit de VvE-administratie. De 3D BAG levert
+   plat en hellend dakoppervlak apart aan (`b3_opp_dak_plat`/`b3_opp_dak_schuin`);
+   die verdeling bepaalt welk dakelement(en) automatisch in het plan komen
+   en tegen welk kengetal/cyclus, in plaats van standaard het hele
+   dakvlak tegen bitumen-plat-dak-prijzen te zetten (relevant bij een
+   flink deel van de vooroorlogse en jaren-50/60-panden waar de app op
+   mikt).
 2. **Elementenbibliotheek** (`ELEMENT_LIBRARY`) — ~20 gangbare VvE-
    onderhoudsposten (dak, gevel, kozijnen, installaties, binnen, terrein),
    elk met een NL-SfB-code (de Nederlandse coderingssystematiek voor
    bouwdelen). Een kernset staat standaard in het plan — waaronder
    schilderwerk buitenkozijnen/gevelhoutwerk, meestal een van de grootste
    posten in een MJOP en los van de kozijnen zelf begroot — de rest is
-   optioneel toe te voegen via "Element toevoegen → uit bibliotheek".
+   optioneel toe te voegen via "Element toevoegen → uit bibliotheek", dat
+   scherm zet veelgemiste posten (cv-installatie, mechanische ventilatie,
+   brandveiligheid, verlichting gemeenschappelijke ruimten, terrein/
+   verharding) vooraan onder "Vaak gemist bij een eerste MJOP".
 3. **Upload een bestaand MJOP** — csv, Excel (xlsx/xls) of pdf. Csv/Excel
    worden kolom-voor-kolom herkend (element, jaar, bedrag, NL-SfB, conditie)
    met een controleerbare mapping; pdf wordt op tekst doorzocht naar

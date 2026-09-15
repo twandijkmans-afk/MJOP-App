@@ -359,10 +359,10 @@
   // optioneel:true → niet standaard in het plan, wel te kiezen via
   // "Element toevoegen → uit bibliotheek".
   var ELEMENT_LIBRARY = [
-    { key: 'dak-plat', naam: 'Dakbedekking plat dak', categorie: 'Dak', sfb: '27.1', type: 'dak', cyclus: 25, kengetal: 165, bron: 'dakM2' },
+    { key: 'dak-plat', naam: 'Dakbedekking plat dak', categorie: 'Dak', sfb: '27.1', type: 'dak', cyclus: 25, kengetal: 165, bron: 'dakPlatM2', optioneel: true },
     { key: 'dakgoten', naam: 'Dakgoten en hemelwaterafvoeren', categorie: 'Dak', sfb: '27.3', type: 'vast-variabel', cyclus: 20, basis: 300, perEenheid: 90, bron: 'units' },
     { key: 'dakinspectie', naam: 'Dakinspectie en klein onderhoud', categorie: 'Dak', sfb: '27', type: 'vast-variabel', cyclus: 2, basis: 420, perEenheid: 2, bron: 'dakM2' },
-    { key: 'dak-hellend', naam: 'Dakbedekking hellend dak (pannen)', categorie: 'Dak', sfb: '27.2', type: 'dak', cyclus: 40, kengetal: 95, bron: 'dakM2', optioneel: true },
+    { key: 'dak-hellend', naam: 'Dakbedekking hellend dak (pannen)', categorie: 'Dak', sfb: '27.2', type: 'dak', cyclus: 40, kengetal: 95, bron: 'dakSchuinM2', optioneel: true },
     { key: 'dakisolatie', naam: 'Dakisolatie na-isoleren', categorie: 'Dak', sfb: '47.2', type: 'dak', cyclus: 30, kengetal: 60, bron: 'dakM2', optioneel: true },
 
     { key: 'gevel-metselwerk', naam: 'Gevelreiniging en metselwerkherstel', categorie: 'Gevel', sfb: '21.1', type: 'gevel', cyclus: 15, kengetal: 26, bron: 'gevelM2' },
@@ -375,15 +375,17 @@
     { key: 'intercom', naam: 'Intercom en video-deuropener', categorie: 'Installaties', sfb: '66', type: 'per-unit', cyclus: 20, kengetal: 575, bron: 'units' },
     { key: 'riolering', naam: 'Riolering en hemelwaterafvoer (inpandig)', categorie: 'Installaties', sfb: '52', type: 'vast-variabel', cyclus: 10, basis: 1100, perEenheid: 120, bron: 'units' },
     { key: 'elektra', naam: 'Elektrische installatie gemeenschappelijk', categorie: 'Installaties', sfb: '62/63', type: 'vast-variabel', cyclus: 25, basis: 800, perEenheid: 90, bron: 'units', optioneel: true },
-    { key: 'verlichting', naam: 'Verlichting gemeenschappelijke ruimten', categorie: 'Installaties', sfb: '64', type: 'per-unit', cyclus: 15, kengetal: 65, bron: 'units', optioneel: true },
+    { key: 'verlichting', naam: 'Verlichting gemeenschappelijke ruimten', categorie: 'Installaties', sfb: '64', type: 'per-unit', cyclus: 15, kengetal: 65, bron: 'units', optioneel: true, aanbevolen: true },
     { key: 'waterleiding', naam: 'Waterleiding gemeenschappelijk', categorie: 'Installaties', sfb: '52', type: 'vast-variabel', cyclus: 30, basis: 600, perEenheid: 55, bron: 'units', optioneel: true },
-    { key: 'brandveiligheid', naam: 'Brandveiligheid (blusmiddelen, vluchtwegverlichting)', categorie: 'Installaties', sfb: '67', type: 'per-unit', cyclus: 10, kengetal: 45, bron: 'units', optioneel: true },
+    { key: 'brandveiligheid', naam: 'Brandveiligheid (blusmiddelen, vluchtwegverlichting)', categorie: 'Installaties', sfb: '67', type: 'per-unit', cyclus: 10, kengetal: 45, bron: 'units', optioneel: true, aanbevolen: true },
+    { key: 'cv-installatie', naam: 'Collectieve cv-installatie (ketel)', categorie: 'Installaties', sfb: '51', type: 'vast-variabel', cyclus: 18, basis: 3500, perEenheid: 350, bron: 'units', optioneel: true, aanbevolen: true },
+    { key: 'ventilatie', naam: 'Mechanische ventilatie', categorie: 'Installaties', sfb: '57', type: 'per-unit', cyclus: 15, kengetal: 220, bron: 'units', optioneel: true, aanbevolen: true },
     { key: 'lift', naam: 'Liftinstallatie — onderhoud en modernisering', categorie: 'Installaties', sfb: '59', type: 'vast-variabel', cyclus: 20, basis: 12000, perEenheid: 0, bron: 'none', optioneel: true },
 
     { key: 'trappenhuis', naam: 'Trappenhuis en entree', categorie: 'Binnen', sfb: '42/43', type: 'per-unit', cyclus: 8, kengetal: 480, bron: 'units' },
     { key: 'vloerafwerking', naam: 'Vloerafwerking gemeenschappelijke ruimten', categorie: 'Binnen', sfb: '43', type: 'per-unit', cyclus: 15, kengetal: 120, bron: 'units', optioneel: true },
 
-    { key: 'bestrating', naam: 'Bestrating en terreininrichting', categorie: 'Terrein', sfb: '81/89', type: 'vast-variabel', cyclus: 20, basis: 500, perEenheid: 60, bron: 'units', optioneel: true },
+    { key: 'bestrating', naam: 'Bestrating en terreininrichting', categorie: 'Terrein', sfb: '81/89', type: 'vast-variabel', cyclus: 20, basis: 500, perEenheid: 60, bron: 'units', optioneel: true, aanbevolen: true },
     { key: 'fietsenstalling', naam: 'Fietsenstalling en bergingen', categorie: 'Terrein', sfb: '89', type: 'per-unit', cyclus: 25, kengetal: 150, bron: 'units', optioneel: true },
   ];
 
@@ -433,6 +435,12 @@
 
   function bronWaarde(bron, b) {
     if (bron === 'dakM2') return b.dakM2;
+    // 3D BAG levert plat/schuin dakoppervlak apart (b3_opp_dak_plat/
+    // -_schuin); zonder die data (geen 3D-match, of het voorbeeldgebouw)
+    // valt dakPlatM2 terug op het hele dakoppervlak — het oude gedrag,
+    // dat een plat dak aanneemt.
+    if (bron === 'dakPlatM2') return (b.d3 && b.d3.plat != null) ? b.d3.plat : b.dakM2;
+    if (bron === 'dakSchuinM2') return (b.d3 && b.d3.schuin) || 0;
     if (bron === 'gevelM2') return b.gevelM2;
     if (bron === 'units') return b.units;
     return 0;
@@ -485,9 +493,18 @@
     return el;
   }
 
+  // Plat en hellend dak worden allebei standaard aangeboden, maar alleen
+  // als ze relevant zijn voor dít gebouw — op basis van de plat/schuin-
+  // verdeling die de 3D BAG al aanlevert. Zonder 3D-data (bijv. het
+  // voorbeeldgebouw) valt dit terug op "plat dak", het oude gedrag.
   function buildDefaultElements(b) {
-    return ELEMENT_LIBRARY.filter(function (d) { return !d.optioneel; })
-      .map(function (d) { return instantiateLibraryEl(d, b); });
+    var schuin = bronWaarde('dakSchuinM2', b);
+    var plat = bronWaarde('dakPlatM2', b);
+    return ELEMENT_LIBRARY.filter(function (d) {
+      if (d.key === 'dak-hellend') return schuin > 0;
+      if (d.key === 'dak-plat') return !(schuin > 0 && plat === 0);
+      return !d.optioneel;
+    }).map(function (d) { return instantiateLibraryEl(d, b); });
   }
 
   // ---------------------------------------------------------------------
@@ -722,7 +739,7 @@
   // ---------------------------------------------------------------------
   var state = {
     screen: 'onboarding',
-    onboarding: { q: '', sug: [], bezig: false, bezigTekst: '', fout: '' },
+    onboarding: { q: '', sug: [], bezig: false, bezigTekst: '', fout: '', gezocht: false },
     upload: null, // zie renderUploadWizard voor de vorm van dit object
     building: null,
     fonds: 0,
@@ -806,6 +823,9 @@
         html += '<div class="suggest-row" data-act="kies-adres" data-id="' + esc(sg.id) + '" data-naam="' + esc(sg.naam) + '">' + esc(sg.naam) + '</div>';
       });
       html += '</div>';
+    }
+    if (s.gezocht && !s.sug.length && !s.bezig && !s.fout) {
+      html += '<div class="notice">Geen adressen gevonden voor "' + esc(s.q) + '". Controleer de spelling, of begin hieronder met een voorbeeldgebouw.</div>';
     }
     if (s.bezig) html += '<div class="notice">' + esc(s.bezigTekst) + '</div>';
     if (s.fout) html += '<div class="notice error">' + esc(s.fout) + '</div>';
@@ -1095,17 +1115,31 @@
     var aanwezig = {};
     state.elements.forEach(function (el) { aanwezig[el.id] = true; });
     var beschikbaar = ELEMENT_LIBRARY.filter(function (d) { return d.optioneel && !aanwezig[d.key]; });
+    var aanbevolen = beschikbaar.filter(function (d) { return d.aanbevolen; });
+    var overig = beschikbaar.filter(function (d) { return !d.aanbevolen; });
 
-    var html = '<div class="section"><div class="section-title">Uit de elementenbibliotheek (NL-SfB)</div>';
-    html += '<div class="card" style="margin-top:11px">';
-    if (!beschikbaar.length) {
-      html += '<div class="row" style="border-top:none"><div class="grow meta" style="font-size:12.5px">Alle bibliotheek-elementen staan al in het plan.</div></div>';
+    var libraryRow = function (d, i) {
+      var row = '<div class="row" data-act="add-from-library" data-key="' + d.key + '" style="cursor:pointer' + (i === 0 ? ';border-top:none' : '') + '">';
+      row += '<div class="grow"><div class="name">' + esc(d.naam) + ' <span class="sfb-tag">NL-SfB ' + esc(d.sfb) + '</span></div><div class="meta">' + esc(d.categorie) + ' · cyclus ' + d.cyclus + ' jaar</div></div>';
+      row += '<div class="chev" style="color:var(--blue)">+</div></div>';
+      return row;
+    };
+
+    var html = '';
+    if (aanbevolen.length) {
+      html += '<div class="section"><div class="section-title">Vaak gemist bij een eerste MJOP</div>';
+      html += '<div class="hint" style="padding:0 4px 9px">Deze posten komen bij de meeste VvE’s voor, maar staan niet standaard in het plan.</div>';
+      html += '<div class="card">';
+      aanbevolen.forEach(function (d, i) { html += libraryRow(d, i); });
+      html += '</div></div>';
     }
-    beschikbaar.forEach(function (d, i) {
-      html += '<div class="row" data-act="add-from-library" data-key="' + d.key + '" style="cursor:pointer' + (i === 0 ? ';border-top:none' : '') + '">';
-      html += '<div class="grow"><div class="name">' + esc(d.naam) + ' <span class="sfb-tag">NL-SfB ' + esc(d.sfb) + '</span></div><div class="meta">' + esc(d.categorie) + ' · cyclus ' + d.cyclus + ' jaar</div></div>';
-      html += '<div class="chev" style="color:var(--blue)">+</div></div>';
-    });
+
+    html += '<div class="section"><div class="section-title">Uit de elementenbibliotheek (NL-SfB)</div>';
+    html += '<div class="card" style="margin-top:11px">';
+    if (!overig.length) {
+      html += '<div class="row" style="border-top:none"><div class="grow meta" style="font-size:12.5px">Alle overige bibliotheek-elementen staan al in het plan.</div></div>';
+    }
+    overig.forEach(function (d, i) { html += libraryRow(d, i); });
     html += '</div></div>';
 
     html += '<div class="section"><div class="card pad">';
@@ -1551,7 +1585,7 @@
 
   var ACTIONS = {
     'skip-onboarding': function () { applyBuilding(defaultBuilding()); render(); },
-    'wijzig-adres': function () { state.screen = 'onboarding'; state.onboarding = { q: '', sug: [], bezig: false, bezigTekst: '', fout: '' }; render(); },
+    'wijzig-adres': function () { state.screen = 'onboarding'; state.onboarding = { q: '', sug: [], bezig: false, bezigTekst: '', fout: '', gezocht: false }; render(); },
     'kies-adres': function (d) {
       var s = state.onboarding;
       s.sug = []; s.q = d.naam; s.bezig = true; s.bezigTekst = 'Adres opzoeken in de BAG…'; s.fout = '';
@@ -1678,11 +1712,11 @@
   var BINDS = {
     'addr-q': function (t) {
       var s = state.onboarding;
-      s.q = t.value; s.fout = '';
+      s.q = t.value; s.fout = ''; s.gezocht = false;
       clearTimeout(searchTimer);
       if (t.value.trim().length < 4) { s.sug = []; return; }
       searchTimer = setTimeout(function () {
-        suggestAddress(t.value).then(function (sug) { s.sug = sug; render(); })
+        suggestAddress(t.value).then(function (sug) { s.sug = sug; s.gezocht = true; render(); })
           .catch(function () { s.fout = 'Kon de adressenservice niet bereiken.'; render(); });
       }, 280);
     },
