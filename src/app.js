@@ -24,6 +24,107 @@
   function uid(prefix) { return prefix + '-' + Math.random().toString(36).slice(2, 9); }
 
   // ---------------------------------------------------------------------
+  // Upload van een bestaand MJOP (csv/xlsx/pdf) — best-effort extractie,
+  // altijd gevolgd door een controleerbare/aanpasbare regel-lijst voordat
+  // er iets het plan in gaat.
+  // ---------------------------------------------------------------------
+  function parseCsv(text) {
+    var firstLine = (text.split(/\r?\n/)[0] || '');
+    var delim = firstLine.split(';').length > firstLine.split(',').length ? ';' : ',';
+    var lines = text.split(/\r?\n/).filter(function (l) { return l.trim().length; });
+    return lines.map(function (line) {
+      var cells = [], cur = '', inQ = false;
+      for (var i = 0; i < line.length; i++) {
+        var c = line[i];
+        if (c === '"') {
+          if (inQ && line[i + 1] === '"') { cur += '"'; i++; } else inQ = !inQ;
+        } else if (c === delim && !inQ) { cells.push(cur); cur = ''; }
+        else cur += c;
+      }
+      cells.push(cur);
+      return cells.map(function (c) { return c.trim(); });
+    });
+  }
+
+  function guessColumn(header, keywords) {
+    var idx = -1;
+    header.forEach(function (h, i) {
+      if (idx === -1 && keywords.some(function (k) { return String(h).toLowerCase().indexOf(k) > -1; })) idx = i;
+    });
+    return idx;
+  }
+
+  function guessMapping(header) {
+    return {
+      naam: guessColumn(header, ['element', 'omschrijving', 'post', 'onderdeel', 'naam']),
+      jaar: guessColumn(header, ['jaar']),
+      bedrag: guessColumn(header, ['bedrag', 'kosten', 'prijs', 'investering']),
+      sfb: guessColumn(header, ['sfb', 'code']),
+      conditie: guessColumn(header, ['conditie', 'score']),
+    };
+  }
+
+  // Zoekt regels met een jaartal én een bedrag erop — een MJOP-tabel
+  // geëxporteerd naar PDF staat meestal zo opgemaakt. Nooit perfect voor
+  // elke lay-out, daarom altijd gevolgd door de controleerbare regel-lijst.
+  function extractPdfRegels(fullText) {
+    var lines = fullText.split('\n').map(function (l) { return l.trim(); }).filter(Boolean);
+    var yearRe = /\b(20[2-6][0-9])\b/;
+    var amountRe = /([0-9]{1,3}(?:[.,][0-9]{3})*(?:[.,][0-9]{2})?)\s*(?:€|eur)?\s*$/i;
+    var out = [];
+    lines.forEach(function (line) {
+      var ym = yearRe.exec(line);
+      var am = amountRe.exec(line);
+      if (!ym || !am) return;
+      var naam = line.slice(0, am.index).replace(ym[0], '').replace(/[€\-–.:]+$/, '').trim();
+      var bedrag = num(am[1]);
+      if (naam && bedrag > 0) out.push({ naam: naam, jaar: +ym[1], bedrag: bedrag, sfb: '', conditie: '', include: true });
+    });
+    return out;
+  }
+
+  function readFileAsText(file) {
+    return new Promise(function (resolve, reject) {
+      var r = new FileReader();
+      r.onload = function () { resolve(r.result); };
+      r.onerror = function () { reject(new Error('bestand kon niet gelezen worden')); };
+      r.readAsText(file);
+    });
+  }
+  function readFileAsArrayBuffer(file) {
+    return new Promise(function (resolve, reject) {
+      var r = new FileReader();
+      r.onload = function () { resolve(r.result); };
+      r.onerror = function () { reject(new Error('bestand kon niet gelezen worden')); };
+      r.readAsArrayBuffer(file);
+    });
+  }
+
+  function extractPdfText(arrayBuffer) {
+    if (!window.pdfjsLib) return Promise.reject(new Error('PDF-ondersteuning kon niet geladen worden (geen internetverbinding?)'));
+    return pdfjsLib.getDocument({ data: arrayBuffer }).promise.then(function (doc) {
+      var pageNums = [];
+      for (var i = 1; i <= doc.numPages; i++) pageNums.push(i);
+      return pageNums.reduce(function (chain, n) {
+        return chain.then(function (acc) {
+          return doc.getPage(n).then(function (page) { return page.getTextContent(); }).then(function (tc) {
+            var lastY = null, line = '';
+            var lines = [];
+            tc.items.forEach(function (it) {
+              var y = it.transform[5];
+              if (lastY != null && Math.abs(y - lastY) > 2) { lines.push(line); line = ''; }
+              line += it.str + ' ';
+              lastY = y;
+            });
+            if (line.trim()) lines.push(line);
+            return acc + lines.join('\n') + '\n';
+          });
+        });
+      }, Promise.resolve(''));
+    });
+  }
+
+  // ---------------------------------------------------------------------
   // Geometry helpers (BAG polygon area / perimeter), ported from the
   // MJOP Live prototype's real-data lookup logic.
   // ---------------------------------------------------------------------
@@ -137,30 +238,71 @@
   }
 
   // ---------------------------------------------------------------------
-  // Element model
+  // Element model — NL-SfB gecodeerde elementenbibliotheek
+  //
+  // NL-SfB is de Nederlandse coderingssystematiek voor bouwdelen
+  // (Stichting Bouwresearch / elementenmethode), veelgebruikt in MJOP's.
+  // De codes hieronder volgen de standaard hoofdgroepen (2x constructie,
+  // 3x inbouw, 4x afwerking, 5x werktuigbouw, 6x elektrotechniek,
+  // 8x/9x terrein) — de bijbehorende omschrijvingen en kengetallen zijn
+  // van deze implementatie, niet uit het (auteursrechtelijk beschermde)
+  // NEN/SBR-defectenboek overgenomen.
   // ---------------------------------------------------------------------
   var KOZ_DEF = [['Draaiend raam', 174], ['Vast glas', 96], ['Deur', 240], ['Dakkapel', 320]];
 
-  var VERGELIJK_DAK = [
-    { titel: 'Als nieuw', foto: 'referentiefoto\nnieuw bitumendak', tekst: 'Egaal zwart, naden dicht, geen plassen na regen.', conditie: 1 },
-    { titel: 'Licht verouderd', foto: 'geen foto — beschrijving\nlichte veroudering', tekst: 'Wat verkleuring en grind verschoven, verder gaaf.', conditie: 2 },
-    { titel: 'Blaasvorming', foto: 'referentiefoto\nblaasvorming en scheuren', tekst: 'Blazen en losse naden op meerdere plekken, plassen blijven staan.', conditie: 4 },
-    { titel: 'Lekkage gemeld', foto: 'geen foto — beschrijving\nactieve lekkage', tekst: 'Zichtbare scheuren, vochtplekken in de bovenste woning.', conditie: 5 },
-  ];
-  var UITSLAG_DAK = {
-    1: ['Conditie 1 — als nieuw', 'Vervanging kan ver na 2035 blijven staan. Alleen tweejaarlijkse inspectie opnemen.'],
-    2: ['Conditie 2 — goed', 'Vervanging kan doorschuiven naar het einde van de cyclus. Alleen tweejaarlijkse inspectie opnemen.'],
-    3: ['Conditie 3 — redelijk', 'Reken op een bandbreedte in de kosten; de prijs kan tot de vervanging oplopen.'],
-    4: ['Conditie 4 — matig', 'Vervanging binnen vijf jaar. Dit is vaak de grootste post in het plan.'],
-    5: ['Conditie 5 — slecht', 'Vervanging dit jaar, en tot die tijd jaarlijks nakijken. Dit verhoogt de maandbijdrage direct.'],
+  // Onderhoudsprofiel per kozijnmateriaal: eigen cyclus (jaar) en een
+  // factor op het houten-kozijn-tarief (aluminium/kunststof hebben geen
+  // periodiek schilderwerk nodig, alleen reiniging/afstellen; staal zit
+  // ertussenin met roestbehandeling).
+  var KOZ_MATERIAAL = {
+    hout: { label: 'Hout', cyclus: 6, factor: 1 },
+    aluminium: { label: 'Aluminium', cyclus: 15, factor: 0.35 },
+    kunststof: { label: 'Kunststof (pvc)', cyclus: 20, factor: 0.2 },
+    staal: { label: 'Staal', cyclus: 8, factor: 1.1 },
   };
 
-  function defaultBuilding() {
-    return {
-      adres: 'Voorbeeldgebouw — portiekflat', bouwjaar: 1978, units: 8,
-      dakM2: 140, gevelM2: 220, werkhoogte: 9, opp: 140, omtrek: 60,
-      identificatie: '', gebruiksdoel: 'woonfunctie', d3: null, isVoorbeeld: true,
-    };
+  // key, naam, categorie, sfb-code, type, cyclus, plus type-specifieke velden.
+  // optioneel:true → niet standaard in het plan, wel te kiezen via
+  // "Element toevoegen → uit bibliotheek".
+  var ELEMENT_LIBRARY = [
+    { key: 'dak-plat', naam: 'Dakbedekking plat dak', categorie: 'Dak', sfb: '27.1', type: 'dak', cyclus: 25, kengetal: 165, bron: 'dakM2' },
+    { key: 'dakgoten', naam: 'Dakgoten en hemelwaterafvoeren', categorie: 'Dak', sfb: '27.3', type: 'vast-variabel', cyclus: 20, basis: 300, perEenheid: 90, bron: 'units' },
+    { key: 'dakinspectie', naam: 'Dakinspectie en klein onderhoud', categorie: 'Dak', sfb: '27', type: 'vast-variabel', cyclus: 2, basis: 420, perEenheid: 2, bron: 'dakM2' },
+    { key: 'dak-hellend', naam: 'Dakbedekking hellend dak (pannen)', categorie: 'Dak', sfb: '27.2', type: 'dak', cyclus: 40, kengetal: 95, bron: 'dakM2', optioneel: true },
+    { key: 'dakisolatie', naam: 'Dakisolatie na-isoleren', categorie: 'Dak', sfb: '47.2', type: 'dak', cyclus: 30, kengetal: 60, bron: 'dakM2', optioneel: true },
+
+    { key: 'gevel-metselwerk', naam: 'Gevelreiniging en metselwerkherstel', categorie: 'Gevel', sfb: '21.1', type: 'gevel', cyclus: 15, kengetal: 26, bron: 'gevelM2' },
+    { key: 'kozijnen-onderhoud', naam: 'Onderhoud buitenkozijnen', categorie: 'Gevel', sfb: '31.1', type: 'kozijnen', cyclus: 6 },
+    { key: 'steiger', naam: 'Steiger of hoogwerker', categorie: 'Gevel', sfb: '21', type: 'steiger', cyclus: 6, bron: 'gevelM2' },
+    { key: 'voegwerk', naam: 'Voegwerk buitengevel', categorie: 'Gevel', sfb: '21.1', type: 'gevel', cyclus: 30, kengetal: 45, bron: 'gevelM2', optioneel: true },
+    { key: 'balkonhekken', naam: 'Balkonhekken en borstweringen', categorie: 'Gevel', sfb: '34.1', type: 'per-unit', cyclus: 20, kengetal: 210, bron: 'units', optioneel: true },
+
+    { key: 'intercom', naam: 'Intercom en video-deuropener', categorie: 'Installaties', sfb: '66', type: 'per-unit', cyclus: 20, kengetal: 575, bron: 'units' },
+    { key: 'riolering', naam: 'Riolering en hemelwaterafvoer (inpandig)', categorie: 'Installaties', sfb: '52', type: 'vast-variabel', cyclus: 10, basis: 1100, perEenheid: 120, bron: 'units' },
+    { key: 'elektra', naam: 'Elektrische installatie gemeenschappelijk', categorie: 'Installaties', sfb: '62/63', type: 'vast-variabel', cyclus: 25, basis: 800, perEenheid: 90, bron: 'units', optioneel: true },
+    { key: 'verlichting', naam: 'Verlichting gemeenschappelijke ruimten', categorie: 'Installaties', sfb: '64', type: 'per-unit', cyclus: 15, kengetal: 65, bron: 'units', optioneel: true },
+    { key: 'waterleiding', naam: 'Waterleiding gemeenschappelijk', categorie: 'Installaties', sfb: '52', type: 'vast-variabel', cyclus: 30, basis: 600, perEenheid: 55, bron: 'units', optioneel: true },
+    { key: 'brandveiligheid', naam: 'Brandveiligheid (blusmiddelen, vluchtwegverlichting)', categorie: 'Installaties', sfb: '67', type: 'per-unit', cyclus: 10, kengetal: 45, bron: 'units', optioneel: true },
+    { key: 'lift', naam: 'Liftinstallatie — onderhoud en modernisering', categorie: 'Installaties', sfb: '59', type: 'vast-variabel', cyclus: 20, basis: 12000, perEenheid: 0, bron: 'none', optioneel: true },
+
+    { key: 'trappenhuis', naam: 'Trappenhuis en entree', categorie: 'Binnen', sfb: '42/43', type: 'per-unit', cyclus: 8, kengetal: 480, bron: 'units' },
+    { key: 'vloerafwerking', naam: 'Vloerafwerking gemeenschappelijke ruimten', categorie: 'Binnen', sfb: '43', type: 'per-unit', cyclus: 15, kengetal: 120, bron: 'units', optioneel: true },
+
+    { key: 'bestrating', naam: 'Bestrating en terreininrichting', categorie: 'Terrein', sfb: '81/89', type: 'vast-variabel', cyclus: 20, basis: 500, perEenheid: 60, bron: 'units', optioneel: true },
+    { key: 'fietsenstalling', naam: 'Fietsenstalling en bergingen', categorie: 'Terrein', sfb: '89', type: 'per-unit', cyclus: 25, kengetal: 150, bron: 'units', optioneel: true },
+  ];
+
+  function libraryEntry(key) {
+    var found = null;
+    ELEMENT_LIBRARY.forEach(function (d) { if (d.key === key) found = d; });
+    return found;
+  }
+
+  function bronWaarde(bron, b) {
+    if (bron === 'dakM2') return b.dakM2;
+    if (bron === 'gevelM2') return b.gevelM2;
+    if (bron === 'units') return b.units;
+    return 0;
   }
 
   function scaleKozCounts(units) {
@@ -172,66 +314,129 @@
     ];
   }
 
+  function defaultBuilding() {
+    return {
+      adres: 'Voorbeeldgebouw — portiekflat', bouwjaar: 1978, units: 8,
+      dakM2: 140, gevelM2: 220, werkhoogte: 9, opp: 140, omtrek: 60,
+      identificatie: '', gebruiksdoel: 'woonfunctie', d3: null, isVoorbeeld: true,
+    };
+  }
+
+  // Bouwt een element-instantie uit een bibliotheek-definitie, geschaald
+  // op de werkelijke (of voorbeeld-)gebouwgegevens.
+  function instantiateLibraryEl(def, b) {
+    var el = {
+      id: def.key, naam: def.naam, categorie: def.categorie, sfb: def.sfb,
+      type: def.type, cyclus: def.cyclus,
+      laatsteBeurt: b.bouwjaar || (CURRENT_YEAR - def.cyclus), gebreken: [],
+    };
+    if (def.type === 'kozijnen') {
+      var counts = scaleKozCounts(b.units);
+      el.koz = KOZ_DEF.map(function (d, i) {
+        return { naam: d[0], tarief: d[1], aantal: counts[i], eigenTarief: null, materiaal: 'hout' };
+      });
+    } else if (def.type === 'dak' || def.type === 'gevel') {
+      el.hoeveelheid = bronWaarde(def.bron, b);
+      el.kengetal = def.kengetal;
+    } else if (def.type === 'steiger') {
+      el.hoeveelheid = bronWaarde(def.bron, b);
+      el.werkhoogte = b.werkhoogte;
+    } else if (def.type === 'per-unit') {
+      el.hoeveelheid = bronWaarde(def.bron, b);
+      el.kengetal = def.kengetal;
+    } else if (def.type === 'vast-variabel') {
+      el.hoeveelheid = bronWaarde(def.bron, b);
+      el.basis = def.basis;
+      el.perEenheid = def.perEenheid;
+    }
+    return el;
+  }
+
   function buildDefaultElements(b) {
-    var els = [];
-    els.push({
-      id: 'dak', naam: 'Plat dak — dakbedekking', categorie: 'Dak',
-      type: 'dak', cyclus: 25, laatsteBeurt: b.bouwjaar || (CURRENT_YEAR - 25), conditie: null,
-      hoeveelheid: b.dakM2, eenheid: 'm²', kengetal: 165,
-      assessable: true, vergelijk: VERGELIJK_DAK, uitslag: UITSLAG_DAK,
+    return ELEMENT_LIBRARY.filter(function (d) { return !d.optioneel; })
+      .map(function (d) { return instantiateLibraryEl(d, b); });
+  }
+
+  // ---------------------------------------------------------------------
+  // NEN 2767-methodiek (vereenvoudigd) — gebreken vastleggen i.p.v. een
+  // losse conditie-schuif. Per gebrek wordt ernst, omvang en intensiteit
+  // (elk 1-3) vastgelegd; de conditiescore (1-6, conform de NEN 2767-schaal
+  // "uitstekend" t/m "zeer slecht") volgt uit het zwaarste gebrek. Dit is
+  // een praktische toepassing van de systematiek voor planningsdoeleinden,
+  // geen vervanging voor een inspectie door een gecertificeerd inspecteur.
+  // ---------------------------------------------------------------------
+  var CONDITIE_LABELS = {
+    1: 'Uitstekend', 2: 'Goed', 3: 'Redelijk', 4: 'Matig', 5: 'Slecht', 6: 'Zeer slecht',
+  };
+
+  // Generieke, zelf geformuleerde gebrekomschrijvingen per categorie
+  // (geen letterlijke NEN/SBR-defectcatalogus).
+  var GEBREK_SUGGESTIES = {
+    Dak: ['Scheurvorming in het dakvlak', 'Blaasvorming of loslating van de bedekking', 'Lekkage of vochtdoorslag', 'Verwering/UV-schade oppervlak', 'Vervuiling of mosgroei', 'Beschadigde randafwerking of loodwerk'],
+    Gevel: ['Scheurvorming in het metselwerk', 'Loszittend of uitgesleten voegwerk', 'Vochtdoorslag of vochtplekken', 'Rot of scheurvorming in kozijnhout', 'Beschadigde of verweerde coating/verflaag', 'Corrosie aan hang- en sluitwerk'],
+    Installaties: ['Storingen of uitval', 'Verouderde/niet meer leverbare onderdelen', 'Corrosie aan leidingwerk', 'Ontbrekende of verlopen keuringen', 'Slijtage aan bewegende delen'],
+    Binnen: ['Slijtage van het oppervlak', 'Vochtplekken of schimmelvorming', 'Beschadigde afwerklaag', 'Loszittende onderdelen'],
+    Terrein: ['Verzakking of scheefstand', 'Slijtage van het oppervlak', 'Onkruidgroei in voegen', 'Beschadigingen door gebruik'],
+    Overig: ['Slijtage', 'Zichtbare schade', 'Einde technische levensduur'],
+  };
+
+  function gebrekScore(ernst, omvang, intensiteit) {
+    var som = ernst + omvang + intensiteit; // 3..9
+    if (som <= 4) return 1;
+    if (som <= 5) return 2;
+    if (som <= 6) return 3;
+    if (som === 7) return 4;
+    if (som === 8) return 5;
+    return 6;
+  }
+
+  function conditionScore(el) {
+    if (!el.gebreken || !el.gebreken.length) return null;
+    var max = 0;
+    el.gebreken.forEach(function (g) {
+      var s = gebrekScore(g.ernst, g.omvang, g.intensiteit);
+      if (s > max) max = s;
     });
-    els.push({
-      id: 'schilderwerk', naam: 'Buitenschilderwerk kozijnen', categorie: 'Gevel',
-      type: 'kozijnen', cyclus: 6, laatsteBeurt: b.bouwjaar || (CURRENT_YEAR - 6), conditie: null,
-      koz: KOZ_DEF.map(function (d, i) {
-        return { naam: d[0], tarief: d[1], aantal: scaleKozCounts(b.units)[i], eigenTarief: null };
-      }),
-    });
-    els.push({
-      id: 'gevel', naam: 'Gevelreiniging en metselwerkherstel', categorie: 'Gevel',
-      type: 'gevel', cyclus: 15, laatsteBeurt: b.bouwjaar || (CURRENT_YEAR - 15), conditie: null,
-      hoeveelheid: b.gevelM2, eenheid: 'm² buitenmuur', kengetal: 26,
-    });
-    els.push({
-      id: 'steiger', naam: 'Steiger of hoogwerker', categorie: 'Gevel',
-      type: 'steiger', cyclus: 6, laatsteBeurt: b.bouwjaar || (CURRENT_YEAR - 6), conditie: null,
-      hoeveelheid: b.gevelM2, eenheid: 'm² gevel', werkhoogte: b.werkhoogte,
-    });
-    els.push({
-      id: 'intercom', naam: 'Intercom en bellentableau', categorie: 'Installaties',
-      type: 'per-unit', cyclus: 20, laatsteBeurt: b.bouwjaar || (CURRENT_YEAR - 20), conditie: null,
-      hoeveelheid: b.units, eenheid: 'units', kengetal: 575,
-    });
-    els.push({
-      id: 'trappenhuis', naam: 'Trappenhuis en entree', categorie: 'Binnen',
-      type: 'per-unit', cyclus: 8, laatsteBeurt: b.bouwjaar || (CURRENT_YEAR - 8), conditie: null,
-      hoeveelheid: b.units, eenheid: 'units', kengetal: 480,
-    });
-    els.push({
-      id: 'riolering', naam: 'Riolering en hemelwaterafvoer', categorie: 'Installaties',
-      type: 'riolering', cyclus: 10, laatsteBeurt: b.bouwjaar || (CURRENT_YEAR - 10), conditie: null,
-      hoeveelheid: b.units,
-    });
-    els.push({
-      id: 'dakinspectie', naam: 'Dakinspectie en klein onderhoud', categorie: 'Dak',
-      type: 'dakinspectie', cyclus: 2, laatsteBeurt: CURRENT_YEAR, conditie: null,
-      hoeveelheid: b.dakM2,
-    });
-    return els;
+    return max;
   }
 
   // ---------------------------------------------------------------------
   // Cost + scheduling
   // ---------------------------------------------------------------------
+  function kozTarief(k) {
+    var mat = KOZ_MATERIAAL[k.materiaal] || KOZ_MATERIAAL.hout;
+    return k.eigenTarief != null ? k.eigenTarief : Math.round(k.tarief * mat.factor);
+  }
+  function kozCyclus(k) { return (KOZ_MATERIAAL[k.materiaal] || KOZ_MATERIAAL.hout).cyclus; }
+
+  // Groepeert kozijnrijen op onderhoudscyclus (die volgt uit het materiaal):
+  // verschillende materialen op hetzelfde element worden dus apart in de
+  // tijd gezet in plaats van als één post.
+  function kozGroepen(el) {
+    var byCyclus = {};
+    el.koz.forEach(function (k) {
+      var c = kozCyclus(k);
+      if (!byCyclus[c]) byCyclus[c] = [];
+      byCyclus[c].push(k);
+    });
+    return Object.keys(byCyclus).map(function (c) {
+      var rows = byCyclus[c];
+      var bedrag = rows.reduce(function (a, k) { return a + k.aantal * kozTarief(k); }, 0);
+      var aantal = rows.reduce(function (a, k) { return a + k.aantal; }, 0);
+      var materialen = rows.map(function (k) { return (KOZ_MATERIAAL[k.materiaal] || KOZ_MATERIAAL.hout).label; })
+        .filter(function (v, i, arr) { return arr.indexOf(v) === i; });
+      return { cyclus: +c, bedrag: bedrag, aantal: aantal, materialen: materialen };
+    });
+  }
+
   function elementCost(el, state) {
     switch (el.type) {
       case 'dak': return el.hoeveelheid * el.kengetal;
-      case 'kozijnen': return el.koz.reduce(function (a, k) { return a + k.aantal * (k.eigenTarief != null ? k.eigenTarief : k.tarief); }, 0);
+      case 'kozijnen': return el.koz.reduce(function (a, k) { return a + k.aantal * kozTarief(k); }, 0);
       case 'gevel': return el.hoeveelheid * el.kengetal;
       case 'steiger': return Math.round(el.hoeveelheid * (el.werkhoogte > 8 ? 11 : 6));
       case 'per-unit': return el.hoeveelheid * el.kengetal;
-      case 'riolering': return 1100 + el.hoeveelheid * 120;
-      case 'dakinspectie': return 420 + el.hoeveelheid * 2;
+      case 'vast-variabel': return el.basis + el.hoeveelheid * el.perEenheid;
       case 'custom': return el.bedrag;
       default: return 0;
     }
@@ -240,12 +445,13 @@
   function elementMeta(el) {
     switch (el.type) {
       case 'dak': return el.hoeveelheid + ' m² × ' + eur(el.kengetal);
-      case 'kozijnen': return el.koz.reduce(function (a, k) { return a + k.aantal; }, 0) + ' kozijnen';
+      case 'kozijnen': return kozGroepen(el).map(function (g) {
+        return g.aantal + ' × ' + g.materialen.join('/') + ' (' + g.cyclus + 'j)';
+      }).join(', ');
       case 'gevel': return el.hoeveelheid + ' m² buitenmuur × ' + eur(el.kengetal);
       case 'steiger': return 'werkhoogte ' + el.werkhoogte + ' m';
       case 'per-unit': return el.hoeveelheid + ' units × ' + eur(el.kengetal);
-      case 'riolering': return 'preventief doorspuiten';
-      case 'dakinspectie': return 'tweejaarlijks';
+      case 'vast-variabel': return eur(el.basis) + ' vast + ' + el.hoeveelheid + ' × ' + eur(el.perEenheid);
       case 'custom': return el.metaTekst || 'eenmalige post';
       default: return '';
     }
@@ -258,11 +464,18 @@
     return j;
   }
 
-  function conditionYear(el) {
-    var baseline = nextOccurrence(el.cyclus, el.laatsteBeurt + el.cyclus);
-    if (el.conditie == null) return baseline;
-    var jarenResterend = Math.round(el.cyclus * (5 - el.conditie) / 4);
+  // NEN 2767 conditiescore loopt 1 (uitstekend) t/m 6 (zeer slecht).
+  // Onbeoordeeld (geen gebreken vastgelegd) volgt de standaardcyclus vanaf
+  // de laatste beurt; een conditiescore schuift het jaar naar voren.
+  function yearForCycle(cyclus, laatsteBeurt, score) {
+    var baseline = nextOccurrence(cyclus, laatsteBeurt + cyclus);
+    if (score == null) return baseline;
+    var jarenResterend = Math.round(cyclus * (6 - score) / 5);
     return Math.max(CURRENT_YEAR, CURRENT_YEAR + jarenResterend);
+  }
+
+  function conditionYear(el) {
+    return yearForCycle(el.cyclus, el.laatsteBeurt, conditionScore(el));
   }
 
   // Returns [{jaar, bedrag, meta}] within the planning horizon.
@@ -275,6 +488,16 @@
       } else if (el.jaar >= CURRENT_YEAR && el.jaar <= CURRENT_YEAR + HORIZON - 1) {
         out.push({ jaar: el.jaar, bedrag: el.bedrag, meta: elementMeta(el) });
       }
+      return out;
+    }
+    if (el.type === 'kozijnen') {
+      var score = conditionScore(el);
+      kozGroepen(el).forEach(function (g) {
+        var first = yearForCycle(g.cyclus, el.laatsteBeurt, score);
+        var meta = g.aantal + ' × ' + g.materialen.join('/');
+        var j3 = first;
+        while (j3 <= CURRENT_YEAR + HORIZON - 1) { out.push({ jaar: j3, bedrag: g.bedrag, meta: meta }); j3 += g.cyclus; }
+      });
       return out;
     }
     var first = conditionYear(el);
@@ -320,6 +543,7 @@
   var state = {
     screen: 'onboarding',
     onboarding: { q: '', sug: [], bezig: false, bezigTekst: '', fout: '' },
+    upload: null, // zie renderUploadWizard voor de vorm van dit object
     building: null,
     fonds: 0,
     bijdrage: 55,
@@ -327,18 +551,32 @@
     elements: [],
     tab: 'home',
     activeElementId: null,
-    activeScreen: null, // null | 'vergelijk-help' | 'offertes' | 'add-element'
     filter: 'Alles',
     offertes: {}, // elId -> [{id, naam, btw, regels:[{naam,bedrag}]}]
     bijvullen: {}, // elId -> bool
     addForm: null,
-    hVragen: { won: 3, oppr: 2, extra: 0 },
   };
 
-  function startApp(building) {
+  // Zet het gebouw vast. Als er nog geen elementen zijn (verse start) wordt
+  // de standaardbibliotheek geïnstantieerd; zijn er al elementen (bv. uit
+  // een MJOP-upload) dan worden alleen de bibliotheek-elementen herschaald
+  // op de nieuwe m²/units — geïmporteerde/eigen posten blijven ongemoeid.
+  function applyBuilding(building) {
     state.building = building;
-    state.fonds = building.units * 2500;
-    state.elements = buildDefaultElements(building);
+    if (!state.elements.length) {
+      state.fonds = building.units * 2500;
+      state.elements = buildDefaultElements(building);
+    } else {
+      state.elements.forEach(function (el) {
+        var def = libraryEntry(el.id);
+        if (def && def.bron && def.bron !== 'none') el.hoeveelheid = bronWaarde(def.bron, building);
+        if (el.type === 'steiger') el.werkhoogte = building.werkhoogte;
+        if (el.type === 'kozijnen') {
+          var counts = scaleKozCounts(building.units);
+          el.koz.forEach(function (k, i) { if (KOZ_DEF[i]) k.aantal = counts[i]; });
+        }
+      });
+    }
     state.screen = 'app';
     state.tab = 'home';
   }
@@ -367,6 +605,7 @@
   }
 
   function renderOnboarding() {
+    if (state.upload) return renderUploadWizard();
     var s = state.onboarding;
     var html = '';
     html += '<div class="app-shell">';
@@ -395,8 +634,95 @@
     html += '<div class="btn-row"><div class="ghost-btn" data-act="skip-onboarding">Begin met een voorbeeldgebouw →</div></div>';
     html += '</div></div>';
 
+    html += '<div class="section"><div class="card pad">';
+    html += '<div style="font:500 13.5px/1.35 DM Sans,sans-serif">Al een MJOP?</div>';
+    html += '<div class="hint" style="margin-top:6px">Upload een bestaand plan (csv, Excel of pdf) — de app haalt de regels eruit, jij controleert ze, en het plan hoeft dan alleen nog geactualiseerd te worden.</div>';
+    html += '<div class="btn-row"><label class="ghost-btn" for="mjop-file-input" style="cursor:pointer">Upload bestaand MJOP</label>';
+    html += '<input id="mjop-file-input" type="file" accept=".csv,.xlsx,.xls,.pdf" style="display:none" /></div>';
+    html += '</div></div>';
+
     html += '<div class="footer-note">Kengetallen zijn indicatieve richtprijzen inclusief btw, geen offerte. Bronnen: PDOK Locatieserver en BAG (Public Domain Mark 1.0) en 3D BAG van de TU Delft (CC BY 4.0).</div>';
     html += '</div>';
+    return html;
+  }
+
+  function renderUploadWizard() {
+    var u = state.upload;
+    var html = '<div class="app-shell">';
+    html += '<div class="hero"><div class="eyebrow on-blue">Bestaand MJOP importeren</div>';
+    html += '<h1>' + esc(u.bestandsnaam || 'Bestand') + '</h1>';
+    html += '<p>Controleer wat de app herkend heeft — er gaat pas iets het plan in na jouw bevestiging.</p></div>';
+
+    if (u.stap === 'laden') {
+      html += '<div class="section"><div class="notice">Bestand wordt gelezen…</div></div>';
+    } else if (u.stap === 'fout') {
+      html += '<div class="section"><div class="notice error">' + esc(u.foutTekst) + '</div>';
+      html += '<div class="btn-row"><div class="ghost-btn" data-act="reset-upload">Terug</div></div></div>';
+    } else if (u.stap === 'mapping') {
+      html += renderUploadMapping(u);
+    } else if (u.stap === 'regels') {
+      html += renderUploadRegels(u);
+    }
+
+    html += '</div>';
+    return html;
+  }
+
+  function renderUploadMapping(u) {
+    var velden = [
+      ['naam', 'Omschrijving / element'], ['jaar', 'Jaar'], ['bedrag', 'Bedrag'],
+      ['sfb', 'NL-SfB code (optioneel)'], ['conditie', 'Conditie (optioneel)'],
+    ];
+    var html = '<div class="section"><div class="section-title">Welke kolom is wat?</div>';
+    html += '<div class="card pad" style="margin-top:11px">';
+    velden.forEach(function (v) {
+      html += '<div class="input-row" style="margin-top:11px"><div class="label">' + v[1] + '</div>';
+      html += '<select data-change="upload-map" data-veld="' + v[0] + '" style="flex:none;width:150px;padding:8px;border-radius:10px;border:1px solid var(--ink-14);background:#fff">';
+      html += '<option value="-1"' + (u.mapping[v[0]] === -1 ? ' selected' : '') + '>— geen —</option>';
+      u.headerRij.forEach(function (h, i) {
+        html += '<option value="' + i + '"' + (u.mapping[v[0]] === i ? ' selected' : '') + '>' + esc(String(h || 'kolom ' + (i + 1))) + '</option>';
+      });
+      html += '</select></div>';
+    });
+    html += '</div></div>';
+
+    html += '<div class="section"><div class="section-title">Voorbeeld (eerste regels)</div>';
+    html += '<div class="card" style="margin-top:11px;overflow-x:auto">';
+    u.dataRijen.slice(0, 4).forEach(function (row, i) {
+      html += '<div class="row"' + (i === 0 ? ' style="border-top:none"' : '') + '><div class="grow meta" style="font-size:11.5px;white-space:nowrap">' + row.map(esc).join(' · ') + '</div></div>';
+    });
+    html += '</div></div>';
+
+    html += '<div class="section"><div class="btn-row">';
+    html += '<div class="primary-btn" data-act="upload-confirm-mapping">Volgende</div>';
+    html += '<div class="ghost-btn" data-act="reset-upload">Annuleer</div>';
+    html += '</div></div>';
+    return html;
+  }
+
+  function renderUploadRegels(u) {
+    var html = '<div class="section"><div class="section-title">' + u.regels.length + ' regels gevonden</div>';
+    html += '<div class="card" style="margin-top:11px">';
+    if (!u.regels.length) {
+      html += '<div class="row" style="border-top:none"><div class="grow meta" style="font-size:12.5px">Geen regels herkend. Voeg ze hieronder handmatig toe, of annuleer en probeer een ander bestand.</div></div>';
+    }
+    u.regels.forEach(function (r, i) {
+      html += '<div class="row" style="align-items:center' + (i === 0 ? ';border-top:none' : '') + '">';
+      html += '<div style="flex:none"><input type="checkbox" data-act="upload-toggle-regel" data-i="' + i + '"' + (r.include ? ' checked' : '') + ' /></div>';
+      html += '<input data-bind="upload-regel-naam" data-i="' + i + '" value="' + esc(r.naam) + '" style="flex:1;min-width:0;border:1px solid var(--ink-14);border-radius:8px;padding:6px 8px;font:400 12px DM Sans,sans-serif" />';
+      html += '<input data-bind="upload-regel-jaar" data-i="' + i + '" value="' + esc(r.jaar) + '" style="flex:none;width:56px;border:1px solid var(--ink-14);border-radius:8px;padding:6px 6px;text-align:center;font:500 12px DM Mono,monospace" />';
+      html += '<input data-bind="upload-regel-bedrag" data-i="' + i + '" value="' + esc(r.bedrag) + '" style="flex:none;width:76px;border:1px solid var(--ink-14);border-radius:8px;padding:6px 6px;text-align:right;font:500 12px DM Mono,monospace" />';
+      html += '<button data-act="upload-del-regel" data-i="' + i + '" style="border:none;background:none;color:var(--ink-45);cursor:pointer;flex:none">×</button>';
+      html += '</div>';
+    });
+    html += '<div class="row" style="cursor:pointer" data-act="upload-add-regel"><div class="grow" style="font:500 13px DM Sans,sans-serif;color:var(--blue)">+ Regel toevoegen</div></div>';
+    html += '</div></div>';
+
+    html += '<div class="section"><div class="hint">Elke regel wordt een post in het plan op het opgegeven jaar. Je kunt hierna nog het adres koppelen voor de echte gebouwgegevens — de geïmporteerde regels blijven dan staan.</div>';
+    html += '<div class="btn-row">';
+    html += '<div class="primary-btn" data-act="mjop-import-confirm">Importeren en doorgaan</div>';
+    html += '<div class="ghost-btn" data-act="reset-upload">Annuleer</div>';
+    html += '</div></div>';
     return html;
   }
 
@@ -504,20 +830,20 @@
     return html;
   }
 
-  function needsAssessment(el) { return el.type !== 'custom' && el.conditie == null; }
-  function isAssessed(el) { return el.type === 'custom' || el.conditie != null; }
+  function needsAssessment(el) { return el.type !== 'custom' && conditionScore(el) == null; }
+  function isAssessed(el) { return el.type === 'custom' || conditionScore(el) != null; }
 
-  function scoreColors(conditie) {
-    if (conditie == null) return ['#EFE7DA', 'rgba(36,31,27,.45)'];
-    if (conditie <= 2) return ['#E3EDE2', '#3F6B46'];
-    if (conditie === 3) return ['#F6EFD9', '#7D6318'];
+  function scoreColors(score) {
+    if (score == null) return ['#EFE7DA', 'rgba(36,31,27,.45)'];
+    if (score <= 2) return ['#E3EDE2', '#3F6B46'];
+    if (score === 3) return ['#F6EFD9', '#7D6318'];
     return ['#FBE9DF', '#8A3D14'];
   }
 
   function renderGebouw() {
     if (state.activeElementId) return renderElementDetail(state.activeElementId);
     var b = state.building;
-    var cats = ['Alles', 'Dak', 'Gevel', 'Installaties', 'Binnen'];
+    var cats = ['Alles', 'Dak', 'Gevel', 'Installaties', 'Binnen', 'Terrein', 'Overig'];
     var els = state.elements.filter(function (el) { return state.filter === 'Alles' || el.categorie === state.filter; });
 
     var html = '<div style="padding:24px 0 8px">';
@@ -535,10 +861,11 @@
     html += '<div class="section"><div class="card">';
     els.forEach(function (el, i) {
       var bedrag = eur(elementCost(el, state));
-      var colors = scoreColors(el.conditie);
+      var score = conditionScore(el);
+      var colors = scoreColors(score);
       html += '<div class="row" data-act="open-element" data-id="' + el.id + '" style="cursor:pointer' + (i === 0 ? ';border-top:none' : '') + '">';
-      html += '<div class="el-badge" style="background:' + colors[0] + ';color:' + colors[1] + '">' + (el.conditie == null ? '?' : el.conditie) + '</div>';
-      html += '<div class="grow"><div class="name">' + esc(el.naam) + '</div><div class="meta">' + elementMeta(el) + '</div></div>';
+      html += '<div class="el-badge" style="background:' + colors[0] + ';color:' + colors[1] + '">' + (score == null ? '?' : score) + '</div>';
+      html += '<div class="grow"><div class="name">' + esc(el.naam) + (el.sfb ? ' <span class="sfb-tag">NL-SfB ' + esc(el.sfb) + '</span>' : '') + '</div><div class="meta">' + elementMeta(el) + '</div></div>';
       html += '<div class="value">' + bedrag + '</div></div>';
     });
     html += '</div>';
@@ -553,9 +880,25 @@
 
   function renderAddElementForm() {
     var f = state.addForm;
-    var html = '<div class="section"><div class="card pad">';
-    html += '<div style="font:500 13.5px/1.35 DM Sans,sans-serif">Nieuw element</div>';
-    html += '<div class="input-row"><div class="label">Naam</div><input id="add-el-naam" data-bind="add-el-naam" value="' + esc(f.naam) + '" style="width:170px;text-align:left" /></div>';
+    var aanwezig = {};
+    state.elements.forEach(function (el) { aanwezig[el.id] = true; });
+    var beschikbaar = ELEMENT_LIBRARY.filter(function (d) { return d.optioneel && !aanwezig[d.key]; });
+
+    var html = '<div class="section"><div class="section-title">Uit de elementenbibliotheek (NL-SfB)</div>';
+    html += '<div class="card" style="margin-top:11px">';
+    if (!beschikbaar.length) {
+      html += '<div class="row" style="border-top:none"><div class="grow meta" style="font-size:12.5px">Alle bibliotheek-elementen staan al in het plan.</div></div>';
+    }
+    beschikbaar.forEach(function (d, i) {
+      html += '<div class="row" data-act="add-from-library" data-key="' + d.key + '" style="cursor:pointer' + (i === 0 ? ';border-top:none' : '') + '">';
+      html += '<div class="grow"><div class="name">' + esc(d.naam) + ' <span class="sfb-tag">NL-SfB ' + esc(d.sfb) + '</span></div><div class="meta">' + esc(d.categorie) + ' · cyclus ' + d.cyclus + ' jaar</div></div>';
+      html += '<div class="chev" style="color:var(--blue)">+</div></div>';
+    });
+    html += '</div></div>';
+
+    html += '<div class="section"><div class="card pad">';
+    html += '<div style="font:500 13.5px/1.35 DM Sans,sans-serif">Of leg een eigen post vast</div>';
+    html += '<div class="input-row" style="margin-top:11px"><div class="label">Naam</div><input id="add-el-naam" data-bind="add-el-naam" value="' + esc(f.naam) + '" style="width:170px;text-align:left" /></div>';
     html += '<div class="input-row"><div class="label">Jaar</div><input id="add-el-jaar" data-bind="add-el-jaar" value="' + f.jaar + '" /></div>';
     html += '<div class="input-row"><div class="label">Bedrag</div><input id="add-el-bedrag" data-bind="add-el-bedrag" value="' + f.bedrag + '" class="wide" /></div>';
     html += '<div class="input-row"><div class="label">Cyclus in jaren (optioneel, leeg = eenmalig)</div><input id="add-el-cyclus" data-bind="add-el-cyclus" value="' + (f.cyclus || '') + '" /></div>';
@@ -570,15 +913,14 @@
     var html = '<div style="padding:20px 0 8px">';
     html += '<div class="top-nav"><div class="back-link" data-act="close-element">‹ Gebouw</div></div>';
     html += '<div style="padding:0 22px">';
-    html += '<div class="eyebrow">' + esc(el.categorie) + ' · cyclus ' + el.cyclus + ' jaar</div>';
+    html += '<div class="eyebrow">' + esc(el.categorie) + (el.sfb ? ' · NL-SfB ' + esc(el.sfb) : '') + ' · cyclus ' + el.cyclus + ' jaar</div>';
     html += '<div class="page-title" style="font-size:24px;margin-top:8px">' + esc(el.naam) + '</div>';
     html += '</div>';
 
-    if (el.assessable) html += renderVergelijk(el);
     if (el.type === 'kozijnen') html += renderKozijnen(el);
     if (el.type === 'dak' || el.type === 'gevel' || el.type === 'per-unit') html += renderHoeveelheidKengetal(el);
     if (el.type === 'steiger') html += renderSteiger(el);
-    if (!el.assessable && el.type !== 'custom') html += renderSimpleConditie(el);
+    if (el.type !== 'custom') html += renderGebreken(el);
 
     var jaar = conditionYear(el);
     var bedrag = elementCost(el, state);
@@ -594,28 +936,47 @@
     return html;
   }
 
-  function renderVergelijk(el) {
-    var html = '<div class="section"><div class="section-title">Wat lijkt er het meest op?</div>';
-    html += '<div class="compare-grid" style="margin-top:11px">';
-    el.vergelijk.forEach(function (v, i) {
-      var sel = el.conditie === v.conditie;
-      html += '<div class="compare-card' + (sel ? ' selected' : '') + '" data-act="set-conditie" data-id="' + el.id + '" data-conditie="' + v.conditie + '">';
-      html += '<div class="compare-photo"><span>' + esc(v.foto) + '</span></div>';
-      html += '<div class="compare-body"><div class="compare-head"><div class="title">' + esc(v.titel) + '</div><div class="compare-dot' + (sel ? ' selected' : '') + '"></div></div>';
-      html += '<div class="compare-text">' + esc(v.tekst) + '</div></div></div>';
+  function renderGebreken(el) {
+    var suggesties = GEBREK_SUGGESTIES[el.categorie] || GEBREK_SUGGESTIES.Overig;
+    var score = conditionScore(el);
+    var html = '<div class="section"><div class="section-title">Gebreken (NEN 2767-methodiek)</div>';
+    html += '<div class="card" style="margin-top:11px">';
+    if (!el.gebreken.length) {
+      html += '<div class="row" style="border-top:none"><div class="grow meta" style="font-size:12.5px">Nog geen gebreken vastgelegd — het plan gaat uit van de standaardcyclus vanaf het bouwjaar.</div></div>';
+    }
+    el.gebreken.forEach(function (g, gi) {
+      html += '<div class="row" style="align-items:flex-start' + (gi === 0 ? ';border-top:none' : '') + '">';
+      html += '<div class="grow">';
+      html += '<input id="gb-naam-' + el.id + '-' + gi + '" data-bind="gb-naam" data-id="' + el.id + '" data-gi="' + gi + '" value="' + esc(g.omschrijving) + '" list="gb-sug-' + el.id + '" style="width:100%;box-sizing:border-box;border:1px solid var(--ink-14);border-radius:8px;padding:6px 8px;font:500 12.5px DM Sans,sans-serif" placeholder="omschrijving gebrek" />';
+      ['ernst', 'omvang', 'intensiteit'].forEach(function (dim) {
+        html += '<div style="display:flex;align-items:center;gap:8px;margin-top:8px">';
+        html += '<div style="width:64px;font:400 11px/1.3 DM Sans,sans-serif;color:var(--ink-50);text-transform:capitalize">' + dim + '</div>';
+        html += '<div class="seg" style="margin-top:0;flex:1">';
+        [1, 2, 3].forEach(function (v) {
+          html += '<div class="seg-opt' + (g[dim] === v ? ' active' : '') + '" style="padding:7px 0" data-act="gb-set" data-id="' + el.id + '" data-gi="' + gi + '" data-dim="' + dim + '" data-val="' + v + '">' + v + '</div>';
+        });
+        html += '</div></div>';
+      });
+      html += '</div>';
+      html += '<div class="linkish" style="margin-top:2px;font-size:11px" data-act="gb-del" data-id="' + el.id + '" data-gi="' + gi + '">verwijder</div>';
+      html += '</div>';
     });
+    html += '<datalist id="gb-sug-' + el.id + '">' + suggesties.map(function (s) { return '<option value="' + esc(s) + '">'; }).join('') + '</datalist>';
+    html += '<div class="row" style="cursor:pointer" data-act="gb-add" data-id="' + el.id + '"><div class="grow" style="font:500 13px DM Sans,sans-serif;color:var(--blue)">+ Gebrek toevoegen</div></div>';
     html += '</div>';
-    var res = el.conditie != null ? el.uitslag[el.conditie] : null;
-    html += '<div class="result-box' + (el.conditie == null ? '' : (el.conditie >= 4 ? ' bad' : ' good')) + '">';
-    html += '<div class="label">' + (el.conditie == null ? 'Nog niets gekozen' : 'Conditiescore volgens NEN 2767') + '</div>';
-    html += '<div class="head">' + (res ? esc(res[0]) : 'Kies een voorbeeld hierboven') + '</div>';
-    html += '<div class="body">' + (res ? esc(res[1]) : 'Zodra je kiest rekent de app het jaar van vervanging en het effect op de maandbijdrage uit.') + '</div>';
+
+    html += '<div class="result-box' + (score == null ? '' : (score >= 4 ? ' bad' : ' good')) + '">';
+    html += '<div class="label">' + (score == null ? 'Nog niet beoordeeld' : 'Conditiescore volgens NEN 2767-methodiek') + '</div>';
+    html += '<div class="head">' + (score == null ? 'Geen gebreken vastgelegd' : score + ' — ' + CONDITIE_LABELS[score]) + '</div>';
+    html += '<div class="body">' + (score == null
+      ? 'Leg een gebrek vast (ernst, omvang, intensiteit) om het jaar van vervanging op de werkelijke toestand te baseren.'
+      : 'Het zwaarste vastgelegde gebrek bepaalt de score. Dit is een praktische toepassing van de NEN 2767-systematiek voor planningsdoeleinden, geen vervanging voor een inspectie door een gecertificeerd inspecteur.') + '</div>';
     html += '</div></div>';
     return html;
   }
 
   function renderHoeveelheidKengetal(el) {
-    var label = el.type === 'per-unit' ? 'Aantal units' : 'Oppervlak in ' + el.eenheid;
+    var label = el.type === 'per-unit' ? 'Aantal units' : 'Oppervlak in m²';
     var html = '<div class="section"><div class="card pad">';
     html += '<div class="input-row" style="margin-top:0"><div class="label">' + label + '</div><input id="hv-' + el.id + '" data-bind="el-hoeveelheid" data-id="' + el.id + '" value="' + el.hoeveelheid + '" /></div>';
     html += '<div class="input-row"><div class="label">Kengetal per eenheid</div><input id="kg-' + el.id + '" data-bind="el-kengetal" data-id="' + el.id + '" value="' + el.kengetal + '" /></div>';
@@ -637,36 +998,29 @@
     return html;
   }
 
-  function renderSimpleConditie(el) {
-    var html = '<div class="section"><div class="card pad">';
-    html += '<div style="font:500 13.5px/1.35 DM Sans,sans-serif">Conditie</div>';
-    html += '<div class="seg" style="margin-top:11px">';
-    [1, 2, 3, 4, 5].forEach(function (c) {
-      html += '<div class="seg-opt' + (el.conditie === c ? ' active' : '') + '" data-act="set-conditie" data-id="' + el.id + '" data-conditie="' + c + '">' + c + '</div>';
-    });
-    html += '</div>';
-    html += '<div class="hint">1 = als nieuw, 5 = einde levensduur. Onbeoordeeld gaat uit van de standaardcyclus vanaf het bouwjaar.</div>';
-    html += '</div></div>';
-    return html;
-  }
-
   function renderKozijnen(el) {
     var html = '<div class="section"><div class="koz-table">';
-    html += '<div class="koz-head"><div class="c1">Type</div><div class="c2">Aantal</div><div class="c3">Tarief</div><div class="c4">Bedrag</div></div>';
+    html += '<div class="koz-head"><div class="c1">Type</div><div class="c1b">Materiaal</div><div class="c2">Aantal</div><div class="c3">Tarief</div><div class="c4">Bedrag</div></div>';
     el.koz.forEach(function (k, i) {
-      var tarief = k.eigenTarief != null ? k.eigenTarief : k.tarief;
+      var tarief = kozTarief(k);
+      var mat = KOZ_MATERIAAL[k.materiaal] || KOZ_MATERIAAL.hout;
       html += '<div class="koz-row">';
       html += '<div class="c1">' + esc(k.naam) + '</div>';
+      html += '<div class="c1b"><select data-change="koz-materiaal" data-id="' + el.id + '" data-i="' + i + '">';
+      Object.keys(KOZ_MATERIAAL).forEach(function (mk) {
+        html += '<option value="' + mk + '"' + (k.materiaal === mk ? ' selected' : '') + '>' + KOZ_MATERIAAL[mk].label + '</option>';
+      });
+      html += '</select></div>';
       html += '<div class="c2"><button data-act="koz-min" data-id="' + el.id + '" data-i="' + i + '">−</button><span class="val">' + k.aantal + '</span><button data-act="koz-plus" data-id="' + el.id + '" data-i="' + i + '">+</button></div>';
       html += '<div class="c3"><input id="koz-tarief-' + el.id + '-' + i + '" data-bind="koz-tarief" data-id="' + el.id + '" data-i="' + i + '" value="' + tarief + '" />';
-      html += '<div class="hint">index € ' + k.tarief + '</div></div>';
+      html += '<div class="hint">' + mat.label + ' · ' + mat.cyclus + 'j cyclus</div></div>';
       html += '<div class="c4">' + eur(k.aantal * tarief) + '</div>';
       html += '</div>';
     });
     var totaalAantal = el.koz.reduce(function (a, k) { return a + k.aantal; }, 0);
-    html += '<div class="koz-total"><div class="label">Schilderwerk kozijnen</div><div class="count">' + totaalAantal + ' kozijnen</div><div class="amount">' + eur(elementCost(el, state)) + '</div></div>';
+    html += '<div class="koz-total"><div class="label">Onderhoud kozijnen</div><div class="count">' + totaalAantal + ' kozijnen</div><div class="amount">' + eur(elementCost(el, state)) + '</div></div>';
     html += '</div>';
-    html += '<div class="info-block">Tarieven zijn direct aanpasbaar. Een offerte overschrijft het tarief, maar gaat na verloop van tijd weer mee in de indexering.</div>';
+    html += '<div class="info-block">Het materiaal bepaalt de onderhoudscyclus: hout vraagt periodiek schilderwerk, aluminium en kunststof vooral reiniging en afstellen. Kozijnen met verschillend materiaal worden apart in de tijd gezet. Tarieven zijn direct aanpasbaar; een offerte overschrijft het tarief.</div>';
     html += '</div>';
     return html;
   }
@@ -829,10 +1183,11 @@
 
     html += '<div class="section"><div class="section-title">Elementen</div><div class="card" style="margin-top:11px">';
     state.elements.forEach(function (el, i) {
-      var colors = scoreColors(el.conditie);
+      var score = conditionScore(el);
+      var colors = scoreColors(score);
       html += '<div class="row"' + (i === 0 ? ' style="border-top:none"' : '') + '>';
-      html += '<div class="el-badge" style="background:' + colors[0] + ';color:' + colors[1] + '">' + (el.conditie == null ? '?' : el.conditie) + '</div>';
-      html += '<div class="grow"><div class="name">' + esc(el.naam) + '</div><div class="meta">volgende beurt ' + conditionYear(el) + '</div></div>';
+      html += '<div class="el-badge" style="background:' + colors[0] + ';color:' + colors[1] + '">' + (score == null ? '?' : score) + '</div>';
+      html += '<div class="grow"><div class="name">' + esc(el.naam) + (el.sfb ? ' <span class="sfb-tag">NL-SfB ' + esc(el.sfb) + '</span>' : '') + '</div><div class="meta">volgende beurt ' + conditionYear(el) + '</div></div>';
       html += '<div class="value">' + eur(elementCost(el, state)) + '</div></div>';
     });
     html += '</div></div>';
@@ -848,7 +1203,7 @@
   var searchTimer = null;
 
   var ACTIONS = {
-    'skip-onboarding': function () { startApp(defaultBuilding()); render(); },
+    'skip-onboarding': function () { applyBuilding(defaultBuilding()); render(); },
     'wijzig-adres': function () { state.screen = 'onboarding'; state.onboarding = { q: '', sug: [], bezig: false, bezigTekst: '', fout: '' }; render(); },
     'kies-adres': function (d) {
       var s = state.onboarding;
@@ -856,7 +1211,7 @@
       render();
       lookupBuilding(d.id, d.naam).then(function (building) {
         s.bezig = false;
-        startApp(building);
+        applyBuilding(building);
         render();
       }).catch(function (err) {
         s.bezig = false;
@@ -869,9 +1224,20 @@
     'set-filter': function (d) { state.filter = d.filter; render(); },
     'open-element': function (d) { state.tab = 'gebouw'; state.activeElementId = d.id; render(); },
     'close-element': function () { state.activeElementId = null; render(); },
-    'set-conditie': function (d) {
+    'gb-add': function (d) {
       var el = findEl(d.id); if (!el) return;
-      el.conditie = el.conditie === +d.conditie ? null : +d.conditie;
+      el.gebreken.push({ omschrijving: '', ernst: 1, omvang: 1, intensiteit: 1 });
+      render();
+    },
+    'gb-del': function (d) {
+      var el = findEl(d.id); if (!el) return;
+      el.gebreken.splice(+d.gi, 1);
+      render();
+    },
+    'gb-set': function (d) {
+      var el = findEl(d.id); if (!el) return;
+      var g = el.gebreken[+d.gi]; if (!g) return;
+      g[d.dim] = +d.val;
       render();
     },
     'koz-min': function (d) { var el = findEl(d.id); if (!el) return; var k = el.koz[+d.i]; k.aantal = Math.max(0, k.aantal - 1); render(); },
@@ -879,6 +1245,12 @@
     'zet-advies': function (d) { state.bijdrage = clamp(+d.nodig, 10, 400); render(); },
     'open-add-element': function () { state.addForm = { naam: '', jaar: CURRENT_YEAR + 1, bedrag: 0, cyclus: '' }; render(); },
     'cancel-add-element': function () { state.addForm = null; render(); },
+    'add-from-library': function (d) {
+      var def = libraryEntry(d.key); if (!def) return;
+      state.elements.push(instantiateLibraryEl(def, state.building));
+      state.addForm = null;
+      render();
+    },
     'save-add-element': function () {
       var f = state.addForm;
       if (!f.naam) return;
@@ -918,6 +1290,41 @@
     'toggle-bijvullen': function (d) { state.bijvullen[d.id] = !state.bijvullen[d.id]; render(); },
     'print-rapport': function () { window.print(); },
     'export-csv': function () { exportCsv(); },
+    'reset-upload': function () { state.upload = null; render(); },
+    'upload-confirm-mapping': function () {
+      var u = state.upload, m = u.mapping;
+      var regels = u.dataRijen.map(function (row) {
+        var naam = m.naam > -1 ? String(row[m.naam] || '').trim() : '';
+        var jaar = m.jaar > -1 ? num(row[m.jaar]) : 0;
+        var bedrag = m.bedrag > -1 ? num(row[m.bedrag]) : 0;
+        var sfb = m.sfb > -1 ? String(row[m.sfb] || '').trim() : '';
+        var conditie = m.conditie > -1 ? String(row[m.conditie] || '').trim() : '';
+        return { naam: naam, jaar: jaar || (CURRENT_YEAR + 1), bedrag: bedrag, sfb: sfb, conditie: conditie, include: !!(naam && bedrag) };
+      }).filter(function (r) { return r.naam; });
+      state.upload = { stap: 'regels', bestandsnaam: u.bestandsnaam, regels: regels };
+      render();
+    },
+    'upload-toggle-regel': function (d) { state.upload.regels[+d.i].include = !state.upload.regels[+d.i].include; render(); },
+    'upload-del-regel': function (d) { state.upload.regels.splice(+d.i, 1); render(); },
+    'upload-add-regel': function () {
+      state.upload.regels.push({ naam: '', jaar: CURRENT_YEAR + 1, bedrag: 0, sfb: '', conditie: '', include: true });
+      render();
+    },
+    'mjop-import-confirm': function () {
+      var bestandsnaam = state.upload.bestandsnaam;
+      (state.upload.regels || []).filter(function (r) { return r.include && r.naam; }).forEach(function (r) {
+        state.elements.push({
+          id: uid('import'), naam: r.naam, categorie: 'Overig', type: 'custom',
+          cyclus: 0, jaar: num(r.jaar) || (CURRENT_YEAR + 1), bedrag: num(r.bedrag),
+          sfb: r.sfb || undefined,
+          metaTekst: 'geïmporteerd uit ' + (bestandsnaam || 'bestand'),
+        });
+      });
+      if (!state.fonds) state.fonds = defaultBuilding().units * 2500;
+      state.upload = null;
+      applyBuilding(state.building || defaultBuilding());
+      render();
+    },
   };
 
   var BINDS = {
@@ -935,17 +1342,62 @@
     'el-kengetal': function (t, d) { var el = findEl(d.id); if (el) el.kengetal = num(t.value); },
     'el-werkhoogte': function (t, d) { var el = findEl(d.id); if (el) el.werkhoogte = num(t.value); },
     'koz-tarief': function (t, d) { var el = findEl(d.id); if (el) el.koz[+d.i].eigenTarief = t.value === '' ? null : num(t.value); },
+    'gb-naam': function (t, d) { var el = findEl(d.id); if (el && el.gebreken[+d.gi]) el.gebreken[+d.gi].omschrijving = t.value; },
     'add-el-naam': function (t) { state.addForm.naam = t.value; },
     'add-el-jaar': function (t) { state.addForm.jaar = t.value; },
     'add-el-bedrag': function (t) { state.addForm.bedrag = t.value; },
     'add-el-cyclus': function (t) { state.addForm.cyclus = t.value; },
     'of-regel-naam': function (t, d) { var o = findOfferte(d.oid); if (o) o.regels[+d.ri].naam = t.value; },
     'of-regel-bedrag': function (t, d) { var o = findOfferte(d.oid); if (o) o.regels[+d.ri].bedrag = t.value; },
+    'upload-regel-naam': function (t, d) { state.upload.regels[+d.i].naam = t.value; },
+    'upload-regel-jaar': function (t, d) { state.upload.regels[+d.i].jaar = t.value; },
+    'upload-regel-bedrag': function (t, d) { state.upload.regels[+d.i].bedrag = t.value; },
   };
 
   var CHANGES = {
     'bijdrage': function (t) { state.bijdrage = +t.value; render(); },
+    'koz-materiaal': function (t, d) { var el = findEl(d.id); if (el) el.koz[+d.i].materiaal = t.value; render(); },
+    'upload-map': function (t, d) { state.upload.mapping[d.veld] = +t.value; },
   };
+
+  function uploadError(err) {
+    state.upload = { stap: 'fout', bestandsnaam: state.upload && state.upload.bestandsnaam, foutTekst: (err && err.message) || 'Onbekende fout bij het lezen van dit bestand.' };
+    render();
+  }
+
+  function handleUploadFile(file) {
+    var ext = (file.name.split('.').pop() || '').toLowerCase();
+    state.upload = { stap: 'laden', bestandsnaam: file.name };
+    render();
+    if (ext === 'csv') {
+      readFileAsText(file).then(function (text) {
+        var rows = parseCsv(text);
+        if (rows.length < 2) throw new Error('Geen regels gevonden in dit csv-bestand.');
+        var header = rows[0], data = rows.slice(1);
+        state.upload = { stap: 'mapping', bestandsnaam: file.name, headerRij: header, dataRijen: data, mapping: guessMapping(header) };
+        render();
+      }).catch(uploadError);
+    } else if (ext === 'xlsx' || ext === 'xls') {
+      if (!window.XLSX) { uploadError(new Error('Excel-ondersteuning kon niet geladen worden (geen internetverbinding?).')); return; }
+      readFileAsArrayBuffer(file).then(function (buf) {
+        var wb = XLSX.read(buf, { type: 'array' });
+        var sheet = wb.Sheets[wb.SheetNames[0]];
+        var rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false, defval: '' })
+          .filter(function (r) { return r.some(function (c) { return String(c).trim() !== ''; }); });
+        if (rows.length < 2) throw new Error('Geen regels gevonden in dit Excel-bestand.');
+        var header = rows[0], data = rows.slice(1);
+        state.upload = { stap: 'mapping', bestandsnaam: file.name, headerRij: header, dataRijen: data, mapping: guessMapping(header) };
+        render();
+      }).catch(uploadError);
+    } else if (ext === 'pdf') {
+      readFileAsArrayBuffer(file).then(extractPdfText).then(function (text) {
+        state.upload = { stap: 'regels', bestandsnaam: file.name, regels: extractPdfRegels(text) };
+        render();
+      }).catch(uploadError);
+    } else {
+      uploadError(new Error('Bestandstype niet ondersteund. Gebruik csv, xlsx of pdf.'));
+    }
+  }
 
   function findEl(id) { return state.elements.filter(function (e) { return e.id === id; })[0]; }
   function findOfferte(oid) {
@@ -954,9 +1406,10 @@
   }
 
   function exportCsv() {
-    var rows = [['Element', 'Categorie', 'Conditie', 'Cyclus (jaar)', 'Volgende beurt', 'Kosten']];
+    var rows = [['Element', 'NL-SfB', 'Categorie', 'Conditiescore (NEN 2767)', 'Cyclus (jaar)', 'Volgende beurt', 'Kosten']];
     state.elements.forEach(function (el) {
-      rows.push([el.naam, el.categorie, el.conditie == null ? 'onbekend' : el.conditie, el.cyclus || '', conditionYear(el), Math.round(elementCost(el, state))]);
+      var score = conditionScore(el);
+      rows.push([el.naam, el.sfb || '', el.categorie, score == null ? 'onbekend' : score, el.cyclus || '', conditionYear(el), Math.round(elementCost(el, state))]);
     });
     var csv = rows.map(function (r) {
       return r.map(function (v) { return '"' + String(v).replace(/"/g, '""') + '"'; }).join(',');
@@ -990,6 +1443,11 @@
       if (handler) { handler(t, t.dataset); render(); }
     });
     root.addEventListener('change', function (e) {
+      if (e.target && e.target.id === 'mjop-file-input') {
+        var file = e.target.files && e.target.files[0];
+        if (file) handleUploadFile(file);
+        return;
+      }
       var t = e.target.closest('[data-change]');
       if (!t) return;
       var handler = CHANGES[t.dataset.change];

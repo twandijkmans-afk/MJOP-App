@@ -11,6 +11,14 @@
 </head>
 <body>
 <div id="root"></div>
+<!-- Client-side parsers for "upload een bestaand MJOP" (xlsx/csv + pdf tekstextractie). -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+<script>
+  if (window.pdfjsLib) {
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+  }
+</script>
 <script src="src/app.js"></script>
 </body>
 </html>

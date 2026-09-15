@@ -27,22 +27,42 @@ en open `http://localhost:8000`. Direct openen van `index.html` via
    gebouwhoogte op te halen voor een adres. Lukt de opzoeking niet, dan kan
    met "Begin met een voorbeeldgebouw" een demo-portiekflat (1978, 8
    appartementen) gebruikt worden.
-2. **Elementen** — dak, kozijnen/buitenschilderwerk, gevel, steiger/hoogwerker,
-   intercom, trappenhuis, riolering en dakinspectie krijgen elk een cyclus,
-   een kengetal en (optioneel) een conditiescore 1–5. Onbeoordeeld valt de
-   planning terug op de standaardcyclus vanaf het bouwjaar; een conditiescore
-   schuift het jaar van de eerstvolgende beurt naar voren of naar achteren.
-3. **Kasstroom** — de 10-jaars projectie combineert de bijdrage per
+2. **Elementenbibliotheek** (`ELEMENT_LIBRARY`) — ~20 gangbare VvE-
+   onderhoudsposten (dak, gevel, kozijnen, installaties, binnen, terrein),
+   elk met een NL-SfB-code (de Nederlandse coderingssystematiek voor
+   bouwdelen). Een kernset staat standaard in het plan; de rest is optioneel
+   toe te voegen via "Element toevoegen → uit bibliotheek".
+3. **Upload een bestaand MJOP** — csv, Excel (xlsx/xls) of pdf. Csv/Excel
+   worden kolom-voor-kolom herkend (element, jaar, bedrag, NL-SfB, conditie)
+   met een controleerbare mapping; pdf wordt op tekst doorzocht naar
+   regels met een jaartal en een bedrag. In alle gevallen volgt een
+   bewerkbare regel-lijst — er gaat pas iets het plan in na bevestiging.
+   xlsx-parsing gebruikt [SheetJS](https://sheetjs.com/), pdf-tekstextractie
+   gebruikt [pdf.js](https://mozilla.github.io/pdf.js/), beide via CDN.
+4. **Gebreken (NEN 2767-methodiek)** — in plaats van één losse conditie-
+   schuif legt elk element gebreken vast met ernst, omvang en intensiteit
+   (elk 1–3); het zwaarste gebrek bepaalt de conditiescore (1–6, "uitstekend"
+   t/m "zeer slecht"), die het jaar van de eerstvolgende beurt naar voren of
+   naar achteren schuift. Dit is een praktische toepassing van de NEN
+   2767-systematiek voor planningsdoeleinden — geen vervanging voor een
+   inspectie door een gecertificeerd inspecteur, en niet gebaseerd op de
+   (auteursrechtelijk beschermde) officiële NEN/SBR-defectcatalogus.
+5. **Kozijnen per materiaal** — elk kozijntype (draaiend raam, vast glas,
+   deur, dakkapel) krijgt een eigen materiaal (hout/aluminium/kunststof/
+   staal) met een eigen onderhoudscyclus en -tarief: hout vraagt periodiek
+   schilderwerk, aluminium en kunststof vooral reiniging. Rijen met
+   verschillend materiaal worden apart in de tijd gezet.
+6. **Kasstroom** — de 10-jaars projectie combineert de bijdrage per
    appartement met de geplande kosten per jaar, en laat zien in welk jaar
    (indien van toepassing) het reservefonds negatief wordt.
-4. **Offertes** — per element kunnen offertes van meerdere aannemers
+7. **Offertes** — per element kunnen offertes van meerdere aannemers
    handmatig worden ingevoerd (regel + bedrag, btw-schakelaar). Vanaf twee
    offertes verschijnt een vergelijkingstabel met rangorde; ontbrekende
    regels kunnen worden bijgevuld met het gemiddelde van de overige
    offertes voor die regel.
-5. **Rapport** — samenvatting met voorstel voor de vergadering, CSV-export
-   van alle elementen en een print-/PDF-knop (`window.print()` met een
-   printstylesheet).
+8. **Rapport** — samenvatting met voorstel voor de vergadering, CSV-export
+   van alle elementen (inclusief NL-SfB-code en conditiescore) en een
+   print-/PDF-knop (`window.print()` met een printstylesheet).
 
 ## Bronnen
 
@@ -55,6 +75,15 @@ offerte.
 - Offertes worden handmatig ingevoerd; er is geen OCR/foto-herkenning van
   offertes (dat vereist een externe dienst en is buiten scope van deze
   implementatie).
+- De pdf-import van een bestaand MJOP is best-effort tekst-/regelherkenning
+  op basis van jaartal + bedrag per regel — geen lay-outanalyse. Werkt goed
+  voor eenvoudige tabellen, minder goed voor complexe pdf-opmaak; controleer
+  daarom altijd de regel-lijst voor het importeren.
+- De NEN 2767-gebrekenmethodiek in de app is een vereenvoudigde, zelf
+  geïmplementeerde toepassing van de systematiek (ernst/omvang/intensiteit
+  → conditiescore), niet de officiële NEN/SBR-defectcatalogus en geen
+  vervanging voor een inspectie door een gecertificeerd inspecteur.
 - In sommige sandboxed omgevingen met een uitgaand netwerkbeleid kunnen de
-  PDOK/BAG/3D BAG-aanroepen geblokkeerd zijn; in een gewone browser op het
-  publieke internet werken deze aanroepen rechtstreeks.
+  PDOK/BAG/3D BAG-aanroepen en de CDN's voor xlsx/pdf-parsing geblokkeerd
+  zijn; in een gewone browser op het publieke internet werken deze
+  aanroepen rechtstreeks.
