@@ -898,6 +898,18 @@
     return state.screen;
   }
 
+  // De meeste "knoppen" door de hele app zijn <div data-act> i.p.v. een
+  // echt <button>/<a href> (klikken lopen via delegation op root, zie
+  // beneden) — zonder tabindex/role zijn ze met het toetsenbord niet te
+  // bereiken en leest een screenreader ze niet als interactief voor. Een
+  // <a> zonder href is net zo min natively interactief als een div.
+  function isNativelyInteractive(el) {
+    var tag = el.tagName;
+    if (tag === 'BUTTON' || tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA' || tag === 'LABEL') return true;
+    if (tag === 'A') return el.hasAttribute('href');
+    return false;
+  }
+
   function render() {
     var active = document.activeElement;
     var focusInfo = null;
@@ -912,6 +924,14 @@
     else mainHtml = renderApp();
     var printHtml = (screen === 'app' && state.building) ? renderPrintReport() : '';
     root.innerHTML = '<div class="screen-view">' + mainHtml + '</div>' + printHtml;
+    // Na elke render() alsnog tabindex/role toevoegen aan wat dat nog mist,
+    // i.p.v. elke afzonderlijke data-act-plek in de render*()-functies
+    // hierboven aan te passen — dekt ook nieuwe data-act's vanzelf mee.
+    root.querySelectorAll('[data-act]').forEach(function (el) {
+      if (isNativelyInteractive(el)) return;
+      if (!el.hasAttribute('tabindex')) el.setAttribute('tabindex', '0');
+      if (!el.hasAttribute('role')) el.setAttribute('role', 'button');
+    });
     if (focusInfo) {
       var el = document.getElementById(focusInfo.id);
       if (el) {
@@ -2418,6 +2438,17 @@
       if (!t) return;
       var handler = ACTIONS[t.dataset.act];
       if (handler) { e.preventDefault(); handler(t.dataset, e); }
+    });
+    // Voor de data-act-elementen die render() net tabindex/role gaf omdat
+    // ze geen echt <button>/<a href> zijn: die krijgen Enter/spatie niet
+    // gratis van de browser. t.click() hergebruikt gewoon de click-
+    // afhandeling hierboven i.p.v. die te dupliceren.
+    root.addEventListener('keydown', function (e) {
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      var t = e.target.closest('[data-act]');
+      if (!t || isNativelyInteractive(t)) return;
+      e.preventDefault();
+      t.click();
     });
     root.addEventListener('input', function (e) {
       var t = e.target.closest('[data-bind]');

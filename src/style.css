@@ -347,6 +347,11 @@ input[type=range]::-moz-range-thumb {
 .linkish { color: var(--link); cursor: pointer; }
 .linkish:hover { text-decoration: underline; }
 
+/* [data-act]-elementen zonder eigen rand/achtergrondwissel (chips, rijen,
+   linkish-tekst) krijgen anders geen zichtbare aanwijzing welke net via
+   tabindex focusbaar gemaakt is (zie render() in app.js). */
+[data-act]:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; border-radius: 4px; }
+
 .tab-brand { display: none; }
 
 @media (max-width: 480px) {
