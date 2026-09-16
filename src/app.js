@@ -1069,6 +1069,25 @@
     html += '<p>Typ een adres. De app haalt bouwjaar en appartementen uit de BAG, en het echte dakoppervlak, muuroppervlak en de hoogte uit de 3D BAG.</p></div>';
 
     html += '<div class="shell-body">';
+    // Zonder dit belandt een terugkerende ingelogde gebruiker bij elke
+    // nieuwe sessie/herlaad hier op het adresscherm, ook met een al
+    // opgeslagen plan — die moest eerst (opnieuw) een adres opzoeken of
+    // het voorbeeldgebouw kiezen om ooit bij de tabbalk en dus "Mijn
+    // gebouwen" te komen. Dit is de kortste weg terug naar wat er al is.
+    if (state.session && state.savedPlans.length) {
+      html += '<div class="section"><div class="card">';
+      html += '<div style="padding:13px 16px 3px"><div class="hint" style="margin-top:0">Verdergaan met een opgeslagen plan</div></div>';
+      state.savedPlans.slice(0, 3).forEach(function (p, i) {
+        html += '<div class="row"' + (i === 0 ? ' style="border-top:none"' : '') + '>';
+        html += '<div class="grow"><div class="name">' + esc(p.label || 'MJOP') + '</div><div class="meta">bijgewerkt ' + esc(new Date(p.updated_at).toLocaleDateString('nl-NL')) + '</div></div>';
+        html += '<div class="linkish" data-act="open-plan" data-id="' + p.id + '">openen</div>';
+        html += '</div>';
+      });
+      if (state.savedPlans.length > 3) {
+        html += '<div class="row"><div class="linkish" data-act="goto-mijngebouwen">Alle ' + state.savedPlans.length + ' plannen bekijken</div></div>';
+      }
+      html += '</div></div>';
+    }
     html += '<div class="section">';
     html += '<div class="field"><div class="eyebrow">Adres</div>';
     html += '<input id="addr-search" data-bind="addr-q" value="' + esc(s.q) + '" placeholder="bv. Kastanjelaan 12 Amersfoort" autocomplete="off" /></div>';
@@ -1115,7 +1134,7 @@
 
     html += '<div class="shell-body">';
     if (u.stap === 'laden') {
-      html += '<div class="section"><div class="notice">Bestand wordt gelezen…</div></div>';
+      html += '<div class="section"><div class="notice">' + esc(u.bezigTekst || 'Bestand wordt gelezen…') + '</div></div>';
     } else if (u.stap === 'fout') {
       html += '<div class="section"><div class="notice error">' + esc(u.foutTekst) + '</div>';
       html += '<div class="btn-row"><div class="ghost-btn" data-act="reset-upload">Terug</div></div></div>';
@@ -1210,6 +1229,15 @@
 
   function renderApp() {
     var html = '<div class="app-shell">';
+    // De enige weg naar screen 'app' zonder building is de snelkoppeling
+    // naar "Mijn gebouwen" vanaf het adresscherm (zie 'goto-mijngebouwen')
+    // — home/gebouw/planning/rapport gaan er allemaal van uit dat
+    // state.building bestaat en crashen anders. Zonder gebouw is Mijn
+    // gebouwen het enige zinnige scherm, dus val daarop terug i.p.v. te
+    // crashen als de tabbalk (die alle tabs toont, ook zonder gebouw) naar
+    // zo'n tab probeert te schakelen.
+    var needsBuilding = state.tab === 'home' || state.tab === 'gebouw' || state.tab === 'planning' || state.tab === 'rapport';
+    if (needsBuilding && !state.building) state.tab = 'mijngebouwen';
     if (state.tab === 'home') html += renderHome();
     else if (state.tab === 'gebouw') html += renderGebouw();
     else if (state.tab === 'planning') html += renderPlanning();
@@ -2047,6 +2075,10 @@
     // ga direct terug naar het gebouw dat al in het geheugen staat, of
     // anders (nog geen gebouw gekozen deze sessie) naar het adresscherm.
     'goto-app': function () { state.screen = state.building ? 'app' : 'onboarding'; render(); },
+    // renderMijnGebouwen() staat los van state.building, dus dit is veilig
+    // vanaf het adresscherm te bereiken vóórdat er deze sessie al een
+    // gebouw gekozen is.
+    'goto-mijngebouwen': function () { state.screen = 'app'; state.tab = 'mijngebouwen'; render(); },
     'goto-login': function () { state.screen = 'login'; render(); },
     'goto-onboarding': function () { state.screen = 'onboarding'; render(); },
     'kies-adres': function (d) {
@@ -2268,7 +2300,8 @@
 
   function handleUploadFile(file) {
     var ext = (file.name.split('.').pop() || '').toLowerCase();
-    state.upload = { stap: 'laden', bestandsnaam: file.name };
+    var bezigTekst = ext === 'pdf' ? 'PDF wordt gelezen en posten worden herkend…' : 'Bestand wordt gelezen…';
+    state.upload = { stap: 'laden', bestandsnaam: file.name, bezigTekst: bezigTekst };
     render();
     if (ext === 'csv') {
       readFileAsText(file).then(function (text) {
