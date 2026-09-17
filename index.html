@@ -16,16 +16,25 @@
 </head>
 <body>
 <div id="root"></div>
-<!-- Client-side parsers for "upload een bestaand MJOP" (xlsx/csv + pdf tekstextractie). -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+<!-- Client-side parsers for "upload een bestaand MJOP" (xlsx/csv + pdf tekstextractie).
+     Op jsdelivr i.p.v. cdnjs en met Subresource Integrity: jsdelivr's npm-CDN
+     serveert de bestanden ongewijzigd zoals gepubliceerd op npm, dus de hash
+     hieronder (berekend uit het echte npm-pakket) is geverifieerd correct —
+     bij cdnjs kon dat niet met zekerheid, dat is een eigen packageproces. -->
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" integrity="sha384-vtjasyidUo0kW94K5MXDXntzOJpQgBKXmE7e2Ga4LG0skTTLeBi97eFAXsqewJjw" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@2.16.105/build/pdf.min.js" integrity="sha384-uLiAv4VcjM5H2Jsqzl8EajEaxPugj1CIzQaCjQ8c5//vC+elhxO5pZfXGxoLQi1W" crossorigin="anonymous"></script>
 <script>
   if (window.pdfjsLib) {
-    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+    // Web Workers ondersteunen geen integrity-attribuut (dat bestaat alleen
+    // op <script>-tags) — de versie staat wel vast, net als de twee hierboven.
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@2.16.105/build/pdf.worker.min.js';
   }
 </script>
-<!-- Supabase (inloggen; later ook opslaan/heropenen — zie SPEC_ACCOUNTS_AND_SAVING.md). -->
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<!-- Supabase (inloggen; later ook opslaan/heropenen — zie SPEC_ACCOUNTS_AND_SAVING.md).
+     Vastgezet op een exact versienummer i.p.v. de eerdere "@2" (die altijd de
+     nieuwste 2.x-release pakt, zonder aankondiging) — zelfde jsdelivr/SRI-
+     redenering als hierboven. -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js" integrity="sha384-iLddHTLokph6Omwoyid4XKxHaWa6w41BnoEj0q5oOrzmYPpHIKt1wyjReA7s//pP" crossorigin="anonymous"></script>
 <script src="src/config.js"></script>
 <script src="src/app.js"></script>
 </body>
