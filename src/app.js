@@ -775,11 +775,6 @@
     currentPlanId: null,
     lastSavedSnapshot: null,
     confirmDeleteId: null, // id van het plan waarvoor net op "verwijderen" geklikt is, in afwachting van bevestiging
-    // Met een sessie valt 'marketing' normaal automatisch terug op de app
-    // (zie currentScreen()) — dat geldt niet als de gebruiker zelf op het
-    // logo klikt om er expliciet naartoe te gaan. Alleen 'goto-marketing'
-    // zet dit op true.
-    forceMarketing: false,
   };
 
   // Zet het gebouw vast. Als er nog geen elementen zijn (verse start) wordt
@@ -884,15 +879,16 @@
 
   // state.screen is de bedoelde navigatie ("waar wilde de gebruiker
   // heen"); currentScreen() is wat daadwerkelijk getoond wordt. De
-  // marketing-homepage en het loginscherm zijn alleen een desktop-gate
-  // voor niet-ingelogde bezoekers: op een smallere viewport, of zodra er
-  // een echte sessie is, vallen ze terug op de gewone (nooit-gated)
-  // onboarding/app-flow — ook als state.screen nog op 'marketing'/'login'
+  // marketing-homepage en het loginscherm zijn de vaste landingsplek bij
+  // elke (her)load, desktop of ingelogd of niet — een sessie zorgt er dus
+  // niet meer voor dat dit wordt overgeslagen; "Naar mijn plan" op de
+  // homepage/header brengt een ingelogde bezoeker verder. Alleen op een
+  // smallere viewport valt dit terug op de gewone (nooit-gated)
+  // onboarding/app-flow, ook als state.screen nog op 'marketing'/'login'
   // staat, bv. na het smaller maken van het venster.
   function currentScreen() {
     if (state.screen === 'marketing' || state.screen === 'login') {
       if (!isDesktopWidth()) return 'onboarding';
-      if (state.session && !state.forceMarketing) return 'onboarding';
       return state.screen;
     }
     return state.screen;
@@ -2089,11 +2085,11 @@
         state.plansUi.bezig = false; state.plansUi.fout = 'Kon geen verbinding maken. Probeer het opnieuw.'; render();
       });
     },
-    'goto-marketing': function () { state.screen = 'marketing'; state.forceMarketing = true; render(); },
-    // Alleen zichtbaar op de homepage als er al een sessie is (via het
-    // logo teruggeklikt) — dan is "opnieuw inloggen" niet van toepassing,
-    // ga direct terug naar het gebouw dat al in het geheugen staat, of
-    // anders (nog geen gebouw gekozen deze sessie) naar het adresscherm.
+    'goto-marketing': function () { state.screen = 'marketing'; render(); },
+    // Alleen zichtbaar op de homepage/loginscherm als er al een sessie is
+    // — dan is "opnieuw inloggen" niet van toepassing, ga direct terug
+    // naar het gebouw dat al in het geheugen staat, of anders (nog geen
+    // gebouw gekozen deze sessie) naar het adresscherm.
     'goto-app': function () { state.screen = state.building ? 'app' : 'onboarding'; render(); },
     // renderMijnGebouwen() staat los van state.building, dus dit is veilig
     // vanaf het adresscherm te bereiken vóórdat er deze sessie al een
