@@ -1100,10 +1100,16 @@
   function updateHeroScrollFrame() {
     heroScrollTicking = false;
     var canvas = document.querySelector('.mkt-hero-canvas');
-    var hero = document.querySelector('.mkt-hero');
-    if (!canvas || !hero || !heroFrames) return;
-    var rect = hero.getBoundingClientRect();
-    var progress = rect.height ? clamp(-rect.top / rect.height, 0, 1) : 0;
+    // .mkt-hero-pin-wrap is hoger dan het scherm (200vh) en .mkt-hero
+    // blijft daarbinnen "vastgeplakt" (position:sticky) — de voortgang
+    // wordt dus afgemeten aan hoever de wrapper zelf al gescrold is
+    // (i.p.v. aan .mkt-hero, die zolang 'ie vastzit altijd top:71px
+    // blijft tonen en dus geen bruikbare voortgang zou geven).
+    var wrap = document.querySelector('.mkt-hero-pin-wrap');
+    if (!canvas || !wrap || !heroFrames) return;
+    var rect = wrap.getBoundingClientRect();
+    var scrollable = rect.height - window.innerHeight;
+    var progress = scrollable > 0 ? clamp(-rect.top / scrollable, 0, 1) : 0;
     var idx = Math.min(HERO_FRAME_COUNT - 1, Math.floor(progress * HERO_FRAME_COUNT));
     drawHeroFrame(canvas, heroFrames[idx]);
   }
@@ -1149,7 +1155,7 @@
     var html = '<div class="mkt">';
     html += renderMarketingHeader();
 
-    html += '<div class="mkt-hero">';
+    html += '<div class="mkt-hero-pin-wrap"><div class="mkt-hero">';
     html += '<div class="mkt-hero-bg">';
     html += isDesktopWidth()
       ? '<canvas class="mkt-hero-canvas"></canvas>'
@@ -1169,8 +1175,14 @@
     html += '</div>';
     html += state.session ? '' : '<div class="mkt-fineprint">Geen wachtwoord nodig — u ontvangt een eenmalige inloglink per e-mail.</div>';
     html += '</div>';
+    html += '</div>'; // .mkt-hero-inner
+    html += '</div></div>'; // .mkt-hero, .mkt-hero-pin-wrap
 
-    html += '<div class="mkt-hero-visual">';
+    // Device-mockup (met slotje) staat los van de hero, in zijn eigen
+    // sectie eronder — daar concurreert 'ie niet meer met het scroll-
+    // achtergrondbeeld om aandacht.
+    html += '<div class="mkt-section" id="mkt-preview"><div class="mkt-section-title">Zo ziet uw plan eruit</div>';
+    html += '<div class="mkt-preview-app"><div class="mkt-hero-visual">';
     html += '<div class="mkt-browserframe"><div class="mkt-browserframe-bar"><span></span><span></span><span></span></div>';
     html += '<div class="mkt-browserframe-body">';
     html += '<div class="eyebrow" style="color:var(--ink-42)">VOORBEELDGEBOUW — PORTIEKFLAT</div>';
@@ -1190,10 +1202,7 @@
     html += '<div class="mkt-lock-title">Log in om uw plan te bekijken en te bewerken</div>';
     html += '<div class="mkt-lock-sub">Adres opzoeken en het voorbeeldplan bekijken kan zonder account</div>';
     html += '</div>';
-    html += '</div>';
-    html += '</div>'; // .mkt-hero-visual
-    html += '</div>'; // .mkt-hero-inner
-    html += '</div>'; // .mkt-hero
+    html += '</div></div></div>'; // .mkt-hero-visual, .mkt-preview-app, #mkt-preview
 
     html += '<div class="mkt-section shaded" id="mkt-features"><div class="mkt-section-inner">';
     html += '<div class="mkt-section-title">Alles wat een bestuur nodig heeft</div>';

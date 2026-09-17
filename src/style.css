@@ -604,12 +604,18 @@ input[type=range]::-moz-range-thumb {
    ervan met een donker verloop, zoals ook al .mkt-lock-title/-sub een
    eigen ondoorzichtige achtergrond hebben om over de gebluste preview
    heen leesbaar te blijven. */
-.mkt-hero { position: relative; overflow: hidden; display: flex; align-items: center; gap: 60px; max-width: none; margin: 0; padding: 90px 40px; background: #0F1620; color: #fff; }
+/* .mkt-hero-pin-wrap geeft de sectie extra scrollruimte (200vh) terwijl
+   .mkt-hero zelf op z'n plek blijft "vastgeplakt" (position:sticky) net
+   onder de sticky header — zo loopt de beeldreeks over een langere
+   scrollafstand door i.p.v. binnen de paar honderd pixels van de
+   hero's eigen (kortere) hoogte. */
+.mkt-hero-pin-wrap { position: relative; height: 200vh; }
+.mkt-hero { position: sticky; top: 71px; height: calc(100vh - 71px); overflow: hidden; display: flex; align-items: center; gap: 60px; padding: 0 40px; background: #0F1620; color: #fff; }
 .mkt-hero-inner { position: relative; z-index: 2; display: flex; align-items: center; gap: 60px; max-width: 1180px; margin: 0 auto; width: 100%; }
 .mkt-hero-bg { position: absolute; inset: 0; z-index: 0; }
 .mkt-hero-bg canvas, .mkt-hero-bg img { display: block; width: 100%; height: 100%; object-fit: cover; }
 .mkt-hero-scrim { position: absolute; inset: 0; z-index: 1; background: linear-gradient(100deg, rgba(15,22,32,.88) 0%, rgba(15,22,32,.6) 45%, rgba(15,22,32,.28) 75%); }
-.mkt-hero-copy { flex: 1; min-width: 0; }
+.mkt-hero-copy { flex: 1; min-width: 0; max-width: 640px; }
 .mkt-eyebrow { font: 700 11.5px/1 var(--sans); letter-spacing: .14em; text-transform: uppercase; color: #fff; }
 .mkt-h1 { font: 700 44px/1.15 var(--heading); letter-spacing: -.015em; margin: 16px 0 0; color: #fff; }
 .mkt-sub { font: 400 16px/1.6 var(--sans); color: rgba(255,255,255,.78); margin: 20px 0 0; max-width: 480px; }
@@ -632,6 +638,11 @@ input[type=range]::-moz-range-thumb {
 .mkt-lock-icon { width: 44px; height: 44px; border-radius: 8px; background: var(--blue); color: #fff; display: flex; align-items: center; justify-content: center; margin-bottom: 6px; }
 .mkt-lock-title { font: 600 14.5px/1.3 var(--sans); color: var(--ink); background: rgba(255,255,255,.92); padding: 2px 10px; border-radius: 6px; }
 .mkt-lock-sub { font: 400 12px/1.5 var(--sans); color: var(--ink-60); background: rgba(255,255,255,.92); padding: 2px 10px; border-radius: 6px; max-width: 300px; }
+
+/* Los van de hero: de device-mockup (met slotje) staat nu in zijn eigen
+   sectie eronder, i.p.v. in de weg te zitten van het achtergrondbeeld. */
+.mkt-preview-app { display: flex; justify-content: center; margin-top: 36px; }
+.mkt-preview-app .mkt-hero-visual { width: 520px; }
 
 .mkt-section { padding: 70px 40px; max-width: 1180px; margin: 0 auto; }
 .mkt-section.shaded { background: var(--card); max-width: none; padding-left: 0; padding-right: 0; }
