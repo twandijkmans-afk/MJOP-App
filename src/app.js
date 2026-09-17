@@ -1272,7 +1272,7 @@
     var basisjaar = num(u.basisjaar);
     var html = '<div class="section"><div class="card pad">';
     html += '<div style="font:500 13.5px/1.35 Inter,system-ui,sans-serif">Prijspeil van dit MJOP</div>';
-    html += '<div class="input-row" style="margin-top:11px"><div class="label">De bedragen hieronder zijn genoteerd op prijspeil</div><input data-bind="upload-basisjaar" value="' + esc(u.basisjaar) + '" /></div>';
+    html += '<div class="input-row" style="margin-top:11px"><div class="label">De bedragen hieronder zijn genoteerd op prijspeil</div><input id="upload-basisjaar" data-bind="upload-basisjaar" value="' + esc(u.basisjaar) + '" /></div>';
     html += '<div class="hint">Bedragen worden automatisch met ' + (cbsIndexatie ? cbsIndexatie.pct : Math.round(INDEXATIE_PCT * 1000) / 10) + '% per jaar' + (cbsIndexatie ? ' (CBS-bouwkostenindex ' + cbsIndexatie.periode + ')' : '') + ' geïndexeerd van dit jaar naar het jaar waarin de post daadwerkelijk gepland staat. Staat er al een actueel bedrag in het bestand? Zet het prijspeil dan gelijk aan het huidige jaar (' + CURRENT_YEAR + ') zodat er niet extra geïndexeerd wordt.</div>';
     html += '</div></div>';
 
@@ -1286,13 +1286,13 @@
       html += '<div style="padding:14px 16px' + (i === 0 ? ';border-top:none' : ';border-top:1px solid var(--ink-08)') + '">';
       html += '<div style="display:flex;align-items:center;gap:10px">';
       html += '<input type="checkbox" data-act="upload-toggle-regel" data-i="' + i + '"' + (r.include ? ' checked' : '') + ' />';
-      html += '<input data-bind="upload-regel-naam" data-i="' + i + '" value="' + esc(r.naam) + '" placeholder="element" style="flex:1;min-width:0;border:1px solid var(--ink-14);border-radius:8px;padding:7px 9px;font:500 13.5px Inter,system-ui,sans-serif" />';
+      html += '<input id="upload-regel-naam-' + i + '" data-bind="upload-regel-naam" data-i="' + i + '" value="' + esc(r.naam) + '" placeholder="element" style="flex:1;min-width:0;border:1px solid var(--ink-14);border-radius:8px;padding:7px 9px;font:500 13.5px Inter,system-ui,sans-serif" />';
       html += '<button data-act="upload-del-regel" data-i="' + i + '" style="border:none;background:none;color:var(--ink-45);cursor:pointer;flex:none;font-size:16px">×</button>';
       html += '</div>';
       html += '<div style="display:flex;align-items:center;gap:14px;margin-top:9px;padding-left:26px;flex-wrap:wrap">';
-      html += '<div style="display:flex;align-items:center;gap:6px"><span class="eyebrow" style="font-size:9.5px">Jaar</span><input data-bind="upload-regel-jaar" data-i="' + i + '" value="' + esc(r.jaar) + '" style="width:52px;border:1px solid var(--ink-14);border-radius:7px;padding:5px 6px;text-align:center;font:500 12px Inter,system-ui,sans-serif" /></div>';
-      html += '<div style="display:flex;align-items:center;gap:6px"><span class="eyebrow" style="font-size:9.5px">Prijspeil ' + basisjaar + '</span><input data-bind="upload-regel-bedrag" data-i="' + i + '" value="' + esc(r.bedrag) + '" style="width:72px;border:1px solid var(--ink-14);border-radius:7px;padding:5px 6px;text-align:right;font:500 12px Inter,system-ui,sans-serif" /></div>';
-      html += '<div style="display:flex;align-items:center;gap:6px"><span class="eyebrow" style="font-size:9.5px">Cyclus (jaar, 0 = eenmalig)</span><input data-bind="upload-regel-cyclus" data-i="' + i + '" value="' + esc(r.cyclus || 0) + '" style="width:44px;border:1px solid var(--ink-14);border-radius:7px;padding:5px 6px;text-align:center;font:500 12px Inter,system-ui,sans-serif" /></div>';
+      html += '<div style="display:flex;align-items:center;gap:6px"><span class="eyebrow" style="font-size:9.5px">Jaar</span><input id="upload-regel-jaar-' + i + '" data-bind="upload-regel-jaar" data-i="' + i + '" value="' + esc(r.jaar) + '" style="width:52px;border:1px solid var(--ink-14);border-radius:7px;padding:5px 6px;text-align:center;font:500 12px Inter,system-ui,sans-serif" /></div>';
+      html += '<div style="display:flex;align-items:center;gap:6px"><span class="eyebrow" style="font-size:9.5px">Prijspeil ' + basisjaar + '</span><input id="upload-regel-bedrag-' + i + '" data-bind="upload-regel-bedrag" data-i="' + i + '" value="' + esc(r.bedrag) + '" style="width:72px;border:1px solid var(--ink-14);border-radius:7px;padding:5px 6px;text-align:right;font:500 12px Inter,system-ui,sans-serif" /></div>';
+      html += '<div style="display:flex;align-items:center;gap:6px"><span class="eyebrow" style="font-size:9.5px">Cyclus (jaar, 0 = eenmalig)</span><input id="upload-regel-cyclus-' + i + '" data-bind="upload-regel-cyclus" data-i="' + i + '" value="' + esc(r.cyclus || 0) + '" style="width:44px;border:1px solid var(--ink-14);border-radius:7px;padding:5px 6px;text-align:center;font:500 12px Inter,system-ui,sans-serif" /></div>';
       html += '</div>';
       html += '<div style="margin-top:9px;padding-left:26px;font:500 15px/1 Inter,system-ui,sans-serif;color:var(--blue)">→ ' + eur(geindexeerd) + ' <span style="font:400 11px/1 Inter,system-ui,sans-serif;color:var(--ink-50)">in ' + esc(r.jaar) + '</span></div>';
       html += '</div>';
@@ -1690,10 +1690,10 @@
     var prijspeil = el.basisjaar != null ? el.basisjaar : CURRENT_YEAR;
     var html = '<div class="section"><div class="section-title">Post bewerken</div>';
     html += '<div class="card pad" style="margin-top:11px">';
-    html += '<div class="input-row" style="margin-top:0"><div class="label">Jaar</div><input data-bind="el-jaar" data-id="' + el.id + '" value="' + el.jaar + '" /></div>';
-    html += '<div class="input-row"><div class="label">Cyclus (jaar, 0 = eenmalig)</div><input data-bind="el-cyclus" data-id="' + el.id + '" value="' + (el.cyclus || 0) + '" /></div>';
-    html += '<div class="input-row"><div class="label">Bedrag</div><input data-bind="el-bedrag" data-id="' + el.id + '" value="' + el.bedrag + '" /></div>';
-    html += '<div class="input-row"><div class="label">Prijspeil van dit bedrag</div><input data-bind="el-basisjaar" data-id="' + el.id + '" value="' + prijspeil + '" /></div>';
+    html += '<div class="input-row" style="margin-top:0"><div class="label">Jaar</div><input id="cb-jaar-' + el.id + '" data-bind="el-jaar" data-id="' + el.id + '" value="' + el.jaar + '" /></div>';
+    html += '<div class="input-row"><div class="label">Cyclus (jaar, 0 = eenmalig)</div><input id="cb-cyclus-' + el.id + '" data-bind="el-cyclus" data-id="' + el.id + '" value="' + (el.cyclus || 0) + '" /></div>';
+    html += '<div class="input-row"><div class="label">Bedrag</div><input id="cb-bedrag-' + el.id + '" data-bind="el-bedrag" data-id="' + el.id + '" value="' + el.bedrag + '" /></div>';
+    html += '<div class="input-row"><div class="label">Prijspeil van dit bedrag</div><input id="cb-basisjaar-' + el.id + '" data-bind="el-basisjaar" data-id="' + el.id + '" value="' + prijspeil + '" /></div>';
     html += '<div class="hint">Heb je inmiddels een offerte met een actueel bedrag? Vul dat bedrag in en zet het prijspeil op ' + CURRENT_YEAR + ', dan wordt het niet meer extra geïndexeerd.</div>';
     html += '</div></div>';
     return html;
