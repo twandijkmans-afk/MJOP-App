@@ -579,7 +579,7 @@ input[type=range]::-moz-range-thumb {
 .choice-primary-title { font: 500 14px/1.35 var(--sans); color: var(--ink); }
 .choice-primary-sub { font: 400 12px/1.55 var(--sans); color: var(--ink-60); margin-top: 6px; }
 
-.choice-btn { display: block; width: 100%; box-sizing: border-box; text-align: center; height: 38px; line-height: 38px; border-radius: 6px; background: var(--blue); color: #fff; font: 600 13.5px/1 var(--sans); cursor: pointer; margin-top: 14px; }
+.choice-btn { display: block; width: 100%; box-sizing: border-box; text-align: center; height: 38px; border-radius: 6px; background: var(--blue); color: #fff; font: 600 13.5px var(--sans); line-height: 38px; cursor: pointer; margin-top: 14px; }
 .choice-btn:hover { background: var(--blue-dark); }
 .choice-btn-outline { background: #fff; border: 1.5px solid var(--blue); color: var(--blue); }
 .choice-btn-outline:hover { background: var(--blue-tint); }
