@@ -579,15 +579,61 @@
     });
   }
 
-  var INDEXATIE_PCT = 0.03; // 3% per jaar, standaard voor geïmporteerde MJOP-bedragen
+  var INDEXATIE_PCT = 0.03; // terugval-schatting (3%/jaar) als de CBS-aanroep hieronder niet lukt
+
+  // cbsIndexatie wordt null totdat laadCbsIndexatie() succesvol is geweest
+  // (of blijft null bij een mislukte poging) — indexeerBedrag() valt dan
+  // terug op INDEXATIE_PCT. Nooit blokkerend voor de rest van de app, net
+  // als de bestaande PDOK/BAG-aanroepen die ook wel eens niet lukken.
+  var cbsIndexatie = null; // { pct, periode } — pct als heel percentage (3.2 = 3,2%), periode bv. "2025"
+  var CBS_TABEL = '83547NED'; // "Productie gebouwen, prijsindex 2015=100" — controleer bij een opvolger-tabel
+  var CBS_VELD = 'BestaandeWoningen_7'; // "Bestaande woningen": prijsindex voor uitbreiding/herstel/verbouw van bestaande woningen — de MJOP-situatie, geen nieuwbouw
+
+  function laadCbsIndexatie() {
+    try {
+      var cached = JSON.parse(localStorage.getItem('mjop-cbs-indexatie') || 'null');
+      if (cached && cached.fetchedAt && Date.now() - cached.fetchedAt < 24 * 60 * 60 * 1000) {
+        cbsIndexatie = { pct: cached.pct, periode: cached.periode };
+        return;
+      }
+    } catch (e) { /* localStorage niet beschikbaar (privénavigatie e.d.) — gewoon opnieuw ophalen */ }
+
+    // Jaarcijfers (Perioden eindigt op "JJ00") i.p.v. één specifieke rij met
+    // $orderby/$top opvragen — zo hoeft maar één, al bevestigde $filter-vorm
+    // te kloppen; de twee meest recente jaren worden hierna zelf bepaald.
+    var url = 'https://opendata.cbs.nl/ODataApi/odata/' + CBS_TABEL +
+      "/TypedDataSet?$filter=substringof('JJ00',Perioden)&$select=Perioden," + CBS_VELD;
+    fetch(url).then(function (r) { return r.json(); }).then(function (j) {
+      var rows = ((j && j.value) || []).slice().sort(function (a, b) {
+        return String(a.Perioden).localeCompare(String(b.Perioden));
+      });
+      if (rows.length < 2) throw new Error('te weinig CBS-jaarcijfers');
+      var nieuw = rows[rows.length - 1], vorig = rows[rows.length - 2];
+      var nieuwWaarde = nieuw[CBS_VELD], vorigWaarde = vorig[CBS_VELD];
+      if (typeof nieuwWaarde !== 'number' || typeof vorigWaarde !== 'number' || !vorigWaarde) {
+        throw new Error('CBS-veld ' + CBS_VELD + ' niet gevonden of geen getal');
+      }
+      var pct = Math.round((nieuwWaarde / vorigWaarde - 1) * 1000) / 10;
+      var periode = String(nieuw.Perioden || '').slice(0, 4);
+      cbsIndexatie = { pct: pct, periode: periode };
+      try {
+        localStorage.setItem('mjop-cbs-indexatie', JSON.stringify({ pct: pct, periode: periode, fetchedAt: Date.now() }));
+      } catch (e) {}
+      render();
+    }).catch(function () {
+      // Stil laten mislukken: cbsIndexatie blijft null, indexeerBedrag()/
+      // elementMeta() vallen vanzelf terug op INDEXATIE_PCT hieronder.
+    });
+  }
 
   // Geïmporteerde posten zijn genoteerd op het prijspeil van het oude MJOP
-  // (el.basisjaar). Kosten worden vanaf dat jaar met 3% per jaar
-  // samengesteld doorgerekend naar het jaar waarin de post daadwerkelijk
-  // wordt uitgevoerd.
+  // (el.basisjaar). Kosten worden vanaf dat jaar samengesteld doorgerekend
+  // naar het jaar waarin de post daadwerkelijk wordt uitgevoerd, met het
+  // CBS-jaarpercentage zodra dat geladen is, anders de vaste schatting.
   function indexeerBedrag(bedrag, basisjaar, uitvoeringsjaar) {
     if (basisjaar == null) return bedrag;
-    return Math.round(bedrag * Math.pow(1 + INDEXATIE_PCT, uitvoeringsjaar - basisjaar));
+    var pct = cbsIndexatie ? cbsIndexatie.pct / 100 : INDEXATIE_PCT;
+    return Math.round(bedrag * Math.pow(1 + pct, uitvoeringsjaar - basisjaar));
   }
 
   function elementCost(el, state) {
@@ -613,7 +659,10 @@
       case 'steiger': return 'werkhoogte ' + el.werkhoogte + ' m';
       case 'per-unit': return el.hoeveelheid + ' units × ' + eur(el.kengetal);
       case 'vast-variabel': return eur(el.basis) + ' vast + ' + el.hoeveelheid + ' × ' + eur(el.perEenheid);
-      case 'custom': return (el.metaTekst || 'eenmalige post') + (el.basisjaar != null ? ' · prijspeil ' + el.basisjaar + ', +3%/jaar' : '');
+      case 'custom':
+        var indexPct = cbsIndexatie ? cbsIndexatie.pct : Math.round(INDEXATIE_PCT * 1000) / 10;
+        var indexBron = cbsIndexatie ? ' (CBS-bouwkostenindex ' + cbsIndexatie.periode + ')' : '';
+        return (el.metaTekst || 'eenmalige post') + (el.basisjaar != null ? ' · prijspeil ' + el.basisjaar + ', +' + indexPct + '%/jaar' + indexBron : '');
       default: return '';
     }
   }
@@ -1224,7 +1273,7 @@
     var html = '<div class="section"><div class="card pad">';
     html += '<div style="font:500 13.5px/1.35 Inter,system-ui,sans-serif">Prijspeil van dit MJOP</div>';
     html += '<div class="input-row" style="margin-top:11px"><div class="label">De bedragen hieronder zijn genoteerd op prijspeil</div><input data-bind="upload-basisjaar" value="' + esc(u.basisjaar) + '" /></div>';
-    html += '<div class="hint">Bedragen worden automatisch met 3% per jaar geïndexeerd van dit jaar naar het jaar waarin de post daadwerkelijk gepland staat. Staat er al een actueel bedrag in het bestand? Zet het prijspeil dan gelijk aan het huidige jaar (' + CURRENT_YEAR + ') zodat er niet extra geïndexeerd wordt.</div>';
+    html += '<div class="hint">Bedragen worden automatisch met ' + (cbsIndexatie ? cbsIndexatie.pct : Math.round(INDEXATIE_PCT * 1000) / 10) + '% per jaar' + (cbsIndexatie ? ' (CBS-bouwkostenindex ' + cbsIndexatie.periode + ')' : '') + ' geïndexeerd van dit jaar naar het jaar waarin de post daadwerkelijk gepland staat. Staat er al een actueel bedrag in het bestand? Zet het prijspeil dan gelijk aan het huidige jaar (' + CURRENT_YEAR + ') zodat er niet extra geïndexeerd wordt.</div>';
     html += '</div></div>';
 
     html += '<div class="section"><div class="section-title">' + u.regels.length + ' regels gevonden</div>';
@@ -2025,7 +2074,7 @@
     html += '<div class="pr-note">' + (eerste
       ? 'Bij de huidige bijdrage van ' + eur(state.bijdrage) + ' raakt het reservefonds in ' + eerste.jaar + ' leeg.'
       : 'Bij ' + eur(state.bijdrage) + ' per maand blijft het reservefonds ' + HORIZON + ' jaar positief, met ' + eur(laagste) + ' als laagste stand.') + '</div>';
-    html += '<div class="pr-footer">Bronnen: PDOK Locatieserver en BAG (Public Domain Mark 1.0), 3D BAG van de TU Delft (CC BY 4.0). Kengetallen zijn indicatieve richtprijzen inclusief btw, geen offerte. Bedragen vanaf geïmporteerde posten zijn geïndexeerd met 3% per jaar vanaf het prijspeil van het brondocument. Afgedrukt op ' + vandaag + ' met MJOP Live.</div>';
+    html += '<div class="pr-footer">Bronnen: PDOK Locatieserver en BAG (Public Domain Mark 1.0), 3D BAG van de TU Delft (CC BY 4.0). Kengetallen zijn indicatieve richtprijzen inclusief btw, geen offerte. Bedragen vanaf geïmporteerde posten zijn geïndexeerd met ' + (cbsIndexatie ? cbsIndexatie.pct : Math.round(INDEXATIE_PCT * 1000) / 10) + '% per jaar' + (cbsIndexatie ? ' (CBS-bouwkostenindex ' + cbsIndexatie.periode + ')' : '') + ' vanaf het prijspeil van het brondocument. Afgedrukt op ' + vandaag + ' met MJOP Live.</div>';
     html += '</div>';
 
     html += '</div>';
@@ -2431,6 +2480,11 @@
   // ---------------------------------------------------------------------
   document.addEventListener('DOMContentLoaded', function () {
     root = document.getElementById('root');
+    // Nooit blokkerend voor de rest van het opstarten — bij falen (geen
+    // internet, CBS-tabel offline, veld niet gevonden) blijft cbsIndexatie
+    // gewoon null en valt indexeerBedrag()/elementMeta() terug op de vaste
+    // INDEXATIE_PCT-schatting.
+    laadCbsIndexatie();
     // Enige plek die state.session/state.user zet: dit vuurt bij het
     // laden meteen met de bestaande sessie (of null), en daarna bij elke
     // in-/uitlog-actie — zo blijft een reload ingelogd (Supabase bewaart
