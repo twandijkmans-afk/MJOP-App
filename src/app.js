@@ -995,6 +995,7 @@
       if (!el.hasAttribute('tabindex')) el.setAttribute('tabindex', '0');
       if (!el.hasAttribute('role')) el.setAttribute('role', 'button');
     });
+    if (screen === 'marketing') initMktHeroScroll();
     if (focusInfo) {
       var el = document.getElementById(focusInfo.id);
       if (el) {
@@ -1053,6 +1054,80 @@
     return '<div class="choice-logo" data-act="goto-marketing"><div class="mark">M</div><div class="word">MJOP Live</div></div>';
   }
 
+  // ---------------------------------------------------------------------
+  // Sfeerbeeld in de hero (marketing-homepage): geen <video>, maar een
+  // reeks van 40 losse jpg-beeldjes (assets/hero-scroll/frame-01..40.jpg)
+  // die op een <canvas> getekend worden, telkens één stap verder terwijl
+  // de bezoeker door de hero scrollt. Alleen op desktopbreedte (zie
+  // isDesktopWidth(), dezelfde grens als de marketing-gating) — op een
+  // smallere weergave staat er gewoon een losse posterfoto (zie
+  // renderMarketing()), geen canvas/JS-overhead.
+  // ---------------------------------------------------------------------
+  var HERO_FRAME_COUNT = 40;
+  var heroFrames = null;
+
+  function loadHeroFrames() {
+    if (heroFrames) return;
+    heroFrames = [];
+    for (var i = 1; i <= HERO_FRAME_COUNT; i++) {
+      var img = new Image();
+      img.src = 'assets/hero-scroll/frame-' + (i < 10 ? '0' + i : i) + '.jpg';
+      heroFrames.push(img);
+    }
+  }
+
+  function drawHeroFrame(canvas, img) {
+    if (!img || !img.complete || !img.naturalWidth) return;
+    var dpr = window.devicePixelRatio || 1;
+    var displayW = canvas.clientWidth, displayH = canvas.clientHeight;
+    if (!displayW || !displayH) return;
+    var targetW = Math.round(displayW * dpr), targetH = Math.round(displayH * dpr);
+    if (canvas.width !== targetW || canvas.height !== targetH) {
+      canvas.width = targetW;
+      canvas.height = targetH;
+    }
+    var ctx = canvas.getContext('2d');
+    // "cover"-gedrag: uitvullen zonder de beeldverhouding te vervormen,
+    // overschot valt buiten het canvas (zelfde als CSS object-fit:cover).
+    var scale = Math.max(targetW / img.naturalWidth, targetH / img.naturalHeight);
+    var drawW = img.naturalWidth * scale, drawH = img.naturalHeight * scale;
+    var dx = (targetW - drawW) / 2, dy = (targetH - drawH) / 2;
+    ctx.clearRect(0, 0, targetW, targetH);
+    ctx.drawImage(img, dx, dy, drawW, drawH);
+  }
+
+  var heroScrollTicking = false;
+  function updateHeroScrollFrame() {
+    heroScrollTicking = false;
+    var canvas = document.querySelector('.mkt-hero-canvas');
+    var hero = document.querySelector('.mkt-hero');
+    if (!canvas || !hero || !heroFrames) return;
+    var rect = hero.getBoundingClientRect();
+    var progress = rect.height ? clamp(-rect.top / rect.height, 0, 1) : 0;
+    var idx = Math.min(HERO_FRAME_COUNT - 1, Math.floor(progress * HERO_FRAME_COUNT));
+    drawHeroFrame(canvas, heroFrames[idx]);
+  }
+
+  function onHeroScroll() {
+    if (heroScrollTicking) return;
+    heroScrollTicking = true;
+    requestAnimationFrame(updateHeroScrollFrame);
+  }
+
+  // Na elke render() opnieuw aanroepen (zie render()) — root.innerHTML
+  // vervangt de hele DOM, dus het <canvas>-element van hiervoor bestaat
+  // niet meer en moet z'n eerste frame opnieuw getekend krijgen. De
+  // geladen Image()-objecten (heroFrames) blijven wel gewoon in het
+  // geheugen staan tussen renders, dus geen dubbel laden.
+  function initMktHeroScroll() {
+    var canvas = document.querySelector('.mkt-hero-canvas');
+    if (!canvas) return; // posterfoto i.p.v. canvas (smalle weergave)
+    if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    loadHeroFrames();
+    if (heroFrames[0].complete) updateHeroScrollFrame();
+    else heroFrames[0].addEventListener('load', updateHeroScrollFrame, { once: true });
+  }
+
   function renderMarketingHeader() {
     var html = '<div class="mkt-header">';
     html += mktLogo();
@@ -1075,6 +1150,13 @@
     html += renderMarketingHeader();
 
     html += '<div class="mkt-hero">';
+    html += '<div class="mkt-hero-bg">';
+    html += isDesktopWidth()
+      ? '<canvas class="mkt-hero-canvas"></canvas>'
+      : '<img src="assets/hero-scroll/poster-mobile.jpg" alt="" />';
+    html += '</div>';
+    html += '<div class="mkt-hero-scrim"></div>';
+    html += '<div class="mkt-hero-inner">';
     html += '<div class="mkt-hero-copy">';
     html += '<div class="mkt-eyebrow">MJOP Live</div>';
     html += '<h1 class="mkt-h1">Een onderhoudsplan voor uw VvE, gebaseerd op echte bouwdata</h1>';
@@ -1109,7 +1191,9 @@
     html += '<div class="mkt-lock-sub">Adres opzoeken en het voorbeeldplan bekijken kan zonder account</div>';
     html += '</div>';
     html += '</div>';
-    html += '</div>';
+    html += '</div>'; // .mkt-hero-visual
+    html += '</div>'; // .mkt-hero-inner
+    html += '</div>'; // .mkt-hero
 
     html += '<div class="mkt-section shaded" id="mkt-features"><div class="mkt-section-inner">';
     html += '<div class="mkt-section-title">Alles wat een bestuur nodig heeft</div>';
@@ -2671,6 +2755,11 @@
     // gewoon null en valt indexeerBedrag()/elementMeta() terug op de vaste
     // INDEXATIE_PCT-schatting.
     laadCbsIndexatie();
+    // Eén keer geregistreerd, niet per render() — render() vervangt de
+    // hele DOM (root.innerHTML = ...), dus deze listener zoekt bij elke
+    // scroll opnieuw naar .mkt-hero-canvas i.p.v. een vaste referentie
+    // vast te houden die na een re-render niet meer bestaat.
+    window.addEventListener('scroll', onHeroScroll, { passive: true });
     // Enige plek die state.session/state.user zet: dit vuurt bij het
     // laden meteen met de bestaande sessie (of null), en daarna bij elke
     // in-/uitlog-actie — zo blijft een reload ingelogd (Supabase bewaart
