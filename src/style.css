@@ -468,6 +468,7 @@ input[type=range]::-moz-range-thumb {
     gap: 3px;
   }
   .app-shell:has(.tab-bar) > .tab-bar .tab-item {
+    flex: none; /* was nog flex:1 van de mobiele tabbalk — rekte elk item verticaal uit tot een gelijk deel van de volle zijbalkhoogte */
     flex-direction: row;
     justify-content: flex-start;
     align-items: center;
