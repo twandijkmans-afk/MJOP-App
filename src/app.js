@@ -2029,10 +2029,43 @@
     var rows = kasstroom(state);
     var plan = fullPlan(state);
     var totaal = rows.reduce(function (a, r) { return a + r.kosten; }, 0);
+    var laagste = Math.min.apply(null, rows.map(function (r) { return r.saldo; }));
+    var eerste = rows.filter(function (r) { return r.saldo < 0; })[0];
+
+    // Totaal per categorie binnen de horizon — geeft in één oogopslag
+    // waar het geld naartoe gaat, naast de jaar-voor-jaar tijdlijn.
+    var catTotalen = {};
+    state.elements.forEach(function (el) {
+      var som = 0;
+      scheduleFor(el, state).forEach(function (p) { som += p.bedrag; });
+      if (som > 0) catTotalen[el.categorie] = (catTotalen[el.categorie] || 0) + som;
+    });
+    var catRijen = Object.keys(catTotalen).map(function (c) { return { naam: c, bedrag: catTotalen[c] }; })
+      .sort(function (a, b) { return b.bedrag - a.bedrag; });
+
     var html = '<div style="padding:24px 0 8px">';
     html += '<div style="padding:0 22px"><div class="page-title">Planning</div>';
     html += '<div class="page-sub">' + CURRENT_YEAR + ' – ' + (CURRENT_YEAR + HORIZON - 1) + ' · ' + eur(totaal) + ' totaal</div></div>';
-    html += '<div class="section timeline">';
+
+    html += '<div class="planning-layout">';
+
+    html += '<div class="planning-side"><div class="section" style="padding-top:14px">';
+    html += '<div class="card pad">';
+    html += '<div class="kv"><div class="label">Totaal geraamd</div><div class="amount">' + eur(totaal) + '</div></div>';
+    html += '<div class="divider"></div>';
+    html += '<div class="kv"><div class="label">Laagste fondsstand</div><div class="amount" style="' + (laagste < 0 ? 'color:var(--bad-fg)' : '') + '">' + eur(laagste) + '</div></div>';
+    if (eerste) html += '<div class="hint" style="color:var(--bad-fg)">Bij de huidige bijdrage raakt het fonds in ' + eerste.jaar + ' leeg.</div>';
+    html += '</div>';
+    if (catRijen.length) {
+      html += '<div class="card" style="margin-top:14px">';
+      catRijen.forEach(function (c, i) {
+        html += '<div class="row"' + (i === 0 ? ' style="border-top:none"' : '') + '><div class="grow name">' + esc(c.naam) + '</div><div class="value">' + eur(c.bedrag) + '</div></div>';
+      });
+      html += '</div>';
+    }
+    html += '</div></div>';
+
+    html += '<div class="planning-main"><div class="section timeline" style="padding-top:14px">';
     rows.forEach(function (r) {
       var posten = plan.filter(function (p) { return p.jaar === r.jaar; });
       html += '<div class="tl-row"><div class="tl-year" style="color:' + (r.saldo < 0 ? 'var(--bad-fg)' : 'var(--ink-50)') + '">' + r.jaar + '</div>';
@@ -2046,6 +2079,8 @@
       html += '<div class="tl-saldo" style="color:' + (r.saldo < 0 ? 'var(--bad-fg)' : 'var(--ink-42)') + '">' + (r.saldo < 0 ? '−' : '') + '€ ' + Math.round(Math.abs(r.saldo) / 1000) + 'k</div>';
       html += '</div>';
     });
+    html += '</div></div>';
+
     html += '</div></div>';
     return html;
   }

@@ -329,6 +329,18 @@ input[type=range]::-moz-range-thumb {
 .koz-total .amount { flex: none; font: 500 16px/1 var(--mono); }
 
 .timeline { margin-top: 20px; }
+
+/* Planning: samenvatting (totaal, laagste fondsstand, per categorie) naast
+   de tijdlijn i.p.v. alleen een lange lijst — op mobiel/tablet blijft dit
+   gewoon onder elkaar staan (samenvatting eerst, dan de tijdlijn), pas
+   vanaf de zijbalk-breedte (960px) komt het naast elkaar te staan. */
+.planning-layout { display: flex; flex-direction: column; gap: 4px; }
+.planning-main, .planning-side { min-width: 0; }
+@media (min-width: 960px) {
+  .planning-layout { flex-direction: row-reverse; align-items: flex-start; gap: 8px; }
+  .planning-side { flex: 0 0 300px; }
+  .planning-main { flex: 1; }
+}
 .tl-row { display: flex; gap: 13px; align-items: flex-start; padding: 0 0 4px; }
 .tl-year { flex: none; width: 38px; padding-top: 3px; font: 500 12px/1 var(--mono); }
 .tl-dot-col { flex: none; width: 9px; display: flex; flex-direction: column; align-items: center; align-self: stretch; }
@@ -514,7 +526,7 @@ input[type=range]::-moz-range-thumb {
   .app-shell:has(.tab-bar) > div:not(.tab-bar) {
     flex: 1;
     min-width: 0;
-    max-width: 760px;
+    max-width: 960px;
     margin: 0 auto;
     background: var(--card);
     min-height: 100vh;
