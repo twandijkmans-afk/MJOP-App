@@ -545,14 +545,54 @@ input[type=range]::-moz-range-thumb {
 .mkt-footer-links a { color: rgba(255,255,255,.75); font: 500 13px/1 var(--sans); text-decoration: none; cursor: pointer; }
 .mkt-footer-links a:hover { color: #fff; }
 
-/* Loginscherm: gecentreerde kaart op de lichte achtergrond. */
-.login-screen { min-height: 100vh; display: flex; align-items: center; justify-content: center; background: var(--page); padding: 40px 20px; }
-.login-card { width: 100%; max-width: 400px; background: #fff; border: 1px solid var(--ink-08); border-radius: 10px; padding: 36px 32px; }
-.login-card .mkt-logo { justify-content: center; margin-bottom: 22px; }
-.login-title { font: 700 22px/1.3 var(--heading); text-align: center; color: var(--ink); }
-.login-sub { font: 400 13.5px/1.55 var(--sans); color: var(--ink-60); text-align: center; margin-top: 8px; }
-.login-back { display: block; text-align: center; margin-top: 22px; font: 500 13px/1 var(--sans); color: var(--link); cursor: pointer; }
-.login-back:hover { color: var(--link-dark); }
+/* ------------------------------------------------------------------
+   "Keuzescherm"-patroon: herbruikbaar voor een scherm waarop iemand uit
+   een paar paden kiest (adres opzoeken, inloggen). Los van .app-shell/
+   .hero/.shell-body (die blijven voor de mjop-upload-wizard) en los van
+   .mkt-* (de aparte marketing-homepage). Gebruikt door renderOnboarding
+   en renderLoginScreen.
+   ------------------------------------------------------------------ */
+.choice-screen { min-height: 100vh; background: var(--page); display: flex; flex-direction: column; align-items: center; }
+
+.choice-status { width: 100%; background: var(--panel); border-bottom: .5px solid var(--ink-08); padding: 12px 20px; box-sizing: border-box; display: flex; justify-content: center; }
+.choice-status-row { width: 100%; max-width: 460px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.choice-status-row .txt { font: 400 12.5px/1.4 var(--sans); color: var(--ink-60); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.choice-status-row .txt strong { color: var(--ink); font-weight: 500; }
+.choice-status-row .links { flex: none; font: 500 12.5px/1 var(--sans); white-space: nowrap; }
+.choice-status-row .links [data-act] { color: var(--blue); cursor: pointer; }
+
+.choice-inner { width: 100%; max-width: 460px; padding: 0 20px 40px; box-sizing: border-box; display: flex; flex-direction: column; align-items: center; }
+.choice-logo { display: flex; align-items: center; gap: 8px; margin-top: 32px; cursor: pointer; }
+.choice-logo .mark { width: 22px; height: 22px; border-radius: 5px; background: var(--blue); color: #fff; display: flex; align-items: center; justify-content: center; font: 700 11px/1 var(--heading); flex: none; }
+.choice-logo .word { font: 500 13.5px/1 var(--sans); color: var(--blue); }
+
+.choice-eyebrow { font: 600 11px/1 var(--sans); letter-spacing: .05em; text-transform: uppercase; color: var(--ink-45); margin-top: 26px; text-align: center; }
+.choice-h1 { font: 500 26px/1.3 var(--heading); color: var(--ink); margin: 8px 0 0; text-align: center; }
+.choice-sub { font: 400 14.5px/1.55 var(--sans); color: var(--ink-60); margin: 10px 0 0; text-align: center; max-width: 380px; }
+
+.choice-context { display: flex; align-items: center; justify-content: center; gap: 7px; margin-top: 18px; font: 400 11.5px/1 var(--sans); color: var(--ink-45); flex-wrap: wrap; }
+.choice-context .item { display: inline-flex; align-items: center; gap: 5px; }
+.choice-context .sep { color: var(--ink-28); }
+
+.choice-body { width: 100%; margin-top: 30px; }
+.choice-primary { background: var(--blue-tint); border-radius: 10px; padding: 18px 20px; box-sizing: border-box; text-align: left; }
+.choice-primary-title { font: 500 14px/1.35 var(--sans); color: var(--ink); }
+.choice-primary-sub { font: 400 12px/1.55 var(--sans); color: var(--ink-60); margin-top: 6px; }
+
+.choice-btn { display: block; width: 100%; box-sizing: border-box; text-align: center; height: 38px; line-height: 38px; border-radius: 6px; background: var(--blue); color: #fff; font: 600 13.5px/1 var(--sans); cursor: pointer; margin-top: 14px; }
+.choice-btn:hover { background: var(--blue-dark); }
+.choice-btn-outline { background: #fff; border: 1.5px solid var(--blue); color: var(--blue); }
+.choice-btn-outline:hover { background: var(--blue-tint); }
+
+.choice-or { display: flex; align-items: center; gap: 12px; margin: 22px 0; color: var(--ink-45); font: 400 11.5px/1 var(--sans); }
+.choice-or::before, .choice-or::after { content: ''; flex: 1; height: 1px; background: var(--ink-14); }
+
+.choice-outline-row { display: flex; gap: 10px; align-items: center; }
+.choice-outline-row .field { flex: 1; min-width: 0; }
+.choice-outline-row .choice-btn { flex: none; width: auto; padding: 0 20px; margin-top: 0; }
+
+.choice-link { display: block; text-align: center; margin-top: 18px; font: 500 12.5px/1 var(--sans); color: var(--link); cursor: pointer; }
+.choice-link:hover { color: var(--link-dark); }
 
 @media (max-width: 900px) {
   .mkt-hero { flex-direction: column; padding: 50px 24px; gap: 40px; }
