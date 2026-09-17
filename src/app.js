@@ -1056,7 +1056,7 @@
 
     html += '<div class="mkt-footer"><div class="mkt-footer-inner">';
     html += mktLogo();
-    html += '<div class="mkt-footer-links"><a href="#mkt-features">Functies</a><a data-act="goto-login">Inloggen</a><a href="mailto:info@mjoplive.nl">Contact</a></div>';
+    html += '<div class="mkt-footer-links"><a href="#mkt-features">Functies</a><a data-act="goto-login">Inloggen</a><a href="mailto:info@mjoplive.nl">Contact</a><a href="privacy.html">Privacy</a></div>';
     html += '</div></div>';
 
     html += '</div>';
