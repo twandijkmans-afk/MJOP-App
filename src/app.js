@@ -661,7 +661,7 @@
       case 'vast-variabel': return eur(el.basis) + ' vast + ' + el.hoeveelheid + ' × ' + eur(el.perEenheid);
       case 'custom':
         var indexPct = cbsIndexatie ? cbsIndexatie.pct : Math.round(INDEXATIE_PCT * 1000) / 10;
-        var indexBron = cbsIndexatie ? ' (CBS-bouwkostenindex ' + cbsIndexatie.periode + ')' : '';
+        var indexBron = (cbsIndexatie && state.settings.toonCbsBron) ? ' (CBS-bouwkostenindex ' + cbsIndexatie.periode + ')' : '';
         return (el.metaTekst || 'eenmalige post') + (el.basisjaar != null ? ' · prijspeil ' + el.basisjaar + ', +' + indexPct + '%/jaar' + indexBron : '');
       default: return '';
     }
@@ -792,6 +792,11 @@
     // desktopbreedte zonder sessie — anders valt dat vanzelf terug op de
     // gewone onboarding-flow, ook op dit allereerste scherm.
     screen: 'marketing',
+    // 'light'/'dark' — direct bij opstarten (zie DOMContentLoaded hieronder)
+    // uit localStorage gelezen en als data-theme op <html> gezet, nog vóór
+    // de eerste render(), zodat de pagina niet eerst licht opflitst.
+    theme: 'light',
+    settings: { toonCbsBron: true },
     onboarding: { q: '', sug: [], bezig: false, bezigTekst: '', fout: '', gezocht: false },
     upload: null, // zie renderUploadWizard voor de vorm van dit object
     building: null,
@@ -825,6 +830,19 @@
     lastSavedSnapshot: null,
     confirmDeleteId: null, // id van het plan waarvoor net op "verwijderen" geklikt is, in afwachting van bevestiging
   };
+
+  // Thema en instellingen zo vroeg mogelijk toepassen (nog vóór
+  // DOMContentLoaded/de eerste render) om een korte lichte flits te
+  // voorkomen als iemand donker thema aan heeft staan.
+  try {
+    var opgeslagenThema = localStorage.getItem('mjop-theme');
+    if (opgeslagenThema === 'dark' || opgeslagenThema === 'light') state.theme = opgeslagenThema;
+    var opgeslagenInstellingen = JSON.parse(localStorage.getItem('mjop-instellingen') || 'null');
+    if (opgeslagenInstellingen && typeof opgeslagenInstellingen.toonCbsBron === 'boolean') {
+      state.settings.toonCbsBron = opgeslagenInstellingen.toonCbsBron;
+    }
+  } catch (e) { /* localStorage niet beschikbaar (bv. privénavigatie) — gewoon bij de standaardwaarden blijven */ }
+  document.documentElement.setAttribute('data-theme', state.theme);
 
   // Zet het gebouw vast. Als er nog geen elementen zijn (verse start) wordt
   // de standaardbibliotheek geïnstantieerd; zijn er al elementen (bv. uit
@@ -1002,6 +1020,21 @@
     trend: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg>',
   };
 
+  // Iconen voor de tabbalk/zijbalk-navigatie — zelfde stijl (24-viewBox,
+  // stroke i.p.v. fill, currentColor) als MKT_ICONS hierboven, zodat het
+  // ene ikonenpalet niet van het andere afwijkt.
+  var NAV_ICONS = {
+    overzicht: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="8" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/><rect x="13" y="13" width="8" height="8" rx="1.5"/></svg>',
+    gebouw: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="1.5"/><path d="M9 8h.01M15 8h.01M9 12h.01M15 12h.01M9 16h.01M15 16h.01"/></svg>',
+    planning: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></svg>',
+    rapport: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10" width="4" height="10" rx="1"/><rect x="10" y="5" width="4" height="15" rx="1"/><rect x="16" y="13" width="4" height="7" rx="1"/></svg>',
+    opslaan: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></svg>',
+    account: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/></svg>',
+    instellingen: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.2"/><path d="M19.6 15a1.7 1.7 0 0 0 .35 1.9l.05.05a2 2 0 1 1-2.9 2.9l-.05-.05a1.7 1.7 0 0 0-1.9-.35 1.7 1.7 0 0 0-1.05 1.55V21a2 2 0 0 1-4 0v-.1a1.7 1.7 0 0 0-1.05-1.55 1.7 1.7 0 0 0-1.9.35l-.05.05a2 2 0 1 1-2.9-2.9l.05-.05a1.7 1.7 0 0 0 .35-1.9A1.7 1.7 0 0 0 3 13.95H3a2 2 0 0 1 0-4h.05A1.7 1.7 0 0 0 4.6 9a1.7 1.7 0 0 0-.35-1.9l-.05-.05a2 2 0 1 1 2.9-2.9l.05.05a1.7 1.7 0 0 0 1.9.35H9a1.7 1.7 0 0 0 1.05-1.55V3a2 2 0 0 1 4 0v.1A1.7 1.7 0 0 0 15.1 4.6a1.7 1.7 0 0 0 1.9-.35l.05-.05a2 2 0 1 1 2.9 2.9l-.05.05a1.7 1.7 0 0 0-.35 1.9V9a1.7 1.7 0 0 0 1.55 1.05H21a2 2 0 0 1 0 4h-.1a1.7 1.7 0 0 0-1.55 1.05z"/></svg>',
+    zon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.6M12 18.9v2.6M4.9 4.9l1.85 1.85M17.25 17.25l1.85 1.85M2.5 12h2.6M18.9 12h2.6M6.75 17.25 4.9 19.1M19.1 4.9l-1.85 1.85"/></svg>',
+    maan: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/></svg>',
+  };
+
   function mktLogo(wordmarkOnly) {
     return '<div class="mkt-logo" data-act="goto-marketing"><div class="mark">M</div>' + (wordmarkOnly ? '' : '<div class="word">MJOP Live</div>') + '</div>';
   }
@@ -1026,7 +1059,9 @@
     html += '<div class="mkt-nav">';
     html += '<a href="#mkt-features">Functies</a>';
     html += '<a href="#mkt-how">Hoe het werkt</a>';
+    html += '<a href="#mkt-pricing">Prijzen</a>';
     html += '<a data-act="goto-onboarding">Voorbeeldplan</a>';
+    html += '<a href="mailto:info@mjoplive.nl">Contact</a>';
     html += '</div>';
     html += state.session
       ? '<div class="mkt-login-btn" data-act="goto-app">' + MKT_ICONS.lock + '<span>Naar mijn plan</span></div>'
@@ -1078,16 +1113,39 @@
 
     html += '<div class="mkt-section shaded" id="mkt-features"><div class="mkt-section-inner">';
     html += '<div class="mkt-section-title">Alles wat een bestuur nodig heeft</div>';
-    html += '<div class="mkt-section-sub">Geen los rekenblad meer bijhouden — MJOP Live combineert bouwdata, conditie en kosten in één plan.</div>';
-    html += '<div class="mkt-feature-grid">';
+    html += '<div class="mkt-section-sub">Geen los rekenblad meer bijhouden — MJOP Live combineert bouwdata, conditie en kosten in één navigatie.</div>';
+    html += '<div class="mkt-preview">';
+
+    // Niet-klikbare miniatuur van de echte app-navigatie (zie .tab-bar/
+    // renderTabBar op desktop) — bewust dezelfde vormtaal als het
+    // werkelijke product, in plaats van een losstaand decoratief element.
+    html += '<div class="mkt-preview-sidebar">';
+    html += '<div class="mkt-preview-brand"><div class="mark">M</div><span>MJOP Live</span></div>';
+    [
+      [NAV_ICONS.overzicht, 'Overzicht', true],
+      [NAV_ICONS.gebouw, 'Gebouw', false],
+      [NAV_ICONS.planning, 'Planning', false],
+      [NAV_ICONS.rapport, 'Rapport', false],
+    ].forEach(function (r) {
+      html += '<div class="mkt-preview-item' + (r[2] ? ' active' : '') + '"><span class="tab-icon">' + r[0] + '</span><span>' + r[1] + '</span></div>';
+    });
+    html += '<div class="mkt-preview-bottom">';
+    html += '<div class="mkt-preview-item"><span class="tab-icon">' + NAV_ICONS.instellingen + '</span><span>Instellingen</span></div>';
+    html += '<div class="mkt-preview-account"><span class="tab-account-avatar">B</span><div class="tab-account-info"><div class="tab-account-name">bestuur@vve-voorbeeld.nl</div><div class="tab-account-sub">Ingelogd</div></div></div>';
+    html += '</div>';
+    html += '</div>';
+
+    html += '<div class="mkt-preview-features">';
     [
       [MKT_ICONS.pin, 'Echte bouwdata', 'Bouwjaar, dakoppervlak en gevelmaten komen automatisch uit de BAG en 3D BAG — geen handmatig opmeten nodig.'],
       [MKT_ICONS.clipboard, 'NEN 2767 conditiescore', 'Leg gebreken vast per element; de conditiescore bepaalt zelf wanneer een post echt aan de beurt is.'],
       [MKT_ICONS.trend, 'Realistisch fondsadvies', 'Een 10-jaars kasstroomprojectie laat zien of de huidige bijdrage genoeg is, en wat er nodig is als dat niet zo is.'],
     ].forEach(function (f) {
-      html += '<div class="mkt-feature-card"><div class="mkt-feature-icon">' + f[0] + '</div>';
-      html += '<div class="mkt-feature-title">' + f[1] + '</div><div class="mkt-feature-body">' + f[2] + '</div></div>';
+      html += '<div class="mkt-preview-feature"><div class="mkt-feature-icon">' + f[0] + '</div>';
+      html += '<div><div class="mkt-feature-title">' + f[1] + '</div><div class="mkt-feature-body">' + f[2] + '</div></div></div>';
     });
+    html += '</div>';
+
     html += '</div></div></div>';
 
     html += '<div class="mkt-section" id="mkt-how">';
@@ -1101,6 +1159,17 @@
       html += '<div class="mkt-step"><div class="mkt-step-num">' + (i + 1) + '</div>';
       html += '<div class="mkt-step-title">' + s[0] + '</div><div class="mkt-step-body">' + s[1] + '</div></div>';
     });
+    html += '</div></div>';
+
+    html += '<div class="mkt-section shaded" id="mkt-pricing"><div class="mkt-section-inner">';
+    html += '<div class="mkt-section-title">Prijzen</div>';
+    html += '<div class="mkt-pricing-card">';
+    html += '<div class="mkt-pricing-price">Gratis</div>';
+    html += '<div class="mkt-pricing-body">MJOP Live is nu in ontwikkeling en gratis te gebruiken, inclusief het opslaan van uw eigen plan. Er komt op termijn mogelijk een betaald plan voor besturen met meerdere gebouwen — bestaande, gratis plannen blijven dan gewoon werken.</div>';
+    html += state.session
+      ? '<div class="mkt-cta-secondary" data-act="goto-app" style="margin-top:16px">Naar mijn plan →</div>'
+      : '<div class="mkt-cta-secondary" data-act="goto-login" style="margin-top:16px">Gratis account maken →</div>';
+    html += '</div>';
     html += '</div></div>';
 
     html += '<div class="mkt-footer"><div class="mkt-footer-inner">';
@@ -1273,7 +1342,7 @@
     var html = '<div class="section"><div class="card pad">';
     html += '<div style="font:500 13.5px/1.35 Inter,system-ui,sans-serif">Prijspeil van dit MJOP</div>';
     html += '<div class="input-row" style="margin-top:11px"><div class="label">De bedragen hieronder zijn genoteerd op prijspeil</div><input id="upload-basisjaar" data-bind="upload-basisjaar" value="' + esc(u.basisjaar) + '" /></div>';
-    html += '<div class="hint">Bedragen worden automatisch met ' + (cbsIndexatie ? cbsIndexatie.pct : Math.round(INDEXATIE_PCT * 1000) / 10) + '% per jaar' + (cbsIndexatie ? ' (CBS-bouwkostenindex ' + cbsIndexatie.periode + ')' : '') + ' geïndexeerd van dit jaar naar het jaar waarin de post daadwerkelijk gepland staat. Staat er al een actueel bedrag in het bestand? Zet het prijspeil dan gelijk aan het huidige jaar (' + CURRENT_YEAR + ') zodat er niet extra geïndexeerd wordt.</div>';
+    html += '<div class="hint">Bedragen worden automatisch met ' + (cbsIndexatie ? cbsIndexatie.pct : Math.round(INDEXATIE_PCT * 1000) / 10) + '% per jaar' + ((cbsIndexatie && state.settings.toonCbsBron) ? ' (CBS-bouwkostenindex ' + cbsIndexatie.periode + ')' : '') + ' geïndexeerd van dit jaar naar het jaar waarin de post daadwerkelijk gepland staat. Staat er al een actueel bedrag in het bestand? Zet het prijspeil dan gelijk aan het huidige jaar (' + CURRENT_YEAR + ') zodat er niet extra geïndexeerd wordt.</div>';
     html += '</div></div>';
 
     html += '<div class="section"><div class="section-title">' + u.regels.length + ' regels gevonden</div>';
@@ -1316,6 +1385,11 @@
 
   function renderApp() {
     var html = '<div class="app-shell">';
+    // Los van de tabbalk: op mobiel (waar de tabbalk onderin ongewijzigd
+    // blijft staan) is dit de enige weg naar Instellingen. Vanaf 960px
+    // schuift-ie via CSS vanzelf weg, want daar staat "Instellingen" al
+    // linksonder in de zijbalk (zie renderTabBar()).
+    html += '<button class="mobile-settings-btn" data-act="set-tab" data-tab="instellingen" aria-label="Instellingen">' + NAV_ICONS.instellingen + '</button>';
     // De enige weg naar screen 'app' zonder building is de snelkoppeling
     // naar "Mijn gebouwen" vanaf het adresscherm (zie 'goto-mijngebouwen')
     // — home/gebouw/planning/rapport gaan er allemaal van uit dat
@@ -1331,19 +1405,26 @@
     else if (state.tab === 'rapport') html += renderRapport();
     else if (state.tab === 'account') html += renderAccount();
     else if (state.tab === 'mijngebouwen') html += renderMijnGebouwen();
+    else if (state.tab === 'instellingen') html += renderInstellingen();
     html += renderTabBar();
     html += '</div>';
     return html;
   }
 
   function renderTabBar() {
-    var tabs = [['home', 'Overzicht'], ['gebouw', 'Gebouw'], ['planning', 'Planning'], ['rapport', 'Rapport']];
+    var tabs = [
+      ['home', 'Overzicht', NAV_ICONS.overzicht],
+      ['gebouw', 'Gebouw', NAV_ICONS.gebouw],
+      ['planning', 'Planning', NAV_ICONS.planning],
+      ['rapport', 'Rapport', NAV_ICONS.rapport],
+    ];
     var html = '<div class="tab-bar">';
     html += '<div class="tab-brand">' + mktLogo() + '</div>';
+    html += '<div class="tab-main">';
     tabs.forEach(function (t) {
       var active = state.tab === t[0];
       html += '<button class="tab-item' + (active ? ' active' : '') + '" data-act="set-tab" data-tab="' + t[0] + '">';
-      html += '<span class="tab-dot"></span><span>' + t[1] + '</span></button>';
+      html += '<span class="tab-icon">' + t[2] + '</span><span class="tab-label">' + t[1] + '</span></button>';
     });
     // "Opslaan" is een actie, geen navigatie-tab — een klik slaat het
     // huidige plan meteen op, het label is de status (zie
@@ -1356,10 +1437,64 @@
         : !state.currentPlanId ? 'Opslaan'
         : dirty ? 'Wijzigingen' : 'Opgeslagen';
       html += '<button class="tab-item' + (dirty || state.plansUi.fout ? ' dirty' : '') + '" data-act="save-plan">';
-      html += '<span class="tab-dot"></span><span>' + saveLabel + '</span></button>';
+      html += '<span class="tab-icon">' + NAV_ICONS.opslaan + '</span><span class="tab-label">' + saveLabel + '</span></button>';
     }
     html += '<button class="tab-item' + (state.tab === 'account' ? ' active' : '') + '" data-act="set-tab" data-tab="account">';
-    html += '<span class="tab-dot"></span><span>' + (state.session ? 'Account' : 'Inloggen') + '</span></button>';
+    html += '<span class="tab-icon">' + NAV_ICONS.account + '</span><span class="tab-label">' + (state.session ? 'Account' : 'Inloggen') + '</span></button>';
+    html += '</div>';
+    // Alleen zichtbaar vanaf 960px (zie style.css) — op mobiel blijft de
+    // tabbalk onderin exact zoals hij was, en gaat Instellingen via het
+    // losse icoontje rechtsboven (zie renderApp()).
+    html += '<div class="tab-bottom">';
+    html += '<button class="tab-item' + (state.tab === 'instellingen' ? ' active' : '') + '" data-act="set-tab" data-tab="instellingen">';
+    html += '<span class="tab-icon">' + NAV_ICONS.instellingen + '</span><span class="tab-label">Instellingen</span></button>';
+    var accountNaam = state.session ? state.session.user.email : 'Voorbeeldgebouw';
+    var accountSub = state.session ? (isDirty() ? 'Niet-opgeslagen wijzigingen' : 'Ingelogd') : 'Demo, niet ingelogd';
+    var avatarLetter = state.session ? state.session.user.email.charAt(0).toUpperCase() : 'V';
+    html += '<div class="tab-account-row" data-act="set-tab" data-tab="account">';
+    html += '<span class="tab-account-avatar">' + esc(avatarLetter) + '</span>';
+    html += '<div class="tab-account-info"><div class="tab-account-name">' + esc(accountNaam) + '</div><div class="tab-account-sub">' + esc(accountSub) + '</div></div>';
+    html += '</div>';
+    html += '</div>';
+    html += '</div>';
+    return html;
+  }
+
+  // ---------------------------------------------------------------------
+  // Instellingen — bereikbaar via het icoon rechtsboven (mobiel) of
+  // linksonder in de zijbalk (desktop, zie renderTabBar()/.tab-bottom).
+  // ---------------------------------------------------------------------
+  function renderInstellingen() {
+    var html = '<div style="padding:20px 0 8px">';
+    html += '<div style="padding:0 22px"><div class="page-title">Instellingen</div></div>';
+
+    html += '<div class="section"><div class="section-title">Weergave</div>';
+    html += '<div class="card" style="margin-top:11px">';
+    html += '<div class="row" style="border-top:none">';
+    html += '<span class="tab-icon" style="width:20px;height:20px;color:var(--ink-45)">' + (state.theme === 'dark' ? NAV_ICONS.maan : NAV_ICONS.zon) + '</span>';
+    html += '<div class="grow"><div class="name">Donker thema</div><div class="meta">' + (state.theme === 'dark' ? 'Nu aan' : 'Nu uit') + '</div></div>';
+    html += '<div class="toggle' + (state.theme === 'dark' ? ' on' : '') + '" data-act="toggle-theme"><div class="knob"></div></div>';
+    html += '</div></div></div>';
+
+    html += '<div class="section"><div class="section-title">Rapport</div>';
+    html += '<div class="card" style="margin-top:11px">';
+    html += '<div class="row" style="border-top:none">';
+    html += '<div class="grow"><div class="name">CBS-bouwkostenindex vermelden</div><div class="meta">Toont erbij welk indexatiepercentage gebruikt is, bijv. "(CBS-bouwkostenindex 2024)"</div></div>';
+    html += '<div class="toggle' + (state.settings.toonCbsBron ? ' on' : '') + '" data-act="toggle-cbs-bron"><div class="knob"></div></div>';
+    html += '</div></div></div>';
+
+    html += '<div class="section"><div class="section-title">Account</div>';
+    html += '<div class="card" style="margin-top:11px">';
+    if (state.session) {
+      html += '<div class="row" style="border-top:none"><div class="grow"><div class="name">Ingelogd als</div><div class="meta">' + esc(state.session.user.email) + '</div></div></div>';
+      html += '<div class="row linkish" data-act="logout"><div class="grow"><div class="name">Uitloggen</div></div></div>';
+      html += '<div class="row linkish" data-act="request-account-verwijderen"><div class="grow"><div class="name">Account en gegevens laten verwijderen</div><div class="meta">Stuur een e-mail naar ons om je account en opgeslagen plannen te laten verwijderen</div></div></div>';
+    } else {
+      html += '<div class="row" style="border-top:none"><div class="grow"><div class="name">Niet ingelogd</div><div class="meta">Je bekijkt nu een voorbeeldgebouw, niets is opgeslagen</div></div></div>';
+      html += '<div class="row linkish" data-act="set-tab" data-tab="account"><div class="grow"><div class="name">Inloggen</div></div></div>';
+    }
+    html += '</div></div>';
+
     html += '</div>';
     return html;
   }
@@ -2074,7 +2209,7 @@
     html += '<div class="pr-note">' + (eerste
       ? 'Bij de huidige bijdrage van ' + eur(state.bijdrage) + ' raakt het reservefonds in ' + eerste.jaar + ' leeg.'
       : 'Bij ' + eur(state.bijdrage) + ' per maand blijft het reservefonds ' + HORIZON + ' jaar positief, met ' + eur(laagste) + ' als laagste stand.') + '</div>';
-    html += '<div class="pr-footer">Bronnen: PDOK Locatieserver en BAG (Public Domain Mark 1.0), 3D BAG van de TU Delft (CC BY 4.0). Kengetallen zijn indicatieve richtprijzen inclusief btw, geen offerte. Bedragen vanaf geïmporteerde posten zijn geïndexeerd met ' + (cbsIndexatie ? cbsIndexatie.pct : Math.round(INDEXATIE_PCT * 1000) / 10) + '% per jaar' + (cbsIndexatie ? ' (CBS-bouwkostenindex ' + cbsIndexatie.periode + ')' : '') + ' vanaf het prijspeil van het brondocument. Afgedrukt op ' + vandaag + ' met MJOP Live.</div>';
+    html += '<div class="pr-footer">Bronnen: PDOK Locatieserver en BAG (Public Domain Mark 1.0), 3D BAG van de TU Delft (CC BY 4.0). Kengetallen zijn indicatieve richtprijzen inclusief btw, geen offerte. Bedragen vanaf geïmporteerde posten zijn geïndexeerd met ' + (cbsIndexatie ? cbsIndexatie.pct : Math.round(INDEXATIE_PCT * 1000) / 10) + '% per jaar' + ((cbsIndexatie && state.settings.toonCbsBron) ? ' (CBS-bouwkostenindex ' + cbsIndexatie.periode + ')' : '') + ' vanaf het prijspeil van het brondocument. Afgedrukt op ' + vandaag + ' met MJOP Live.</div>';
     html += '</div>';
 
     html += '</div>';
@@ -2299,6 +2434,22 @@
       render();
     },
     'logout': function () { if (sb) sb.auth.signOut(); },
+    'toggle-theme': function () {
+      state.theme = state.theme === 'dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', state.theme);
+      try { localStorage.setItem('mjop-theme', state.theme); } catch (e) {}
+      render();
+    },
+    'toggle-cbs-bron': function () {
+      state.settings.toonCbsBron = !state.settings.toonCbsBron;
+      try { localStorage.setItem('mjop-instellingen', JSON.stringify(state.settings)); } catch (e) {}
+      render();
+    },
+    'request-account-verwijderen': function () {
+      var email = state.session ? state.session.user.email : '';
+      window.location.href = 'mailto:info@mjoplive.nl?subject=' + encodeURIComponent('Account verwijderen') +
+        '&body=' + encodeURIComponent('Hallo,\n\nIk wil graag mijn account (' + email + ') en de daarin opgeslagen plannen laten verwijderen.\n\nMet vriendelijke groet,');
+    },
     'print-rapport': function () { window.print(); },
     'export-csv': function () { exportCsv(); },
     'reset-upload': function () { state.upload = null; render(); },
