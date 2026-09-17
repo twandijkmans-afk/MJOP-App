@@ -2405,7 +2405,15 @@
       rows.push([el.naam, el.sfb || '', el.categorie, score == null ? 'onbekend' : score, el.cyclus || '', conditionYear(el), Math.round(elementCost(el, state))]);
     });
     var csv = rows.map(function (r) {
-      return r.map(function (v) { return '"' + String(v).replace(/"/g, '""') + '"'; }).join(',');
+      return r.map(function (v) {
+        var s = String(v);
+        // CSV-/formule-injectie: Excel e.a. interpreteren een cel die begint
+        // met =, +, -, @, tab of CR als formule zodra het bestand geopend
+        // wordt. Elementnamen kunnen uit een geïmporteerd (dus onbetrouwbaar)
+        // MJOP komen — een voorloop-apostrof dwingt platte tekst af.
+        if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;
+        return '"' + s.replace(/"/g, '""') + '"';
+      }).join(',');
     }).join('\r\n');
     var blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
     var url = URL.createObjectURL(blob);
