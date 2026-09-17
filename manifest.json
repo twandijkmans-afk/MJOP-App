@@ -1,0 +1,13 @@
+{
+  "name": "MJOP Live",
+  "short_name": "MJOP Live",
+  "description": "Meerjarenonderhoudsplan voor kleine VvE's, gebouwd op echte BAG- en 3D BAG-data.",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#F5F7FA",
+  "theme_color": "#223555",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
