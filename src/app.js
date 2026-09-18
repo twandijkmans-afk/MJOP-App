@@ -2297,7 +2297,7 @@
         html += '<div class="tl-post" data-act="open-element" data-id="' + p.elId + '" style="cursor:pointer"><div class="grow"><div class="name">' + esc(p.naam) + '</div><div class="meta">' + esc(p.meta) + '</div></div><div class="amount">' + eur(p.bedrag) + '</div></div>';
       });
       html += '</div>';
-      html += '<div class="tl-saldo" style="color:' + (r.saldo < 0 ? 'var(--bad-fg)' : 'var(--ink-42)') + '">' + (r.saldo < 0 ? '−' : '') + '€ ' + Math.round(Math.abs(r.saldo) / 1000) + 'k</div>';
+      html += '<div class="tl-saldo" style="color:' + (r.saldo < 0 ? 'var(--bad-fg)' : 'var(--ink-60)') + ';background:' + (r.saldo < 0 ? 'var(--bad-bg)' : 'var(--panel)') + '">' + (r.saldo < 0 ? '−' : '') + '€ ' + Math.round(Math.abs(r.saldo) / 1000) + 'k</div>';
       html += '</div>';
     });
     html += '</div></div>';

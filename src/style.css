@@ -358,7 +358,7 @@ input[type=range]::-moz-range-thumb {
 .tl-post .meta { font: 400 11px/1.35 var(--sans); color: var(--ink-50); margin-top: 2px; }
 .tl-post .amount { font: 500 12.5px/1 var(--mono); flex: none; }
 .tl-empty { font: 400 11.5px/1 var(--sans); color: rgba(27,36,48,.35); padding: 5px 0 9px; }
-.tl-saldo { flex: none; width: 58px; text-align: right; padding-top: 3px; font: 400 11px/1 var(--mono); }
+.tl-saldo { flex: none; align-self: flex-start; min-width: 46px; text-align: center; font: 500 11px/1 var(--mono); padding: 5px 8px; border-radius: 6px; }
 
 .tab-bar { flex: none; display: flex; border-top: 1px solid var(--ink-10); background: var(--card-tr); backdrop-filter: blur(12px); padding: 10px 0 26px; position: sticky; bottom: 0; }
 /* .tab-main houdt de eigenlijke navigatie-items; op mobiel is dit de
