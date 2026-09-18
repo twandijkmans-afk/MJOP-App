@@ -27,13 +27,21 @@ const supabase = createClient(
 
 async function syncSubscription(subscriptionId: string, customerId: string) {
   const sub = await stripe.subscriptions.retrieve(subscriptionId);
-  await supabase.from('subscriptions').upsert({
-    stripe_customer_id: customerId,
-    stripe_subscription_id: sub.id,
-    status: sub.status,
-    current_period_end: new Date(sub.current_period_end * 1000).toISOString(),
-    updated_at: new Date().toISOString(),
-  }, { onConflict: 'stripe_customer_id' });
+  // update i.p.v. upsert: de rij bestaat altijd al (aangemaakt door
+  // create-checkout-session met user_id gezet) tegen de tijd dat deze
+  // webhook binnenkomt. Een upsert zou hier zelfs op een bestaande rij
+  // alsnog een NOT NULL-fout op user_id geven, omdat Postgres de
+  // kandidaat-insertrij valideert vóór het de ON CONFLICT-tak neemt.
+  const { error } = await supabase
+    .from('subscriptions')
+    .update({
+      stripe_subscription_id: sub.id,
+      status: sub.status,
+      current_period_end: new Date(sub.current_period_end * 1000).toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq('stripe_customer_id', customerId);
+  if (error) throw new Error(error.message);
 }
 
 Deno.serve(async (req) => {
@@ -52,16 +60,7 @@ Deno.serve(async (req) => {
   } catch (err) {
     // Nooit blindelings vertrouwen: een niet-geverifieerd verzoek wordt
     // afgewezen i.p.v. verwerkt, ook al "ziet het er geldig uit".
-    //
-    // TIJDELIJKE DEBUG-INFO (verwijderen zodra de oorzaak gevonden is):
-    // een hash van de secret (nooit de secret zelf) zodat we kunnen
-    // vergelijken of de functie de verwachte secret gebruikt, zonder ook
-    // maar één teken van de echte waarde prijs te geven.
-    const secretHashBuf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(webhookSecret));
-    const secretHash = Array.from(new Uint8Array(secretHashBuf)).map((b) => b.toString(16).padStart(2, '0')).join('').slice(0, 12);
-    const debug = `DEBUG: body-lengte=${body.length}, signature-header-aanwezig=${!!signature}, ` +
-      `secret-lengte=${webhookSecret.length}, secret-hash=${secretHash}`;
-    return new Response(`Webhook-signatuur ongeldig: ${(err as Error).message}\n\n${debug}`, { status: 400 });
+    return new Response(`Webhook-signatuur ongeldig: ${(err as Error).message}`, { status: 400 });
   }
 
   try {
