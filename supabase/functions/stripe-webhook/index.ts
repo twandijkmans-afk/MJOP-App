@@ -52,7 +52,15 @@ Deno.serve(async (req) => {
   } catch (err) {
     // Nooit blindelings vertrouwen: een niet-geverifieerd verzoek wordt
     // afgewezen i.p.v. verwerkt, ook al "ziet het er geldig uit".
-    return new Response(`Webhook-signatuur ongeldig: ${(err as Error).message}`, { status: 400 });
+    //
+    // TIJDELIJKE DEBUG-INFO (verwijderen zodra de oorzaak gevonden is):
+    // laat zien welke secret de functie daadwerkelijk gebruikt en of de
+    // signature-header binnenkwam, zonder de volledige geheime waarden
+    // prijs te geven.
+    const debug = `DEBUG: body-lengte=${body.length}, signature-header-aanwezig=${!!signature}, ` +
+      `secret-lengte=${webhookSecret.length}, secret-begin=${webhookSecret.slice(0, 11)}, ` +
+      `secret-eind=${webhookSecret.slice(-4)}`;
+    return new Response(`Webhook-signatuur ongeldig: ${(err as Error).message}\n\n${debug}`, { status: 400 });
   }
 
   try {
