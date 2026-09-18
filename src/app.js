@@ -940,6 +940,49 @@
     return !state.currentPlanId || JSON.stringify(serializePlan()) !== state.lastSavedSnapshot;
   }
 
+  // Daadwerkelijke opslaan-aanroep — gedeeld door de "Opslaan"-knop
+  // (ACTIONS['save-plan']) en de automatische opslaan-timer hieronder,
+  // zodat beide precies hetzelfde doen (zelfde insert/update-logica,
+  // zelfde statusveld state.plansUi).
+  function performSave() {
+    if (!sb || !state.session || !state.building) return;
+    var p = state.plansUi;
+    p.bezig = true; p.fout = '';
+    render();
+    var blob = serializePlan();
+    var label = state.building.adres || 'MJOP';
+    var query = state.currentPlanId
+      ? sb.from('saved_plans').update({ label: label, state: blob, updated_at: new Date().toISOString() }).eq('id', state.currentPlanId).select().single()
+      : sb.from('saved_plans').insert({ user_id: state.user.id, label: label, state: blob }).select().single();
+    query.then(function (res) {
+      p.bezig = false;
+      if (res.error) { p.fout = res.error.message; render(); return; }
+      state.currentPlanId = res.data.id;
+      state.lastSavedSnapshot = JSON.stringify(blob);
+      loadSavedPlans();
+    }).catch(function () {
+      p.bezig = false; p.fout = 'Kon geen verbinding maken. Probeer het opnieuw.'; render();
+    });
+  }
+
+  // Automatisch opslaan: 2 seconden na de laatste wijziging, zodat een
+  // reeks snelle aanpassingen (bv. een schuifje slepen) niet bij elke
+  // tussenstap een eigen aanroep doet — elke render() hierna verzet de
+  // timer opnieuw (zie de aanroep onderin render()). Alleen voor
+  // abonnees met een gebouw; wie niet is ingelogd of geen abonnement
+  // heeft, moet nog altijd bewust op "Opslaan" klikken (dat stuurt dan
+  // naar Instellingen om te abonneren, zie ACTIONS['save-plan']).
+  var autoSaveTimer = null;
+  function scheduleAutoSave() {
+    if (autoSaveTimer) { clearTimeout(autoSaveTimer); autoSaveTimer = null; }
+    if (!sb || !state.session || !state.building || !isSubscribed()) return;
+    if (state.plansUi.bezig || !isDirty()) return;
+    autoSaveTimer = setTimeout(function () {
+      autoSaveTimer = null;
+      if (isDirty() && !state.plansUi.bezig) performSave();
+    }, 2000);
+  }
+
   // Alleen de lichte kolommen (geen state-blob) — de "mijn gebouwen"-lijst
   // hoeft niet elke opgeslagen plan-inhoud te downloaden om te tonen.
   // Geen eigen .eq('user_id', ...)-filter: de select-policy op saved_plans
@@ -1047,6 +1090,7 @@
 
   function render() {
     persistWorkSession();
+    scheduleAutoSave();
     var active = document.activeElement;
     var focusInfo = null;
     if (active && root.contains(active) && active.id) {
@@ -2497,23 +2541,7 @@
       // toch zou lukken (opslaan zelf is niet abonnement-afhankelijk in
       // de database) maar product-matig niet de bedoeling is.
       if (!isSubscribed()) { state.tab = 'instellingen'; render(); return; }
-      var p = state.plansUi;
-      p.bezig = true; p.fout = '';
-      render();
-      var blob = serializePlan();
-      var label = state.building.adres || 'MJOP';
-      var query = state.currentPlanId
-        ? sb.from('saved_plans').update({ label: label, state: blob, updated_at: new Date().toISOString() }).eq('id', state.currentPlanId).select().single()
-        : sb.from('saved_plans').insert({ user_id: state.user.id, label: label, state: blob }).select().single();
-      query.then(function (res) {
-        p.bezig = false;
-        if (res.error) { p.fout = res.error.message; render(); return; }
-        state.currentPlanId = res.data.id;
-        state.lastSavedSnapshot = JSON.stringify(blob);
-        loadSavedPlans();
-      }).catch(function () {
-        p.bezig = false; p.fout = 'Kon geen verbinding maken. Probeer het opnieuw.'; render();
-      });
+      performSave();
     },
     'open-plan': function (d) {
       if (!sb || !state.session) return;
