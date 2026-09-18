@@ -1677,8 +1677,16 @@
     // "Opslaan" is een actie, geen navigatie-tab — een klik slaat het
     // huidige plan meteen op, het label is de status (zie
     // SPEC_ACCOUNTS_AND_SAVING.md §8: "showing opgeslagen/niet opgeslagen
-    // status so it's clear whether changes are persisted").
-    if (state.session) {
+    // status so it's clear whether changes are persisted"). Voor een
+    // abonnee is dit nu overbodig in de normale, geslaagde situatie —
+    // scheduleAutoSave() regelt het opslaan zelf al stil op de
+    // achtergrond (zie render()) — dus die ziet 'm alleen nog als er
+    // écht iets misgaat, om dat niet stilzwijgend te laten gebeuren. Een
+    // ingelogde gebruiker zonder abonnement ziet 'm gewoon altijd nog:
+    // dat is voor hen de enige weg naar "opslaan is een betaalde functie"
+    // (zie ACTIONS['save-plan']), en zonder abonnement slaat er sowieso
+    // niets automatisch op.
+    if (state.session && (!isSubscribed() || state.plansUi.fout)) {
       var dirty = isDirty();
       var saveLabel = state.plansUi.fout ? 'Opslaan mislukt'
         : state.plansUi.bezig ? 'Bezig…'
