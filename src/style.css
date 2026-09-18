@@ -336,6 +336,12 @@ input[type=range]::-moz-range-thumb {
    vanaf de zijbalk-breedte (960px) komt het naast elkaar te staan. */
 .planning-layout { display: flex; flex-direction: column; gap: 4px; }
 .planning-main, .planning-side { min-width: 0; }
+/* .card op zichzelf (witte achtergrond, 10%-opacity rand) valt op de
+   bijna even lichte paginakleur nauwelijks op — hier, waar de kaart de
+   enige inhoud is (geen rijen/tekst eromheen die de kaart al afbakenen),
+   krijgt 'm daarom een duidelijkere rand plus een lichte schaduw zodat
+   de cijfers zichtbaar "in het vak" staan i.p.v. los op de pagina. */
+.planning-side .card { border-color: var(--ink-14); box-shadow: 0 1px 3px rgba(27,36,48,.06); }
 @media (min-width: 960px) {
   .planning-layout { flex-direction: row-reverse; align-items: flex-start; gap: 8px; }
   .planning-side { flex: 0 0 300px; }
