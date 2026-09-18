@@ -54,12 +54,13 @@ Deno.serve(async (req) => {
     // afgewezen i.p.v. verwerkt, ook al "ziet het er geldig uit".
     //
     // TIJDELIJKE DEBUG-INFO (verwijderen zodra de oorzaak gevonden is):
-    // laat zien welke secret de functie daadwerkelijk gebruikt en of de
-    // signature-header binnenkwam, zonder de volledige geheime waarden
-    // prijs te geven.
+    // een hash van de secret (nooit de secret zelf) zodat we kunnen
+    // vergelijken of de functie de verwachte secret gebruikt, zonder ook
+    // maar één teken van de echte waarde prijs te geven.
+    const secretHashBuf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(webhookSecret));
+    const secretHash = Array.from(new Uint8Array(secretHashBuf)).map((b) => b.toString(16).padStart(2, '0')).join('').slice(0, 12);
     const debug = `DEBUG: body-lengte=${body.length}, signature-header-aanwezig=${!!signature}, ` +
-      `secret-lengte=${webhookSecret.length}, secret-begin=${webhookSecret.slice(0, 11)}, ` +
-      `secret-eind=${webhookSecret.slice(-4)}`;
+      `secret-lengte=${webhookSecret.length}, secret-hash=${secretHash}`;
     return new Response(`Webhook-signatuur ongeldig: ${(err as Error).message}\n\n${debug}`, { status: 400 });
   }
 
