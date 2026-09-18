@@ -851,6 +851,24 @@
   } catch (e) { /* localStorage niet beschikbaar (bv. privénavigatie) — gewoon bij de standaardwaarden blijven */ }
   document.documentElement.setAttribute('data-theme', state.theme);
 
+  // Werksessie herstellen na een refresh (F5) binnen hetzelfde tabblad.
+  // sessionStorage i.p.v. localStorage: een heel nieuw bezoek/tabblad
+  // begint gewoon weer op de marketing-homepage/onboarding (bestaand,
+  // bewust gedrag — zie currentScreen() hieronder), maar een refresh
+  // stuurt je niet meer terug naar het beginscherm terwijl je middenin
+  // een plan zat. Wordt weggeschreven in persistWorkSession() (zie
+  // render()) en opgeruimd bij uitloggen.
+  try {
+    var opgeslagenWerk = JSON.parse(sessionStorage.getItem('mjop-worksessie') || 'null');
+    if (opgeslagenWerk) {
+      if (opgeslagenWerk.screen) state.screen = opgeslagenWerk.screen;
+      if (opgeslagenWerk.tab) state.tab = opgeslagenWerk.tab;
+      if (opgeslagenWerk.currentPlanId) state.currentPlanId = opgeslagenWerk.currentPlanId;
+      if (opgeslagenWerk.lastSavedSnapshot) state.lastSavedSnapshot = opgeslagenWerk.lastSavedSnapshot;
+      if (opgeslagenWerk.plan) applyPlanBlob(opgeslagenWerk.plan);
+    }
+  } catch (e) { /* sessionStorage niet beschikbaar (bv. privénavigatie) — gewoon bij de standaardwaarden blijven */ }
+
   // Zet het gebouw vast. Als er nog geen elementen zijn (verse start) wordt
   // de standaardbibliotheek geïnstantieerd; zijn er al elementen (bv. uit
   // een MJOP-upload) dan worden alleen de bibliotheek-elementen herschaald
@@ -901,6 +919,21 @@
     state.bijdrage = blob.bijdrage || 55;
     state.offertes = blob.offertes || {};
     state.bijvullen = blob.bijvullen || {};
+  }
+
+  // Zie de "werksessie herstellen"-restore hierboven bij het opzetten van
+  // state — dit is de tegenhanger die na elke render() de actuele plek
+  // (scherm, tab, geopend plan, plan-inhoud) wegschrijft.
+  function persistWorkSession() {
+    try {
+      sessionStorage.setItem('mjop-worksessie', JSON.stringify({
+        screen: state.screen,
+        tab: state.tab,
+        currentPlanId: state.currentPlanId,
+        lastSavedSnapshot: state.lastSavedSnapshot,
+        plan: serializePlan(),
+      }));
+    } catch (e) { /* sessionStorage niet beschikbaar (bv. privénavigatie) — niets te doen */ }
   }
 
   function isDirty() {
@@ -1013,6 +1046,7 @@
   }
 
   function render() {
+    persistWorkSession();
     var active = document.activeElement;
     var focusInfo = null;
     if (active && root.contains(active) && active.id) {
@@ -1075,8 +1109,8 @@
     maan: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/></svg>',
   };
 
-  function mktLogo(wordmarkOnly) {
-    return '<div class="mkt-logo" data-act="goto-marketing"><div class="mark">M</div>' + (wordmarkOnly ? '' : '<div class="word">MJOP Live</div>') + '</div>';
+  function mktLogo(wordmarkOnly, action) {
+    return '<div class="mkt-logo" data-act="' + (action || 'goto-marketing') + '"><div class="mark">M</div>' + (wordmarkOnly ? '' : '<div class="word">MJOP Live</div>') + '</div>';
   }
 
   // ---------------------------------------------------------------------
@@ -1295,14 +1329,44 @@
 
     html += '<div class="mkt-section shaded" id="mkt-pricing"><div class="mkt-section-inner">';
     html += '<div class="mkt-section-title">Prijzen</div>';
-    html += '<div class="mkt-pricing-card">';
-    html += '<div class="mkt-pricing-price">Gratis</div>';
-    html += '<div class="mkt-pricing-body">MJOP Live is nu in ontwikkeling en gratis te gebruiken, inclusief het opslaan van uw eigen plan. Er komt op termijn mogelijk een betaald plan voor besturen met meerdere gebouwen — bestaande, gratis plannen blijven dan gewoon werken.</div>';
-    html += state.session
-      ? '<div class="mkt-cta-secondary" data-act="goto-app" style="margin-top:16px">Naar mijn plan →</div>'
-      : '<div class="mkt-cta-secondary" data-act="goto-login" style="margin-top:16px">Gratis account maken →</div>';
+    html += '<div class="mkt-section-sub">Een adres opzoeken en het voorbeeldgebouw bekijken kan altijd gratis. Voor het opslaan en beheren van uw eigen gebouw geldt één vast maandtarief, zonder verrassingen.</div>';
+    html += '<div class="mkt-pricing-grid">';
+
+    html += '<div class="mkt-pricing-plan">';
+    html += '<div class="mkt-pricing-name">Gratis</div>';
+    html += '<div class="mkt-pricing-price">€ 0</div>';
+    html += '<div class="mkt-pricing-list">';
+    [
+      'Adres opzoeken met echte BAG-data',
+      'Het voorbeeldgebouw volledig bekijken',
+      'Rapport en cijfers van het voorbeeldgebouw inzien',
+    ].forEach(function (t) {
+      html += '<div class="mkt-pricing-item">' + CHOICE_ICONS.check + '<span>' + t + '</span></div>';
+    });
     html += '</div>';
-    html += '</div></div>';
+    html += '<div class="mkt-pricing-cta" data-act="goto-onboarding">Bekijk het voorbeeldplan →</div>';
+    html += '</div>';
+
+    html += '<div class="mkt-pricing-plan featured">';
+    html += '<div class="mkt-pricing-badge">Voor uw eigen gebouw</div>';
+    html += '<div class="mkt-pricing-name">Abonnement</div>';
+    html += '<div class="mkt-pricing-price">€ 19<span>/maand</span></div>';
+    html += '<div class="mkt-pricing-list">';
+    [
+      'Alles uit Gratis',
+      'Uw eigen gebouw opzoeken en opslaan',
+      'Wijzigingen bewaren en later verder werken',
+      'Op elk moment weer opzegbaar',
+    ].forEach(function (t) {
+      html += '<div class="mkt-pricing-item">' + CHOICE_ICONS.check + '<span>' + t + '</span></div>';
+    });
+    html += '</div>';
+    html += state.session
+      ? '<div class="mkt-pricing-cta" data-act="goto-app">Naar mijn plan →</div>'
+      : '<div class="mkt-pricing-cta" data-act="goto-login">Gratis account maken →</div>';
+    html += '</div>';
+
+    html += '</div></div></div>';
 
     html += '<div class="mkt-footer"><div class="mkt-footer-inner">';
     html += mktLogo();
@@ -1522,6 +1586,11 @@
     // schuift-ie via CSS vanzelf weg, want daar staat "Instellingen" al
     // linksonder in de zijbalk (zie renderTabBar()).
     html += '<button class="mobile-settings-btn" data-act="set-tab" data-tab="instellingen" aria-label="Instellingen">' + NAV_ICONS.instellingen + '</button>';
+    // Tegenhanger linksboven op mobiel/tablet — vanaf 960px zit dezelfde
+    // functie al in het logo linksboven in de zijbalk (zie tab-brand
+    // hierboven), dus dit icoontje verdwijnt daar via CSS (zie
+    // .mobile-home-btn in style.css).
+    html += '<button class="mobile-home-btn" data-act="goto-app-home" aria-label="Overzicht">M</button>';
     // De enige weg naar screen 'app' zonder building is de snelkoppeling
     // naar "Mijn gebouwen" vanaf het adresscherm (zie 'goto-mijngebouwen')
     // — home/gebouw/planning/rapport gaan er allemaal van uit dat
@@ -1551,7 +1620,10 @@
       ['rapport', 'Rapport', NAV_ICONS.rapport],
     ];
     var html = '<div class="tab-bar">';
-    html += '<div class="tab-brand">' + mktLogo() + '</div>';
+    // 'goto-app-home' i.p.v. het gewone 'goto-marketing': dit logo staat
+    // in de ingelogde/werkende app zelf, dus "terug naar home" betekent
+    // hier het Overzicht-tabblad, niet de publieke marketing-homepage.
+    html += '<div class="tab-brand">' + mktLogo(false, 'goto-app-home') + '</div>';
     html += '<div class="tab-main">';
     tabs.forEach(function (t) {
       var active = state.tab === t[0];
@@ -2491,6 +2563,12 @@
     // vanaf het adresscherm te bereiken vóórdat er deze sessie al een
     // gebouw gekozen is.
     'goto-mijngebouwen': function () { state.screen = 'app'; state.tab = 'mijngebouwen'; render(); },
+    // Logo/terugknop vanuit binnen de app zelf (zie renderTabBar() en de
+    // mobile-home-btn in renderApp()) — "thuis" betekent hier het
+    // Overzicht-tabblad, niet de publieke marketing-homepage (dat is
+    // 'goto-marketing', voor buiten de app). Zonder gebouw valt renderApp()
+    // vanzelf terug op "Mijn gebouwen" (zie needsBuilding daar).
+    'goto-app-home': function () { state.tab = 'home'; state.activeElementId = null; state.confirmDeleteId = null; render(); },
     'goto-login': function () { state.screen = 'login'; render(); },
     'goto-onboarding': function () { state.screen = 'onboarding'; render(); },
     // Het live-doorzoeken tijdens het typen (BINDS['addr-q']) blijft de
@@ -2879,6 +2957,7 @@
           state.savedPlans = []; state.plansLoaded = false;
           state.currentPlanId = null; state.lastSavedSnapshot = null;
           state.subscription = null; state.subscriptionLoaded = false;
+          try { sessionStorage.removeItem('mjop-worksessie'); } catch (e) {}
         }
         render();
       });

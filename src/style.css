@@ -380,6 +380,15 @@ input[type=range]::-moz-range-thumb {
 .mobile-settings-btn svg { width: 18px; height: 18px; }
 .mobile-settings-btn:hover { color: var(--blue); }
 
+.mobile-home-btn {
+  position: fixed; top: 14px; left: 14px; z-index: 20;
+  width: 34px; height: 34px; border-radius: 50%;
+  background: var(--blue); border: none;
+  display: flex; align-items: center; justify-content: center;
+  color: #fff; font: 700 15px/1 var(--heading); cursor: pointer;
+}
+.mobile-home-btn:hover { background: var(--blue-dark); }
+
 .idx-bar { margin: 0 18px 18px; padding: 12px 14px; border-radius: 8px; background: var(--page); display: flex; align-items: center; gap: 11px; cursor: pointer; }
 .idx-bar .pill { flex: none; padding: 3px 7px; border-radius: 6px; background: var(--blue); font: 500 9.5px/1 var(--mono); color: #fff; }
 .idx-bar .text { flex: 1; min-width: 0; font: 400 12px/1.4 var(--sans); color: rgba(27,36,48,.72); }
@@ -475,6 +484,7 @@ input[type=range]::-moz-range-thumb {
     padding: 2px 12px 24px;
   }
   .app-shell:has(.tab-bar) > .mobile-settings-btn { display: none; }
+  .app-shell:has(.tab-bar) > .mobile-home-btn { display: none; }
   .app-shell:has(.tab-bar) > .tab-bar .tab-main {
     flex-direction: column;
     gap: 3px;
@@ -675,9 +685,20 @@ input[type=range]::-moz-range-thumb {
 .mkt-preview-feature .mkt-feature-icon { flex: none; }
 .mkt-preview-feature .mkt-feature-title { margin-top: 0; }
 
-.mkt-pricing-card { max-width: 480px; margin: 36px auto 0; background: var(--page); border: 1px solid var(--ink-08); border-radius: 12px; padding: 32px; text-align: center; }
-.mkt-pricing-price { font: 700 32px/1 var(--heading); color: var(--ink); letter-spacing: -.01em; }
-.mkt-pricing-body { font: 400 13.5px/1.65 var(--sans); color: var(--ink-60); margin-top: 14px; }
+.mkt-pricing-grid { display: flex; gap: 24px; margin: 36px auto 0; max-width: 720px; flex-wrap: wrap; justify-content: center; }
+.mkt-pricing-plan { flex: 1 1 280px; max-width: 320px; background: var(--page); border: 1px solid var(--ink-08); border-radius: 12px; padding: 28px; }
+.mkt-pricing-plan.featured { border: 1px solid var(--blue); box-shadow: 0 0 0 1px var(--blue); background: var(--card); }
+.mkt-pricing-badge { display: inline-block; font: 600 10px/1 var(--sans); letter-spacing: .03em; text-transform: uppercase; color: var(--blue); background: var(--blue-tint); padding: 4px 9px; border-radius: 20px; margin-bottom: 14px; }
+.mkt-pricing-name { font: 600 12.5px/1 var(--sans); color: var(--ink-60); text-transform: uppercase; letter-spacing: .02em; }
+.mkt-pricing-price { font: 700 32px/1 var(--heading); color: var(--ink); letter-spacing: -.01em; margin-top: 8px; }
+.mkt-pricing-price span { font: 400 13.5px/1 var(--sans); color: var(--ink-50); }
+.mkt-pricing-list { margin-top: 20px; display: flex; flex-direction: column; gap: 11px; }
+.mkt-pricing-item { display: flex; align-items: flex-start; gap: 9px; font: 400 13.5px/1.5 var(--sans); color: var(--ink-60); }
+.mkt-pricing-item svg { flex: none; margin-top: 5px; color: var(--blue); }
+.mkt-pricing-cta { display: block; text-align: center; margin-top: 24px; padding: 13px 0; border-radius: 6px; font: 600 13.5px/1 var(--sans); cursor: pointer; background: var(--panel); color: var(--ink); }
+.mkt-pricing-cta:hover { background: var(--ink-08); }
+.mkt-pricing-plan.featured .mkt-pricing-cta { background: var(--accent); color: #fff; }
+.mkt-pricing-plan.featured .mkt-pricing-cta:hover { background: var(--accent-dark); }
 
 .mkt-steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 32px; margin-top: 44px; }
 .mkt-step { text-align: center; }
