@@ -829,6 +829,13 @@
     currentPlanId: null,
     lastSavedSnapshot: null,
     confirmDeleteId: null, // id van het plan waarvoor net op "verwijderen" geklikt is, in afwachting van bevestiging
+    // Abonnement (Stripe) — { status, current_period_end } uit de
+    // "subscriptions"-tabel, of null zolang nog niet opgehaald/geen rij.
+    // Alleen de stripe-webhook Edge Function schrijft die tabel; hier
+    // wordt 'm alleen gelezen, zie loadSubscription().
+    subscription: null,
+    subscriptionLoaded: false,
+    subscriptionUi: { bezig: false, fout: '' },
   };
 
   // Thema en instellingen zo vroeg mogelijk toepassen (nog vóór
@@ -918,6 +925,38 @@
       state.savedPlans = res.data || [];
       render();
     });
+  }
+
+  // Status van het Stripe-abonnement — bepaalt of "eigen gebouw opslaan"
+  // (zie 'save-plan' hieronder) is toegestaan. Zonder rij (nog nooit
+  // geabonneerd geweest) blijft state.subscription null, en telt dat als
+  // niet-actief — isSubscribed() hoeft dan niet apart op null te checken.
+  function loadSubscription() {
+    if (!sb || !state.session) return;
+    sb.from('subscriptions').select('status,current_period_end').maybeSingle().then(function (res) {
+      state.subscriptionLoaded = true;
+      if (!res.error) state.subscription = res.data || null;
+      render();
+    });
+  }
+
+  function isSubscribed() {
+    return !!(state.subscription && (state.subscription.status === 'active' || state.subscription.status === 'trialing'));
+  }
+
+  // Roept een van de Stripe-gerelateerde Edge Functions aan (zie
+  // supabase/functions/) met de sessie van de ingelogde gebruiker als
+  // bearer-token — nooit met een geheime sleutel vanuit de frontend zelf.
+  function callSupabaseFunction(name, body) {
+    var url = window.SUPABASE_CONFIG.url + '/functions/v1/' + name;
+    return fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: 'Bearer ' + state.session.access_token,
+      },
+      body: JSON.stringify(body),
+    }).then(function (r) { return r.json(); });
   }
 
   // ---------------------------------------------------------------------
@@ -1575,6 +1614,23 @@
     html += '<div class="grow"><div class="name">CBS-bouwkostenindex vermelden</div><div class="meta">Toont erbij welk indexatiepercentage gebruikt is, bijv. "(CBS-bouwkostenindex 2024)"</div></div>';
     html += '<div class="toggle' + (state.settings.toonCbsBron ? ' on' : '') + '" data-act="toggle-cbs-bron"><div class="knob"></div></div>';
     html += '</div></div></div>';
+
+    html += '<div class="section"><div class="section-title">Abonnement</div>';
+    html += '<div class="card pad" style="margin-top:11px">';
+    if (!state.session) {
+      html += '<div class="hint" style="margin-top:0">Log eerst in om een abonnement af te sluiten.</div>';
+    } else if (isSubscribed()) {
+      var tot = state.subscription.current_period_end ? new Date(state.subscription.current_period_end).toLocaleDateString('nl-NL') : null;
+      html += '<div class="kv"><div class="label">Status</div><div class="amount" style="font-size:15px;color:var(--good-fg)">Actief</div></div>';
+      if (tot) html += '<div class="hint">Loopt door tot ' + tot + ', tenzij je opzegt.</div>';
+      html += '<div class="btn-row"><div class="ghost-btn" data-act="manage-abonnement">' + (state.subscriptionUi.bezig ? 'Bezig…' : 'Beheer abonnement') + '</div></div>';
+    } else {
+      html += '<div class="kv"><div class="label">Status</div><div class="amount" style="font-size:15px">Geen abonnement</div></div>';
+      html += '<div class="hint">Een eigen gebouw opzoeken en opslaan is onderdeel van het abonnement (€ 19 per maand). Het voorbeeldgebouw blijft altijd gratis te bekijken.</div>';
+      html += '<div class="btn-row"><div class="primary-btn accent" data-act="upgrade-abonnement">' + (state.subscriptionUi.bezig ? 'Bezig…' : 'Abonneren — € 19/maand') + '</div></div>';
+    }
+    if (state.subscriptionUi.fout) html += '<div class="notice error" style="margin-top:12px">' + esc(state.subscriptionUi.fout) + '</div>';
+    html += '</div></div>';
 
     html += '<div class="section"><div class="section-title">Account</div>';
     html += '<div class="card" style="margin-top:11px">';
@@ -2363,6 +2419,12 @@
     },
     'save-plan': function () {
       if (!sb || !state.session || !state.building) return;
+      // Opslaan van een eigen gebouw is de betaalde functie (zie
+      // Instellingen → Abonnement) — zonder actief abonnement sturen we
+      // naar dat scherm i.p.v. de aanroep te doen, die RLS-technisch
+      // toch zou lukken (opslaan zelf is niet abonnement-afhankelijk in
+      // de database) maar product-matig niet de bedoeling is.
+      if (!isSubscribed()) { state.tab = 'instellingen'; render(); return; }
       var p = state.plansUi;
       p.bezig = true; p.fout = '';
       render();
@@ -2578,6 +2640,34 @@
       window.location.href = 'mailto:info@mjoplive.nl?subject=' + encodeURIComponent('Account verwijderen') +
         '&body=' + encodeURIComponent('Hallo,\n\nIk wil graag mijn account (' + email + ') en de daarin opgeslagen plannen laten verwijderen.\n\nMet vriendelijke groet,');
     },
+    'upgrade-abonnement': function () {
+      if (!sb || !state.session) return;
+      state.subscriptionUi = { bezig: true, fout: '' };
+      render();
+      var here = window.location.origin + window.location.pathname;
+      callSupabaseFunction('create-checkout-session', { successUrl: here, cancelUrl: here }).then(function (json) {
+        if (json.url) { window.location.href = json.url; return; }
+        state.subscriptionUi = { bezig: false, fout: json.error || 'Kon geen betaalpagina openen.' };
+        render();
+      }).catch(function (err) {
+        state.subscriptionUi = { bezig: false, fout: err.message };
+        render();
+      });
+    },
+    'manage-abonnement': function () {
+      if (!sb || !state.session) return;
+      state.subscriptionUi = { bezig: true, fout: '' };
+      render();
+      var here = window.location.origin + window.location.pathname;
+      callSupabaseFunction('create-portal-session', { returnUrl: here }).then(function (json) {
+        if (json.url) { window.location.href = json.url; return; }
+        state.subscriptionUi = { bezig: false, fout: json.error || 'Kon abonnementsbeheer niet openen.' };
+        render();
+      }).catch(function (err) {
+        state.subscriptionUi = { bezig: false, fout: err.message };
+        render();
+      });
+    },
     'print-rapport': function () { window.print(); },
     'export-csv': function () { exportCsv(); },
     'reset-upload': function () { state.upload = null; render(); },
@@ -2780,6 +2870,7 @@
         state.user = session ? session.user : null;
         if (session) {
           if (!state.plansLoaded) loadSavedPlans();
+          if (!state.subscriptionLoaded) loadSubscription();
         } else {
           // Opgeslagen-plannen-state hoort bij de sessie die 'm heeft
           // opgehaald; bij uitloggen (of op een gedeelde computer: bij het
@@ -2787,6 +2878,7 @@
           // voor de volgende (mogelijk andere) gebruiker.
           state.savedPlans = []; state.plansLoaded = false;
           state.currentPlanId = null; state.lastSavedSnapshot = null;
+          state.subscription = null; state.subscriptionLoaded = false;
         }
         render();
       });
