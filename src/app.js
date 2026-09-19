@@ -340,7 +340,7 @@
                 identificatie: p.identificatie || '',
                 opp: Math.round(best.opp),
                 omtrek: Math.round(best.omtrek),
-                units: units, d3: d3,
+                units: units, unitsBron: units, d3: d3,
                 dakM2: dak, gevelM2: gevel,
                 werkhoogte: d3 && d3.hoogte ? Math.round(d3.hoogte) : 9,
               };
@@ -475,7 +475,7 @@
 
   function defaultBuilding() {
     return {
-      adres: 'Voorbeeldgebouw — portiekflat', bouwjaar: 1978, units: 8,
+      adres: 'Voorbeeldgebouw — portiekflat', bouwjaar: 1978, units: 8, unitsBron: 8,
       dakM2: 140, gevelM2: 220, werkhoogte: 9, opp: 140, omtrek: 60,
       identificatie: '', gebruiksdoel: 'woonfunctie', d3: null, isVoorbeeld: true,
     };
@@ -486,7 +486,7 @@
   function instantiateLibraryEl(def, b) {
     var el = {
       id: def.key, naam: def.naam, categorie: def.categorie, sfb: def.sfb,
-      type: def.type, cyclus: def.cyclus,
+      type: def.type, cyclus: def.cyclus, bron: def.bron,
       laatsteBeurt: b.bouwjaar || (CURRENT_YEAR - def.cyclus), gebreken: [],
     };
     if (def.type === 'kozijnen') {
@@ -2137,6 +2137,35 @@
     return ['var(--bad-bg)', 'var(--bad-fg)'];
   }
 
+  // Herkomst van een element, voor het "BAG"/"Standaardcyclus"/"Aangepast
+  // door jou"-label (vertrouwen/leesbaarheid) — een gebrek of een
+  // handmatig gewijzigde hoeveelheid telt als "aangepast", ook al komt de
+  // hoeveelheid oorspronkelijk uit de BAG.
+  function elementOrigin(el) {
+    var b = state.building;
+    if (el.type === 'custom') return { label: 'Aangepast door jou', cls: 'aangepast' };
+    if (el.gebreken && el.gebreken.length) return { label: 'Aangepast door jou', cls: 'aangepast' };
+    if (el.type === 'kozijnen') {
+      if (el.koz.some(function (k) { return k.eigenTarief != null; })) return { label: 'Aangepast door jou', cls: 'aangepast' };
+      return b.isVoorbeeld ? { label: 'Voorbeeld', cls: 'voorbeeld' } : { label: 'BAG', cls: 'bag' };
+    }
+    if (el.bron) {
+      if (el.hoeveelheid !== bronWaarde(el.bron, b)) return { label: 'Aangepast door jou', cls: 'aangepast' };
+      return b.isVoorbeeld ? { label: 'Voorbeeld', cls: 'voorbeeld' } : { label: 'BAG', cls: 'bag' };
+    }
+    return { label: 'Standaardcyclus', cls: 'standaard' };
+  }
+
+  // Zelfde idee als elementOrigin() maar dan voor het aantal-appartementen-
+  // veld op Gebouw — unitsBron ontbreekt bij plannen die vóór deze functie
+  // zijn opgeslagen of via CSV zijn geïmporteerd; dan geen claim doen.
+  function unitsOrigin() {
+    var b = state.building;
+    if (b.unitsBron == null) return null;
+    if (b.units !== b.unitsBron) return { label: 'Aangepast door jou', cls: 'aangepast' };
+    return b.isVoorbeeld ? { label: 'Voorbeeld', cls: 'voorbeeld' } : { label: 'BAG', cls: 'bag' };
+  }
+
   function renderGebouw() {
     if (state.activeElementId) return renderElementDetail(state.activeElementId);
     var b = state.building;
@@ -2157,9 +2186,10 @@
     // hier bewerkbaar, met dezelfde zichtbare invoerstijl als de velden
     // op de elementdetailpagina (zie .inline-num in style.css), i.p.v.
     // de eerdere gestippelde onderstreping die niet als invoerveld oogde.
+    var uOrigin = unitsOrigin();
     html += '<div class="page-sub">' + esc(b.adres) + ' · bouwjaar ' + (b.bouwjaar || 'onbekend') + ' · ';
     html += '<input id="building-units" data-bind="building-units" type="number" min="1" inputmode="numeric" value="' + b.units + '" class="inline-num" /> ';
-    html += meervoud(b.units, 'appartement', 'appartementen') + ' · ' + state.elements.length + ' elementen</div>';
+    html += meervoud(b.units, 'appartement', 'appartementen') + (uOrigin ? ' <span class="origin-tag origin-' + uOrigin.cls + '">' + uOrigin.label + '</span>' : '') + ' · ' + state.elements.length + ' elementen</div>';
     html += '</div>';
 
     html += '<div class="section"><div class="chip-row">';
@@ -2275,6 +2305,9 @@
     html += '<div class="kv strong"><div class="label">Geraamde kosten</div><div class="amount">' + eur(bedrag) + '</div></div>';
     html += '<div class="divider"></div>';
     html += '<div class="kv" style="align-items:center"><div class="label">Conditie</div><div class="el-badge" style="background:' + colors[0] + ';color:' + colors[1] + '">' + (score == null ? '–' : score) + '</div></div>';
+    html += '<div class="divider"></div>';
+    var origin = elementOrigin(el);
+    html += '<div class="kv" style="align-items:center"><div class="label">Herkomst</div><div class="origin-tag origin-' + origin.cls + '">' + origin.label + '</div></div>';
     html += '</div></div>';
 
     if (el.type === 'kozijnen') html += renderKozijnen(el);

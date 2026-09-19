@@ -1,9 +1,12 @@
 :root {
   --ink: #1B2430;
-  --ink-60: rgba(27, 36, 48, .6);
-  --ink-50: rgba(27, 36, 48, .5);
-  --ink-45: rgba(27, 36, 48, .45);
-  --ink-42: rgba(27, 36, 48, .42);
+  --ink-60: rgba(27, 36, 48, .78);
+  /* ink-50/45/42 zijn opgehoogd t.o.v. de oorspronkelijke .5/.45/.42 —
+     die haalden op --page/--card geen WCAG AA (4.5:1) voor gewone tekst
+     (menu-items, de eyebrow-adresregel, hint-teksten e.d.). */
+  --ink-50: rgba(27, 36, 48, .72);
+  --ink-45: rgba(27, 36, 48, .68);
+  --ink-42: rgba(27, 36, 48, .64);
   --ink-28: rgba(27, 36, 48, .28);
   --ink-14: rgba(27, 36, 48, .14);
   --ink-10: rgba(27, 36, 48, .1);
@@ -40,10 +43,10 @@
    verderop in dit bestand apart gecorrigeerd naar een thema-vaste kleur. */
 :root[data-theme="dark"] {
   --ink: #E7ECF2;
-  --ink-60: rgba(231, 236, 242, .6);
-  --ink-50: rgba(231, 236, 242, .5);
-  --ink-45: rgba(231, 236, 242, .45);
-  --ink-42: rgba(231, 236, 242, .42);
+  --ink-60: rgba(231, 236, 242, .63);
+  --ink-50: rgba(231, 236, 242, .59);
+  --ink-45: rgba(231, 236, 242, .55);
+  --ink-42: rgba(231, 236, 242, .51);
   --ink-28: rgba(231, 236, 242, .28);
   --ink-14: rgba(231, 236, 242, .14);
   --ink-10: rgba(231, 236, 242, .1);
@@ -259,6 +262,17 @@ input[type=range]::-moz-range-thumb {
   text-transform: uppercase; letter-spacing: .04em; color: var(--warn-fg);
   background: var(--warn-bg); padding: 2px 5px; border-radius: 4px; vertical-align: middle;
 }
+
+/* Herkomst-badge (BAG / Standaardcyclus / Aangepast door jou / Voorbeeld) —
+   zie elementOrigin()/unitsOrigin() in app.js. */
+.origin-tag {
+  display: inline-block; font: 600 9.5px/1 var(--sans); text-transform: uppercase;
+  letter-spacing: .03em; padding: 3px 7px; border-radius: 5px; vertical-align: middle;
+}
+.origin-tag.origin-bag { background: var(--good-bg); color: var(--good-fg); }
+.origin-tag.origin-standaard { background: var(--panel); color: var(--ink-60); }
+.origin-tag.origin-voorbeeld { background: var(--panel); color: var(--ink-60); }
+.origin-tag.origin-aangepast { background: var(--blue-tint); color: var(--blue); }
 .fonds-input {
   flex: 1; min-width: 0; box-sizing: border-box; border: 1px solid var(--ink-14);
   border-radius: 6px; background: var(--page); outline: none; padding: 4px 8px;
@@ -369,7 +383,7 @@ input[type=range]::-moz-range-thumb {
 .koz-row .c3 { flex: none; width: 56px; }
 .koz-row .c3 input { width: 100%; box-sizing: border-box; padding: 5px 6px; border-radius: 6px; border: 1px solid var(--ink-14); background: var(--card); color: var(--ink); text-align: right; font: 500 11.5px var(--mono); outline: none; }
 .koz-row .c3 input:focus { border-color: var(--blue); }
-.koz-row .c3 .hint { font: 400 9px/1 var(--mono); color: rgba(27,36,48,.4); text-align: right; margin-top: 4px; }
+.koz-row .c3 .hint { font: 400 9px/1 var(--mono); color: var(--ink-45); text-align: right; margin-top: 4px; }
 .koz-row .c4 { flex: none; width: 58px; text-align: right; font: 500 12px/1 var(--mono); }
 .koz-total { display: flex; align-items: baseline; gap: 10px; padding: 14px 16px; border-top: 1px solid var(--ink-14); background: var(--panel); }
 .koz-total .label { flex: 1; font: 500 13px/1.3 var(--sans); }
@@ -406,7 +420,7 @@ input[type=range]::-moz-range-thumb {
 .tl-post .name { font: 500 13px/1.3 var(--sans); }
 .tl-post .meta { font: 400 11px/1.35 var(--sans); color: var(--ink-50); margin-top: 2px; }
 .tl-post .amount { font: 500 12.5px/1 var(--mono); flex: none; background: var(--panel); padding: 6px 10px; border-radius: 6px; }
-.tl-empty { font: 400 11.5px/1 var(--sans); color: rgba(27,36,48,.35); padding: 5px 0 9px; }
+.tl-empty { font: 400 11.5px/1 var(--sans); color: var(--ink-45); padding: 5px 0 9px; }
 .tl-saldo { flex: none; align-self: flex-start; min-width: 64px; text-align: center; font: 500 11px/1 var(--mono); padding: 5px 8px; border-radius: 6px; white-space: nowrap; }
 
 .timeline-head { display: flex; justify-content: flex-end; padding: 0 4px 10px; }
