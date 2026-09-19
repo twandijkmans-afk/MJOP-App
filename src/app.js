@@ -2011,15 +2011,25 @@
 
   function projectionBars(rows) {
     var maxAbs = Math.max(1, Math.max.apply(null, rows.map(function (r) { return Math.abs(r.saldo); })));
-    var html = '<div class="bars">';
+    var html = '<div class="chart-title">Saldo reservefonds per jaar</div>';
+    html += '<div class="bars">';
+    // Eén doorlopende, van de kolommen losstaande nullijn i.p.v. een
+    // los streepje per kolom — zo blijft "€ 0" ook zichtbaar wanneer
+    // alle jaren negatief zijn (dan raakt een per-kolom lijntje uit
+    // beeld bovenaan de rode staven).
+    html += '<div class="zero-line"><span>€ 0</span></div>';
     rows.forEach(function (r) {
       var posH = r.saldo > 0 ? Math.max(3, r.saldo / maxAbs * 40) : 0;
       var negH = r.saldo < 0 ? Math.max(3, -r.saldo / maxAbs * 40) : 0;
-      html += '<div class="bar-col">';
+      // title-attribuut geeft het bedrag op hover; de staven zelf lopen
+      // altijd door tot de nullijn, dus positie boven/onder is al een
+      // teken-onafhankelijke aanwijzing — het streeppatroon hieronder
+      // (zie .bar-neg > div in style.css) is de extra, niet-op-kleur-
+      // gebaseerde aanwijzing voor een negatief jaar.
+      html += '<div class="bar-col" title="' + esc(r.jaar + ': ' + eur(r.saldo)) + '">';
       html += '<div class="bar-pos"><div style="height:' + posH + 'px"></div></div>';
-      html += '<div class="bar-mid"></div>';
       html += '<div class="bar-neg"><div style="height:' + negH + 'px"></div></div>';
-      html += '<div class="bar-label">' + String(r.jaar).slice(2) + '</div>';
+      html += '<div class="bar-label">' + r.jaar + '</div>';
       html += '</div>';
     });
     html += '</div>';
@@ -2033,46 +2043,32 @@
     var eerste = rows.filter(function (r) { return r.saldo < 0; })[0];
     var totaal = rows.reduce(function (a, r) { return a + r.kosten; }, 0);
     var nodig = benodigdeBijdrage(state);
+    var aandacht = state.elements.filter(needsAssessment);
+    var totalAssessable = state.elements.filter(function (el) { return el.type !== 'custom'; }).length;
+    var beoordeeld = totalAssessable - aandacht.length;
+    var eerstvolgende = fullPlan(state).filter(function (p) { return p.jaar <= CURRENT_YEAR + 1; }).slice(0, 3);
 
     var html = '<div style="padding:24px 0 8px">';
-    if (state.idxBalk) {
-      html += '<div class="idx-bar" data-act="dismiss-idx">';
-      html += '<span class="pill">' + CURRENT_YEAR + '</span>';
-      html += '<span class="text">Bijgewerkt met de laatst opgehaalde gegevens — controleer de posten die aandacht vragen</span>';
+    // Alleen tonen als er ook echt iets concreets te melden is (een
+    // niet-beoordeeld element) — een generieke "bijgewerkt"-mededeling
+    // zonder link voegde niets toe. De pill legt uit wat het jaartal
+    // betekent (het prijspeil van de kengetallen), i.p.v. een kaal jaartal.
+    if (state.idxBalk && aandacht.length) {
+      html += '<div class="idx-bar" data-act="open-element" data-id="' + aandacht[0].id + '">';
+      html += '<span class="pill">Prijspeil ' + CURRENT_YEAR + '</span>';
+      html += '<span class="text">' + esc(aandacht[0].naam) + ' is nog niet beoordeeld — dit bepaalt het jaar van vervanging</span>';
       html += '<button class="close" data-act="dismiss-idx">×</button></div>';
     }
     html += '<div style="padding:0 22px">';
     html += '<div class="eyebrow">' + esc(b.adres) + '</div>';
     html += '<div class="page-title" style="margin-top:9px">Sparen we genoeg?</div>';
+    html += '<div class="verdict ' + (eerste ? 'bad' : 'good') + '">' + (eerste
+      ? 'Nee — bij ' + eur(state.bijdrage) + ' per maand is het fonds naar verwachting leeg in ' + eerste.jaar + '.'
+      : 'Ja — bij ' + eur(state.bijdrage) + ' per maand blijft het fonds de komende ' + HORIZON + ' jaar positief.') + '</div>';
     html += '</div>';
 
-    html += '<div class="section"><div class="contrib-box">';
-    html += '<div class="contrib-top"><div class="label">Bijdrage per appartement</div><div class="amount">' + eur(state.bijdrage) + '</div></div>';
-    html += '<input type="range" min="10" max="400" step="5" value="' + state.bijdrage + '" data-change="bijdrage" />';
-    html += projectionBars(rows);
-    html += '<div class="advice">' + (eerste
-      ? 'Bij ' + eur(state.bijdrage) + ' per maand is het fonds in ' + eerste.jaar + ' leeg. Er is ' + eur(nodig) + ' per appartement per maand nodig om alle posten te dekken.'
-      : 'Bij ' + eur(state.bijdrage) + ' per maand blijft het fonds ' + HORIZON + ' jaar positief, met ' + eur(laagste) + ' als laagste stand.') + '</div>';
-    // Alleen tonen als de huidige bijdrage het voorstel nog niet haalt —
-    // staat 'ie al op of boven het voorstel, dan voegt de knop niets toe.
-    if (state.bijdrage < nodig) {
-      html += '<div class="advice-btn" data-act="zet-advies" data-nodig="' + nodig + '">Zet op het benodigde bedrag (' + eur(nodig) + ')</div>';
-    }
-    html += '</div></div>';
-
-    html += '<div class="stat-pair">';
-    html += '<div class="stat-card"><div class="label">Reservefonds nu</div>';
-    html += '<div style="display:flex;align-items:baseline;gap:3px;margin-top:7px">';
-    html += '<span style="font:500 19px/1 Inter,system-ui,sans-serif">€</span>';
-    html += '<input id="fonds-bedrag" data-bind="fonds-bedrag" value="' + state.fonds + '" style="border:none;background:none;outline:none;padding:0;width:100%;min-width:0;font:500 19px/1 Inter,system-ui,sans-serif;color:var(--ink)" /></div>';
-    html += '<div class="hint" style="margin-top:5px">huidig saldo, zelf in te vullen</div>';
-    html += '</div>';
-    html += '<div class="stat-card"><div class="label">Kosten t/m ' + (CURRENT_YEAR + HORIZON - 1) + '</div><div class="amount">' + eur(totaal) + '</div></div>';
-    html += '</div>';
-
-    var aandacht = state.elements.filter(needsAssessment);
-    var eerstvolgende = fullPlan(state).filter(function (p) { return p.jaar <= CURRENT_YEAR + 1; }).slice(0, 3);
     html += '<div class="section"><div class="section-title">Vraagt nu aandacht</div>';
+    html += '<div class="section-sub">' + beoordeeld + ' van ' + totalAssessable + ' elementen beoordeeld</div>';
     html += '<div class="card" style="margin-top:11px">';
     var rowsHtml = [];
     aandacht.forEach(function (el) {
@@ -2093,7 +2089,33 @@
     html += rowsHtml.join('');
     html += '</div></div>';
 
-    html += '<div class="footer-note">Kengetallen zijn indicatieve richtprijzen inclusief btw, geen offerte. Cycli zijn gebaseerd op het bouwjaar uit de BAG; een echte conditiemeting kan posten naar voren of naar achteren schuiven.</div>';
+    html += '<div class="section"><div class="contrib-box">';
+    html += '<div class="contrib-top"><div class="label">Bijdrage per appartement</div>';
+    html += '<div class="contrib-amount"><span class="cur">€</span><input type="text" inputmode="numeric" data-change="bijdrage-bedrag" value="' + state.bijdrage + '" class="contrib-amount-input" /><span class="per">/ maand</span></div></div>';
+    html += '<input type="range" min="10" max="400" step="5" value="' + state.bijdrage + '" data-change="bijdrage" />';
+    html += '<div class="range-minmax"><span>€ 10</span><span>€ 400</span></div>';
+    html += projectionBars(rows);
+    html += '<div class="advice">' + (eerste
+      ? 'Er is ' + eur(nodig) + ' per appartement per maand nodig om alle posten de komende ' + HORIZON + ' jaar te dekken.'
+      : 'Het laagste punt in deze periode is ' + eur(laagste) + '.') + '</div>';
+    // Alleen tonen als de huidige bijdrage het voorstel nog niet haalt —
+    // staat 'ie al op of boven het voorstel, dan voegt de knop niets toe.
+    if (state.bijdrage < nodig) {
+      html += '<div class="advice-btn" data-act="zet-advies" data-nodig="' + nodig + '">Zet op het benodigde bedrag (' + eur(nodig) + ')</div>';
+    }
+    html += '</div></div>';
+
+    html += '<div class="stat-pair">';
+    html += '<div class="stat-card"><div class="label">Reservefonds nu' + (state.fonds === 0 ? ' <span class="tag-default">standaard</span>' : '') + '</div>';
+    html += '<div style="display:flex;align-items:center;gap:6px;margin-top:7px">';
+    html += '<span style="font:500 15px/1 Inter,system-ui,sans-serif;color:var(--ink-60)">€</span>';
+    html += '<input id="fonds-bedrag" data-bind="fonds-bedrag" value="' + state.fonds + '" class="fonds-input" /></div>';
+    html += '<div class="hint" style="margin-top:5px">' + (state.fonds === 0 ? 'Nog niet ingevuld — vul het actuele saldo in' : 'Huidig saldo, zelf in te vullen') + '</div>';
+    html += '</div>';
+    html += '<div class="stat-card"><div class="label">Kosten t/m ' + (CURRENT_YEAR + HORIZON - 1) + '</div><div class="amount">' + eur(totaal) + '</div></div>';
+    html += '</div>';
+
+    html += '<div class="footer-note">Kengetallen zijn indicatieve richtprijzen inclusief btw, geen offerte. Cycli zijn gebaseerd op het bouwjaar uit de BAG; een echte conditiemeting kan posten naar voren of naar achteren schuiven. Kosten na ' + (CURRENT_YEAR + HORIZON - 1) + ' vallen buiten deze toets.</div>';
     html += '</div>';
     return html;
   }
@@ -3009,6 +3031,7 @@
 
   var CHANGES = {
     'bijdrage': function (t) { state.bijdrage = +t.value; render(); },
+    'bijdrage-bedrag': function (t) { state.bijdrage = clamp(num(t.value), 10, 400); render(); },
     'koz-materiaal': function (t, d) { var el = findEl(d.id); if (el) el.koz[+d.i].materiaal = t.value; render(); },
     'upload-map': function (t, d) { state.upload.mapping[d.veld] = +t.value; render(); },
     'plan-label': function (t, d) {
