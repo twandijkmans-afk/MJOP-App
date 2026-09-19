@@ -1045,9 +1045,10 @@
     render();
     var blob = serializePlan();
     var label = state.building.adres || 'MJOP';
+    var adres = state.building.adres || null;
     var query = state.currentPlanId
-      ? sb.from('saved_plans').update({ label: label, state: blob, updated_at: new Date().toISOString() }).eq('id', state.currentPlanId).select().single()
-      : sb.from('saved_plans').insert({ user_id: state.user.id, label: label, state: blob }).select().single();
+      ? sb.from('saved_plans').update({ label: label, adres: adres, state: blob, updated_at: new Date().toISOString() }).eq('id', state.currentPlanId).select().single()
+      : sb.from('saved_plans').insert({ user_id: state.user.id, label: label, adres: adres, state: blob }).select().single();
     query.then(function (res) {
       p.bezig = false;
       if (res.error) { p.fout = res.error.message; render(); return; }
@@ -1088,7 +1089,7 @@
     if (!sb || !state.session) return;
     state.plansUi.bezig = true; state.plansUi.fout = '';
     render();
-    sb.from('saved_plans').select('id,label,updated_at').order('updated_at', { ascending: false }).then(function (res) {
+    sb.from('saved_plans').select('id,label,adres,updated_at').order('updated_at', { ascending: false }).then(function (res) {
       state.plansUi.bezig = false;
       state.plansLoaded = true;
       if (res.error) { state.plansUi.fout = res.error.message; render(); return; }
@@ -2096,9 +2097,17 @@
     html += '<div class="btn-row" style="margin-top:10px"><div class="primary-btn" data-act="save-profiel">' + (ui.bezig ? 'Bezig…' : 'Opslaan') + '</div></div>';
     html += '</div>';
 
-    html += '<div class="action-box" style="margin-top:14px" data-act="set-tab" data-tab="mijngebouwen">';
-    html += '<div class="grow"><div class="title">Mijn gebouwen</div><div class="sub">' + state.savedPlans.length + ' opgeslagen plan' + (state.savedPlans.length === 1 ? '' : 'nen') + ' — bekijken, hernoemen of verwijderen</div></div>';
-    html += '<div class="arrow">›</div></div>';
+    html += '<div class="card pad" style="margin-top:14px">';
+    html += '<div style="font:500 13.5px/1.3 Inter,system-ui,sans-serif">Mijn gebouwen</div>';
+    if (state.savedPlans.length === 0) {
+      html += '<div class="hint" style="margin-top:6px">Nog geen opgeslagen plannen — sla het huidige plan op via "Opslaan" in de tabbalk, het verschijnt dan hier.</div>';
+    } else {
+      html += '<div class="card" style="margin-top:11px">';
+      state.savedPlans.forEach(function (p) { html += renderPlanRow(p); });
+      html += '</div>';
+      html += '<div class="linkish" style="margin-top:10px;display:block" data-act="goto-mijngebouwen">Alle gebouwen beheren</div>';
+    }
+    html += '</div>';
     return html;
   }
 
@@ -2236,26 +2245,35 @@
       html += '</div></div>';
     } else {
       html += '<div class="section"><div class="card">';
-      state.savedPlans.forEach(function (p) {
-        var confirming = state.confirmDeleteId === p.id;
-        var isOpen = state.currentPlanId === p.id;
-        html += '<div class="row">';
-        html += '<div class="grow">';
-        html += '<input id="plan-label-' + p.id + '" data-bind="plan-label" data-change="plan-label" data-id="' + p.id + '" value="' + esc(p.label || '') + '" class="name" style="border:none;background:transparent;width:100%;padding:2px 0;font:400 13px/1.3 Inter,system-ui,sans-serif;color:var(--ink)" />';
-        html += '<div class="meta">' + (isOpen ? 'Nu geopend · ' : '') + 'bijgewerkt ' + esc(new Date(p.updated_at).toLocaleDateString('nl-NL')) + '</div>';
-        html += '</div>';
-        if (confirming) {
-          html += '<div class="linkish" data-act="delete-plan" data-id="' + p.id + '" style="color:var(--accent)">verwijder definitief</div>';
-          html += '<div class="linkish" data-act="delete-plan-cancel">annuleer</div>';
-        } else {
-          html += '<div class="linkish" data-act="open-plan" data-id="' + p.id + '">openen</div>';
-          html += '<div class="linkish" data-act="delete-plan-confirm" data-id="' + p.id + '">verwijder</div>';
-        }
-        html += '</div>';
-      });
+      state.savedPlans.forEach(function (p) { html += renderPlanRow(p); });
       html += '</div></div>';
     }
 
+    html += '</div>';
+    return html;
+  }
+
+  // Eén rij van de plannenlijst — gedeeld door de volledige "Mijn
+  // gebouwen"-pagina hierboven en de lichte, ingebedde lijst op "Mijn
+  // profiel" (zie renderAcctProfiel()), zodat hernoemen/verwijderen/
+  // openen overal precies hetzelfde werken. "Hernoemen" is hier het
+  // altijd-bewerkbare naam-veld (geen apart "hernoemen"-knopje nodig),
+  // net als vóór deze samenvoeging.
+  function renderPlanRow(p) {
+    var confirming = state.confirmDeleteId === p.id;
+    var isOpen = state.currentPlanId === p.id;
+    var html = '<div class="row">';
+    html += '<div class="grow">';
+    html += '<input id="plan-label-' + p.id + '" data-bind="plan-label" data-change="plan-label" data-id="' + p.id + '" value="' + esc(p.label || '') + '" class="name" style="border:none;background:transparent;width:100%;padding:2px 0;font:400 13px/1.3 Inter,system-ui,sans-serif;color:var(--ink)" />';
+    html += '<div class="meta">' + (p.adres ? esc(p.adres) + ' · ' : '') + (isOpen ? 'Nu geopend · ' : '') + 'bijgewerkt ' + esc(new Date(p.updated_at).toLocaleDateString('nl-NL')) + '</div>';
+    html += '</div>';
+    if (confirming) {
+      html += '<div class="linkish" data-act="delete-plan" data-id="' + p.id + '" style="color:var(--accent)">verwijder definitief</div>';
+      html += '<div class="linkish" data-act="delete-plan-cancel">annuleer</div>';
+    } else {
+      html += '<div class="linkish" data-act="open-plan" data-id="' + p.id + '">openen</div>';
+      html += '<div class="linkish" data-act="delete-plan-confirm" data-id="' + p.id + '">verwijder</div>';
+    }
     html += '</div>';
     return html;
   }
