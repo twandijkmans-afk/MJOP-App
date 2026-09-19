@@ -17,6 +17,16 @@
   }
   function clamp(n, lo, hi) { return Math.max(lo, Math.min(hi, n)); }
   function meervoud(n, enkelvoud, meervoudVorm) { return n === 1 ? enkelvoud : meervoudVorm; }
+  // Voor in het gebruikersblok onderin de zijbalk — een naam leest
+  // prettiger dan een (vaak afgekapt) e-mailadres. We houden geen apart
+  // naamveld bij, dus dit is een simpele afleiding uit het lokale deel
+  // van het e-mailadres ("jan.devries@x.nl" -> "Jan Devries").
+  function displayName(email) {
+    var local = String(email || '').split('@')[0];
+    var naam = local.replace(/[._-]+/g, ' ').trim();
+    if (!naam) return email || '';
+    return naam.replace(/\w\S*/g, function (w) { return w.charAt(0).toUpperCase() + w.slice(1); });
+  }
   function esc(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
       return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
@@ -843,9 +853,12 @@
     tab: 'home',
     activeElementId: null,
     filter: 'Alles',
+    gebrekenFilter: false, // "Met gebreken"-filter op het Gebouw-scherm, los van de categorie-chips
     offertes: {}, // elId -> [{id, naam, btw, regels:[{naam,bedrag}]}]
     bijvullen: {}, // elId -> bool
     addForm: null,
+    accountMenuOpen: false, // mini-menu (Account/Instellingen/Uitloggen) onder het gebruikersblok in de zijbalk
+    buildingSwitcherOpen: false, // dropdown van de gebouwkiezer boven in de zijbalk
     // Login (fase 1 van SPEC_ACCOUNTS_AND_SAVING.md). session/user worden
     // uitsluitend gezet vanuit de sb.auth.onAuthStateChange-listener
     // (nooit los daarvan) zodat ze altijd de echte Supabase-sessie
@@ -1691,6 +1704,12 @@
     // homepage, net als het logo elders — het Overzicht-tabblad is zelf
     // altijd al één tik verderop via de tabbalk onderin.
     html += '<button class="mobile-home-btn" data-act="goto-marketing" aria-label="Naar de homepage">M</button>';
+    // Mobiele tegenhanger van de gebouwkiezer die op desktop onder het
+    // logo in de zijbalk staat (zie tab-brand in renderTabBar()) — daar
+    // is op mobiel geen ruimte voor (.tab-brand is er altijd verborgen),
+    // dus komt 'm hier bovenaan de inhoud te staan. CSS verbergt deze
+    // kopie weer vanaf 960px (zie .building-switcher-mobile).
+    if (state.building) html += renderBuildingSwitcher('mobile');
     // De enige weg naar screen 'app' zonder building is de snelkoppeling
     // naar "Mijn gebouwen" vanaf het adresscherm (zie 'goto-mijngebouwen')
     // — home/gebouw/planning/rapport gaan er allemaal van uit dat
@@ -1712,6 +1731,44 @@
     return html;
   }
 
+  // Gebouwkiezer — vervangt de vroegere "wijzig"-link naast het adres op
+  // Overzicht en de "Mijn gebouwen"-kaart. Twee plekken roepen dit aan met
+  // een andere `variant`-klasse (zie renderTabBar()/renderApp()) zodat CSS
+  // per viewport de juiste kopie toont; de inhoud/gedrag is verder gelijk.
+  // Zonder sessie is er niets om tussen te wisselen (geen opgeslagen
+  // plannen), dus dan alleen het adres met een link naar een nieuw adres.
+  function renderBuildingSwitcher(variant) {
+    var b = state.building;
+    var html = '<div class="building-switcher building-switcher-' + variant + '">';
+    if (!state.session) {
+      html += '<div class="bswitch-current" data-act="wijzig-adres">';
+      html += '<div class="grow"><div class="bswitch-adres">' + esc(b.adres) + '</div></div>';
+      html += '<span class="bswitch-chev">›</span>';
+      html += '</div></div>';
+      return html;
+    }
+    var statusText = !state.currentPlanId ? 'Nog niet opgeslagen'
+      : isDirty() ? 'Niet-opgeslagen wijzigingen' : 'Dit plan is opgeslagen';
+    html += '<div class="bswitch-current" data-act="toggle-building-switcher">';
+    html += '<div class="grow"><div class="bswitch-adres">' + esc(b.adres) + '</div>';
+    html += '<div class="bswitch-status' + (statusText === 'Dit plan is opgeslagen' ? '' : ' dirty') + '">' + statusText + '</div></div>';
+    html += '<span class="bswitch-chev">' + (state.buildingSwitcherOpen ? '︿' : '﹀') + '</span>';
+    html += '</div>';
+    if (state.buildingSwitcherOpen) {
+      html += '<div class="bswitch-panel">';
+      state.savedPlans.forEach(function (p) {
+        var isCurrent = p.id === state.currentPlanId;
+        html += '<div class="bswitch-item' + (isCurrent ? ' current' : '') + '" data-act="open-plan" data-id="' + p.id + '">' +
+          '<span class="grow">' + esc(p.label || 'Naamloos gebouw') + '</span>' +
+          (isCurrent ? '<span class="bswitch-current-tag">huidig</span>' : '') + '</div>';
+      });
+      html += '<div class="bswitch-item bswitch-add" data-act="wijzig-adres">+ Gebouw toevoegen</div>';
+      html += '</div>';
+    }
+    html += '</div>';
+    return html;
+  }
+
   function renderTabBar() {
     var tabs = [
       ['home', 'Overzicht', NAV_ICONS.overzicht],
@@ -1720,7 +1777,7 @@
       ['rapport', 'Rapport', NAV_ICONS.rapport],
     ];
     var html = '<div class="tab-bar">';
-    html += '<div class="tab-brand">' + mktLogo() + '</div>';
+    html += '<div class="tab-brand">' + mktLogo() + (state.building ? renderBuildingSwitcher('sidebar') : '') + '</div>';
     html += '<div class="tab-main">';
     tabs.forEach(function (t) {
       var active = state.tab === t[0];
@@ -1748,7 +1805,14 @@
       html += '<button class="tab-item' + (dirty || state.plansUi.fout ? ' dirty' : '') + '" data-act="save-plan">';
       html += '<span class="tab-icon">' + NAV_ICONS.opslaan + '</span><span class="tab-label">' + saveLabel + '</span></button>';
     }
-    html += '<button class="tab-item' + (state.tab === 'account' ? ' active' : '') + '" data-act="set-tab" data-tab="account">';
+    // "Account" is vanaf 960px geen los menu-item meer — het klikbare
+    // gebruikersblok onderin (.tab-account-row, zie .tab-bottom hieronder)
+    // met zijn eigen mini-menu neemt die rol over (zie 'toggle-account-
+    // menu'). Op mobiel bestaat dat blok niet (.tab-bottom is daar altijd
+    // verborgen), dus blijft deze knop daar de enige weg naar inloggen/
+    // account — vandaar alleen op desktop weg (zie .tab-item-account-
+    // mobile in style.css).
+    html += '<button class="tab-item tab-item-account-mobile' + (state.tab === 'account' ? ' active' : '') + '" data-act="set-tab" data-tab="account">';
     html += '<span class="tab-icon">' + NAV_ICONS.account + '</span><span class="tab-label">' + (state.session ? 'Account' : 'Inloggen') + '</span></button>';
     html += '</div>';
     // Alleen zichtbaar vanaf 960px (zie style.css) — op mobiel blijft de
@@ -1757,13 +1821,28 @@
     html += '<div class="tab-bottom">';
     html += '<button class="tab-item' + (state.tab === 'instellingen' ? ' active' : '') + '" data-act="set-tab" data-tab="instellingen">';
     html += '<span class="tab-icon">' + NAV_ICONS.instellingen + '</span><span class="tab-label">Instellingen</span></button>';
-    var accountNaam = state.session ? state.session.user.email : 'Voorbeeldgebouw';
-    var accountSub = state.session ? (isDirty() ? 'Niet-opgeslagen wijzigingen' : 'Ingelogd') : 'Demo, niet ingelogd';
-    var avatarLetter = state.session ? state.session.user.email.charAt(0).toUpperCase() : 'V';
-    html += '<div class="tab-account-row" data-act="set-tab" data-tab="account">';
-    html += '<span class="tab-account-avatar">' + esc(avatarLetter) + '</span>';
-    html += '<div class="tab-account-info"><div class="tab-account-name">' + esc(accountNaam) + '</div><div class="tab-account-sub">' + esc(accountSub) + '</div></div>';
-    html += '</div>';
+    if (state.session) {
+      var accountNaam = displayName(state.session.user.email);
+      var avatarLetter = accountNaam.charAt(0).toUpperCase();
+      html += '<div class="tab-account-row" data-act="toggle-account-menu">';
+      html += '<span class="tab-account-avatar">' + esc(avatarLetter) + '</span>';
+      html += '<div class="tab-account-info"><div class="tab-account-name">' + esc(accountNaam) + '</div>' +
+        (isDirty() ? '<div class="tab-account-sub">Niet-opgeslagen wijzigingen</div>' : '') + '</div>';
+      html += '<span class="account-menu-chev">' + (state.accountMenuOpen ? '︿' : '﹀') + '</span>';
+      html += '</div>';
+      if (state.accountMenuOpen) {
+        html += '<div class="account-menu">';
+        html += '<div class="account-menu-item" data-act="set-tab" data-tab="account">Account</div>';
+        html += '<div class="account-menu-item" data-act="set-tab" data-tab="instellingen">Instellingen</div>';
+        html += '<div class="account-menu-item" data-act="logout">Uitloggen</div>';
+        html += '</div>';
+      }
+    } else {
+      html += '<div class="tab-account-row" data-act="set-tab" data-tab="account">';
+      html += '<span class="tab-account-avatar">V</span>';
+      html += '<div class="tab-account-info"><div class="tab-account-name">Voorbeeldgebouw</div><div class="tab-account-sub">Demo, niet ingelogd</div></div>';
+      html += '</div>';
+    }
     html += '</div>';
     html += '</div>';
     return html;
@@ -1963,7 +2042,7 @@
       html += '<button class="close" data-act="dismiss-idx">×</button></div>';
     }
     html += '<div style="padding:0 22px">';
-    html += '<div class="eyebrow">' + esc(b.adres) + ' <span class="linkish" data-act="wijzig-adres">wijzig</span></div>';
+    html += '<div class="eyebrow">' + esc(b.adres) + '</div>';
     html += '<div class="page-title" style="margin-top:9px">Sparen we genoeg?</div>';
     html += '</div>';
 
@@ -1990,16 +2069,6 @@
     html += '</div>';
     html += '<div class="stat-card"><div class="label">Kosten t/m ' + (CURRENT_YEAR + HORIZON - 1) + '</div><div class="amount">' + eur(totaal) + '</div></div>';
     html += '</div>';
-
-    // Toegangspunt tot "mijn gebouwen" — alleen relevant met een sessie
-    // (zie SPEC_ACCOUNTS_AND_SAVING.md §8: "reachable from the home
-    // screen when logged in").
-    if (state.session) {
-      var dirtyHome = isDirty();
-      html += '<div class="section"><div class="action-box" data-act="set-tab" data-tab="mijngebouwen">';
-      html += '<div class="grow"><div class="title">Mijn gebouwen</div><div class="sub">' + (state.currentPlanId ? (dirtyHome ? 'Niet-opgeslagen wijzigingen in dit plan' : 'Dit plan is opgeslagen') : 'Dit plan is nog niet opgeslagen') + '</div></div>';
-      html += '<div class="arrow">›</div></div></div>';
-    }
 
     var aandacht = state.elements.filter(needsAssessment);
     var eerstvolgende = fullPlan(state).filter(function (p) { return p.jaar <= CURRENT_YEAR + 1; }).slice(0, 3);
@@ -2596,6 +2665,7 @@
   var ACTIONS = {
     'skip-onboarding': function () { applyBuilding(defaultBuilding()); render(); },
     'wijzig-adres': function () {
+      state.buildingSwitcherOpen = false;
       state.screen = 'onboarding'; state.onboarding = { q: '', sug: [], bezig: false, bezigTekst: '', fout: '', gezocht: false };
       // Zonder dit zou "opslaan" na het wijzigen van adres het oude
       // opgeslagen plan overschrijven met een hybride van het nieuwe adres
@@ -2617,6 +2687,7 @@
     },
     'open-plan': function (d) {
       if (!sb || !state.session) return;
+      state.buildingSwitcherOpen = false;
       state.plansUi.bezig = true; state.plansUi.fout = '';
       render();
       sb.from('saved_plans').select('id,state').eq('id', d.id).single().then(function (res) {
@@ -2702,7 +2773,13 @@
       });
     },
     'dismiss-idx': function () { state.idxBalk = false; render(); },
-    'set-tab': function (d) { state.tab = d.tab; state.activeElementId = null; state.confirmDeleteId = null; render(); },
+    'set-tab': function (d) {
+      state.tab = d.tab; state.activeElementId = null; state.confirmDeleteId = null;
+      state.accountMenuOpen = false; state.buildingSwitcherOpen = false;
+      render();
+    },
+    'toggle-account-menu': function () { state.accountMenuOpen = !state.accountMenuOpen; render(); },
+    'toggle-building-switcher': function () { state.buildingSwitcherOpen = !state.buildingSwitcherOpen; render(); },
     'set-filter': function (d) { state.filter = d.filter; render(); },
     'open-element': function (d) { state.tab = 'gebouw'; state.activeElementId = d.id; render(); },
     'close-element': function () { state.activeElementId = null; render(); },
@@ -2795,7 +2872,7 @@
       a.stap = 'email'; a.fout = '';
       render();
     },
-    'logout': function () { if (sb) sb.auth.signOut(); },
+    'logout': function () { state.accountMenuOpen = false; if (sb) sb.auth.signOut(); },
     'toggle-theme': function () {
       state.theme = state.theme === 'dark' ? 'light' : 'dark';
       document.documentElement.setAttribute('data-theme', state.theme);
