@@ -2364,7 +2364,9 @@
     html += '<div class="kv"><div class="label">Totaal geraamd</div><div class="amount">' + eur(totaal) + '</div></div>';
     html += '<div class="divider"></div>';
     html += '<div class="kv"><div class="label">Laagste fondsstand</div><div class="amount" style="' + (laagste < 0 ? 'color:var(--bad-fg)' : '') + '">' + eur(laagste) + '</div></div>';
-    if (eerste) html += '<div class="hint" style="color:var(--bad-fg)">Bij de huidige bijdrage raakt het fonds in ' + eerste.jaar + ' leeg.</div>';
+    html += '<div class="hint"' + (eerste ? ' style="color:var(--bad-fg)"' : '') + '>' + (eerste
+      ? 'Bij de huidige bijdrage raakt het fonds in ' + eerste.jaar + ' leeg.'
+      : 'Bij de huidige bijdrage blijft het fonds ' + HORIZON + ' jaar positief.') + '</div>';
     html += '</div>';
     if (catRijen.length) {
       html += '<div class="card" style="margin-top:14px">';
