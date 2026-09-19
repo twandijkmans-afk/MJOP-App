@@ -2610,6 +2610,10 @@
     html += '<div class="btn-row"><div class="primary-btn" data-act="print-rapport">Afdrukken / PDF</div><div class="ghost-btn" data-act="export-csv">Exporteer CSV</div></div>';
     html += '</div></div>';
 
+    if (beoordeeld < state.elements.length) {
+      html += '<div class="section"><div class="notice">Indicatie op basis van standaardcycli; ' + beoordeeld + ' van ' + state.elements.length + ' beoordeeld.</div></div>';
+    }
+
     html += '<div class="section"><div class="card pad">';
     html += '<div style="font:500 13.5px/1.3 Inter,system-ui,sans-serif">Voorstel voor de vergadering</div>';
     html += '<div style="display:flex;align-items:baseline;gap:9px;margin-top:10px">';
@@ -2621,11 +2625,15 @@
     html += '</div></div>';
 
     html += '<div class="section"><div class="section-title">Elementen</div><div class="card" style="margin-top:11px">';
-    state.elements.forEach(function (el, i) {
+    // Op volgende-beurt-jaar gesorteerd — zo staat wat het eerst aan de
+    // beurt is bovenaan, i.p.v. de (willekeurige) volgorde waarin
+    // elementen ooit zijn aangemaakt.
+    var elementenOpJaar = state.elements.slice().sort(function (a, b) { return conditionYear(a) - conditionYear(b); });
+    elementenOpJaar.forEach(function (el, i) {
       var score = conditionScore(el);
       var colors = scoreColors(score);
       html += '<div class="row"' + (i === 0 ? ' style="border-top:none"' : '') + '>';
-      html += '<div class="el-badge" style="background:' + colors[0] + ';color:' + colors[1] + '">' + (score == null ? '?' : score) + '</div>';
+      html += '<div class="el-badge" style="background:' + colors[0] + ';color:' + colors[1] + '">' + (score == null ? '–' : score) + '</div>';
       html += '<div class="grow"><div class="name">' + esc(el.naam) + (el.sfb ? ' <span class="sfb-tag">NL-SfB ' + esc(el.sfb) + '</span>' : '') + '</div><div class="meta">volgende beurt ' + conditionYear(el) + '</div></div>';
       html += '<div class="value">' + eur(elementCost(el, state)) + '</div></div>';
     });
@@ -2689,19 +2697,32 @@
     });
     html += '</table>';
     html += '<div class="pr-note">Vereenvoudigde, zelf geïmplementeerde toepassing van de NEN 2767-systematiek (ernst/omvang/intensiteit → conditiescore) voor planningsdoeleinden — geen vervanging voor een inspectie door een gecertificeerd inspecteur.</div>';
+    var beoordeeldPr = state.elements.filter(isAssessed).length;
+    if (beoordeeldPr < state.elements.length) {
+      html += '<div class="pr-note">Indicatie op basis van standaardcycli; ' + beoordeeldPr + ' van ' + state.elements.length + ' beoordeeld.</div>';
+    }
     html += '</div>';
+
+    // Binnen een categorie op volgende-beurt-jaar gesorteerd, i.p.v. de
+    // (willekeurige) aanmaakvolgorde — zowel hier als in het jarenplan
+    // hieronder. De categorie-indeling zelf (het model van een
+    // professioneel MJOP-rapport) blijft staan.
+    function elsInCat(cat) {
+      return state.elements.filter(function (el) { return el.categorie === cat; })
+        .sort(function (a, b) { return conditionYear(a) - conditionYear(b); });
+    }
 
     html += '<div class="pr-page">';
     html += '<div class="pr-section-title">Elementenoverzicht</div>';
     html += '<table class="pr-table"><thead><tr><th class="pr-c-code">NL-SfB</th><th>Element</th><th class="pr-c-hvh">Hvh/Ehd</th><th class="pr-c-cond">Conditie</th></tr></thead><tbody>';
     cats.forEach(function (cat) {
       html += '<tr class="pr-group"><td colspan="4">' + cat + '</td></tr>';
-      state.elements.filter(function (el) { return el.categorie === cat; }).forEach(function (el) {
+      elsInCat(cat).forEach(function (el) {
         var score = conditionScore(el);
         var colors = scoreColors(score);
         html += '<tr><td class="pr-c-code">' + (el.sfb ? esc(el.sfb) : '–') + '</td><td>' + esc(el.naam) + '</td>';
         html += '<td class="pr-c-hvh">' + hoeveelheidLabel(el) + '</td>';
-        html += '<td class="pr-c-cond"><span class="pr-badge" style="background:' + colors[0] + ';color:' + colors[1] + '">' + (score == null ? '?' : score) + '</span></td></tr>';
+        html += '<td class="pr-c-cond"><span class="pr-badge" style="background:' + colors[0] + ';color:' + colors[1] + '">' + (score == null ? '–' : score) + '</span></td></tr>';
       });
     });
     html += '</tbody></table>';
@@ -2717,7 +2738,7 @@
     cats.forEach(function (cat) {
       html += '<tr class="pr-group"><td colspan="' + (5 + jaren.length) + '">' + cat + '</td></tr>';
       var catPerYear = {};
-      state.elements.filter(function (el) { return el.categorie === cat; }).forEach(function (el) {
+      elsInCat(cat).forEach(function (el) {
         var ym = elementYearMap(el, state);
         var sc = stjCyFor(el, state);
         var elTotaal = 0;
