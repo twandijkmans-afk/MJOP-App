@@ -120,6 +120,15 @@ input[type=range]::-moz-range-thumb {
 
 .app-shell {
   min-height: 100vh;
+  /* Op een echte telefoon toont Safari/Chrome vaak een in- en uitklappende
+     adres-/tabbalk. "100vh" is daar de grootste mogelijke viewport (balk
+     ingeklapt) — bij het laden (balk nog uitgeklapt) is het zichtbare
+     scherm dus kleiner dan 100vh, en blijft er onderin een reep kale
+     paginabackground over vóór de eigen balk van de browser, met de
+     tabbalk van de app daar los boven hangend. "100dvh" volgt de
+     daadwerkelijk zichtbare hoogte live; oudere browsers zonder
+     ondersteuning negeren deze regel en houden gewoon 100vh aan. */
+  min-height: 100dvh;
   background: var(--card);
   max-width: 460px;
   margin: 0 auto;
