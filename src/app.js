@@ -2133,18 +2133,25 @@
   function renderGebouw() {
     if (state.activeElementId) return renderElementDetail(state.activeElementId);
     var b = state.building;
-    var cats = ['Alles', 'Dak', 'Gevel', 'Installaties', 'Binnen', 'Terrein', 'Overig'];
+    // Alleen categorieën tonen die ook echt elementen bevatten — een lege
+    // chip levert altijd een lege lijst op en voegt niets toe.
+    var aanwezigeCats = {};
+    state.elements.forEach(function (el) { aanwezigeCats[el.categorie] = true; });
+    var cats = ['Alles'].concat(['Dak', 'Gevel', 'Installaties', 'Binnen', 'Terrein', 'Overig'].filter(function (c) { return aanwezigeCats[c]; }));
     var els = state.elements.filter(function (el) { return state.filter === 'Alles' || el.categorie === state.filter; });
+    var metGebrekenCount = state.elements.filter(function (el) { return el.gebreken.length > 0; }).length;
+    if (state.gebrekenFilter) els = els.filter(function (el) { return el.gebreken.length > 0; });
 
     var html = '<div style="padding:24px 0 8px">';
     html += '<div style="padding:0 22px">';
     html += '<div class="page-title">Gebouw</div>';
     // Aantal appartementen komt uit de BAG maar klopt niet altijd (bv. bij
     // een pand dat als één verblijfsobject geregistreerd staat) — daarom
-    // hier bewerkbaar, met minimale styling zodat het in de tekstregel
-    // blijft opgaan (zelfde patroon als "Reservefonds nu" op Overzicht).
+    // hier bewerkbaar, met dezelfde zichtbare invoerstijl als de velden
+    // op de elementdetailpagina (zie .inline-num in style.css), i.p.v.
+    // de eerdere gestippelde onderstreping die niet als invoerveld oogde.
     html += '<div class="page-sub">' + esc(b.adres) + ' · bouwjaar ' + (b.bouwjaar || 'onbekend') + ' · ';
-    html += '<input id="building-units" data-bind="building-units" type="number" min="1" inputmode="numeric" value="' + b.units + '" style="width:30px;border:none;border-bottom:1px dotted currentColor;background:none;outline:none;padding:0;font:inherit;color:inherit;text-align:right" /> ';
+    html += '<input id="building-units" data-bind="building-units" type="number" min="1" inputmode="numeric" value="' + b.units + '" class="inline-num" /> ';
     html += meervoud(b.units, 'appartement', 'appartementen') + ' · ' + state.elements.length + ' elementen</div>';
     html += '</div>';
 
@@ -2152,17 +2159,24 @@
     cats.forEach(function (c) {
       html += '<div class="chip' + (state.filter === c ? ' active' : '') + '" data-act="set-filter" data-filter="' + c + '">' + c + '</div>';
     });
+    if (metGebrekenCount) {
+      html += '<div class="chip chip-gebreken' + (state.gebrekenFilter ? ' active' : '') + '" data-act="toggle-gebreken-filter">Met gebreken (' + metGebrekenCount + ')</div>';
+    }
     html += '</div></div>';
 
     html += '<div class="section"><div class="card">';
+    if (!els.length) {
+      html += '<div class="row" style="border-top:none"><div class="grow meta" style="font-size:12.5px">Geen elementen in deze weergave.</div></div>';
+    }
     els.forEach(function (el, i) {
       var bedrag = eur(elementCost(el, state));
       var score = conditionScore(el);
       var colors = scoreColors(score);
       html += '<div class="row" data-act="open-element" data-id="' + el.id + '" style="cursor:pointer' + (i === 0 ? ';border-top:none' : '') + '">';
-      html += '<div class="el-badge" style="background:' + colors[0] + ';color:' + colors[1] + '">' + (score == null ? '?' : score) + '</div>';
-      html += '<div class="grow"><div class="name">' + esc(el.naam) + (el.sfb ? ' <span class="sfb-tag">NL-SfB ' + esc(el.sfb) + '</span>' : '') + '</div><div class="meta">' + elementMeta(el) + '</div></div>';
-      html += '<div class="value">' + bedrag + '</div></div>';
+      html += '<div class="el-badge" style="background:' + colors[0] + ';color:' + colors[1] + '">' + (score == null ? '–' : score) + '</div>';
+      html += '<div class="grow"><div class="name">' + esc(el.naam) + (el.sfb ? ' <span class="sfb-tag">NL-SfB ' + esc(el.sfb) + '</span>' : '') + '</div><div class="meta">' + elementRowMeta(el) + '</div></div>';
+      html += '<div class="value">' + bedrag + '<div class="value-sub">per beurt</div></div>';
+      html += '<div class="chev">›</div></div>';
     });
     html += '</div>';
     html += '<div class="add-el" data-act="open-add-element"><div class="plus">+</div><div><div class="title">Element toevoegen</div><div class="sub">Bijv. balkons, hekwerk, liftinstallatie</div></div></div>';
@@ -2172,6 +2186,18 @@
 
     html += '</div>';
     return html;
+  }
+
+  // Regel-tekst in de Gebouw-lijst: het volgende jaar en de cyclus, i.p.v.
+  // de rekenformule (die staat nu op de detailpagina, zie renderHoeveelheidKengetal()/renderSteiger()).
+  function elementRowMeta(el) {
+    if (el.type === 'custom') return elementMeta(el);
+    if (el.type === 'kozijnen') {
+      var score = conditionScore(el);
+      var jaren = kozGroepen(el).map(function (g) { return yearForCycle(g.cyclus, el.laatsteBeurt, score); });
+      return 'volgende beurt ' + Math.min.apply(null, jaren);
+    }
+    return 'volgende beurt ' + conditionYear(el) + ' · cyclus ' + el.cyclus + ' jaar';
   }
 
   function renderAddElementForm() {
@@ -2220,6 +2246,11 @@
   function renderElementDetail(id) {
     var el = state.elements.filter(function (e) { return e.id === id; })[0];
     if (!el) { state.activeElementId = null; return renderGebouw(); }
+    var jaar = conditionYear(el);
+    var bedrag = elementCost(el, state);
+    var score = conditionScore(el);
+    var colors = scoreColors(score);
+
     var html = '<div style="padding:20px 0 8px">';
     html += '<div class="top-nav"><div class="back-link" data-act="close-element">‹ Gebouw</div></div>';
     html += '<div style="padding:0 22px">';
@@ -2227,20 +2258,23 @@
     html += '<div class="page-title" style="font-size:24px;margin-top:8px">' + esc(el.naam) + '</div>';
     html += '</div>';
 
+    // Samenvatting bovenaan i.p.v. onderaan — dit is de eerste vraag die
+    // iemand heeft bij het openen van een element (wanneer, hoeveel,
+    // hoe erg), dus meteen zichtbaar zonder eerst de invoervelden en
+    // gebreken-lijst te hoeven passeren.
+    html += '<div class="section"><div class="card pad">';
+    html += '<div class="kv"><div class="label">Eerstvolgende beurt</div><div class="amount" style="font-size:19px">' + jaar + '</div></div>';
+    html += '<div class="divider"></div>';
+    html += '<div class="kv strong"><div class="label">Geraamde kosten</div><div class="amount">' + eur(bedrag) + '</div></div>';
+    html += '<div class="divider"></div>';
+    html += '<div class="kv" style="align-items:center"><div class="label">Conditie</div><div class="el-badge" style="background:' + colors[0] + ';color:' + colors[1] + '">' + (score == null ? '–' : score) + '</div></div>';
+    html += '</div></div>';
+
     if (el.type === 'kozijnen') html += renderKozijnen(el);
     if (el.type === 'dak' || el.type === 'gevel' || el.type === 'per-unit') html += renderHoeveelheidKengetal(el);
     if (el.type === 'steiger') html += renderSteiger(el);
     if (el.type === 'custom') html += renderCustomBewerken(el);
     html += renderGebreken(el);
-
-    var jaar = conditionYear(el);
-    var bedrag = elementCost(el, state);
-    html += '<div class="section"><div class="card pad">';
-    html += '<div class="kv"><div class="label">Eerstvolgende beurt</div><div class="amount" style="font-size:19px">' + jaar + '</div></div>';
-    html += '<div class="divider"></div>';
-    html += '<div class="kv strong"><div class="label">Geraamde kosten</div><div class="amount">' + eur(bedrag) + '</div></div>';
-    html += '</div></div>';
-
     html += renderOffertes(el);
 
     html += '</div>';
@@ -2264,10 +2298,20 @@
     var suggesties = GEBREK_SUGGESTIES[el.categorie] || GEBREK_SUGGESTIES.Overig;
     var score = conditionScore(el);
     var html = '<div class="section"><div class="section-title">Gebreken (NEN 2767-methodiek)</div>';
-    html += '<div class="card" style="margin-top:11px">';
+
     if (!el.gebreken.length) {
-      html += '<div class="row" style="border-top:none"><div class="grow meta" style="font-size:12.5px">Nog geen gebreken vastgelegd — het plan gaat uit van de standaardcyclus vanaf het bouwjaar.</div></div>';
+      // Eén samengevoegd beoordelingsblok i.p.v. twee losse "nog niets"-
+      // meldingen (een lege rij in de lijst + een aparte result-box
+      // eronder) — die zeiden allebei hetzelfde over dezelfde situatie.
+      html += '<div class="card pad" style="margin-top:11px;text-align:center">';
+      html += '<div style="font:700 15px/1.3 var(--heading)">Nog niet beoordeeld</div>';
+      html += '<div class="hint" style="margin-top:7px">Leg een gebrek vast (ernst, omvang, intensiteit) om het jaar van vervanging op de werkelijke toestand te baseren — tot die tijd volgt het plan de standaardcyclus vanaf het bouwjaar.</div>';
+      html += '<div class="primary-btn" style="margin-top:14px" data-act="gb-add" data-id="' + el.id + '">Gebrek toevoegen</div>';
+      html += '</div></div>';
+      return html;
     }
+
+    html += '<div class="card" style="margin-top:11px">';
     el.gebreken.forEach(function (g, gi) {
       html += '<div class="row" style="align-items:flex-start' + (gi === 0 ? ';border-top:none' : '') + '">';
       html += '<div class="grow">';
@@ -2289,21 +2333,24 @@
     html += '<div class="row" style="cursor:pointer" data-act="gb-add" data-id="' + el.id + '"><div class="grow" style="font:500 13px Inter,system-ui,sans-serif;color:var(--blue)">+ Gebrek toevoegen</div></div>';
     html += '</div>';
 
-    html += '<div class="result-box' + (score == null ? '' : (score >= 4 ? ' bad' : ' good')) + '">';
-    html += '<div class="label">' + (score == null ? 'Nog niet beoordeeld' : 'Conditiescore volgens NEN 2767-methodiek') + '</div>';
-    html += '<div class="head">' + (score == null ? 'Geen gebreken vastgelegd' : score + ' — ' + CONDITIE_LABELS[score]) + '</div>';
-    html += '<div class="body">' + (score == null
-      ? 'Leg een gebrek vast (ernst, omvang, intensiteit) om het jaar van vervanging op de werkelijke toestand te baseren.'
-      : 'Het zwaarste vastgelegde gebrek bepaalt de score. Dit is een praktische toepassing van de NEN 2767-systematiek voor planningsdoeleinden, geen vervanging voor een inspectie door een gecertificeerd inspecteur.') + '</div>';
+    html += '<div class="result-box' + (score >= 4 ? ' bad' : ' good') + '">';
+    html += '<div class="label">Conditiescore volgens NEN 2767-methodiek</div>';
+    html += '<div class="head">' + score + ' — ' + CONDITIE_LABELS[score] + '</div>';
+    html += '<div class="body">Het zwaarste vastgelegde gebrek bepaalt de score. Dit is een praktische toepassing van de NEN 2767-systematiek voor planningsdoeleinden, geen vervanging voor een inspectie door een gecertificeerd inspecteur.</div>';
     html += '</div></div>';
     return html;
   }
 
   function renderHoeveelheidKengetal(el) {
-    var label = el.type === 'per-unit' ? 'Aantal units' : 'Oppervlak in m²';
+    var isPerUnit = el.type === 'per-unit';
+    var label = isPerUnit ? 'Aantal units' : 'Oppervlak in m²';
+    var eenheid = isPerUnit ? meervoud(el.hoeveelheid, 'unit', 'units') : 'm²';
     var html = '<div class="section"><div class="card pad">';
     html += '<div class="input-row" style="margin-top:0"><div class="label">' + label + '</div><input id="hv-' + el.id + '" data-bind="el-hoeveelheid" data-id="' + el.id + '" value="' + el.hoeveelheid + '" /></div>';
-    html += '<div class="input-row"><div class="label">Kengetal per eenheid</div><input id="kg-' + el.id + '" data-bind="el-kengetal" data-id="' + el.id + '" value="' + el.kengetal + '" /></div>';
+    html += '<div class="input-row"><div class="label">Prijs per ' + (isPerUnit ? 'unit' : 'm²') + '</div><input id="kg-' + el.id + '" data-bind="el-kengetal" data-id="' + el.id + '" value="' + el.kengetal + '" /></div>';
+    // De rekenformule stond eerder in de Gebouw-lijst (bv. "11 m² × € 165")
+    // — die is verplaatst naar hier, de detailpagina, samen met het resultaat.
+    html += '<div class="formula">' + el.hoeveelheid + ' ' + eenheid + ' × ' + eur(el.kengetal) + ' = ' + eur(elementCost(el, state)) + ' per beurt</div>';
     if (el.type === 'dak' && !state.building.isVoorbeeld) {
       html += '<div class="hint">Dakoppervlak komt uit de 3D BAG (echt dakvlak, plat + schuin). Pas het aan als een offerte of opname iets anders laat zien.</div>';
     }
@@ -2312,9 +2359,11 @@
   }
 
   function renderSteiger(el) {
+    var rate = el.werkhoogte > 8 ? 11 : 6;
     var html = '<div class="section"><div class="card pad">';
     html += '<div class="input-row" style="margin-top:0"><div class="label">Buitenmuur in m²</div><input id="hv-' + el.id + '" data-bind="el-hoeveelheid" data-id="' + el.id + '" value="' + el.hoeveelheid + '" /></div>';
     html += '<div class="input-row"><div class="label">Werkhoogte in m</div><input id="wh-' + el.id + '" data-bind="el-werkhoogte" data-id="' + el.id + '" value="' + el.werkhoogte + '" /></div>';
+    html += '<div class="formula">' + el.hoeveelheid + ' m² × ' + eur(rate) + ' = ' + eur(elementCost(el, state)) + ' per beurt</div>';
     html += '<div class="hint">' + (el.werkhoogte > 8
       ? 'Boven 8 meter rekent de app met een hoogwerker of rolsteiger: € 11 per m² gevel.'
       : 'Tot 8 meter kan het met een lichte steiger: € 6 per m² gevel.') + '</div>';
@@ -2803,6 +2852,7 @@
     'toggle-account-menu': function () { state.accountMenuOpen = !state.accountMenuOpen; render(); },
     'toggle-building-switcher': function () { state.buildingSwitcherOpen = !state.buildingSwitcherOpen; render(); },
     'set-filter': function (d) { state.filter = d.filter; render(); },
+    'toggle-gebreken-filter': function () { state.gebrekenFilter = !state.gebrekenFilter; render(); },
     'open-element': function (d) { state.tab = 'gebouw'; state.activeElementId = d.id; render(); },
     'close-element': function () { state.activeElementId = null; render(); },
     'gb-add': function (d) {
