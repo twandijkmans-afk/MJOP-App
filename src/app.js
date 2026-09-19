@@ -866,6 +866,7 @@
     addForm: null,
     accountMenuOpen: false, // mini-menu (Account/Instellingen/Uitloggen) onder het gebruikersblok in de zijbalk
     buildingSwitcherOpen: false, // dropdown van de gebouwkiezer boven in de zijbalk
+    accountSubTab: 'profiel', // links sub-menu binnen de samengevoegde Account-pagina (zie renderAccount())
     // Login (fase 1 van SPEC_ACCOUNTS_AND_SAVING.md). session/user worden
     // uitsluitend gezet vanuit de sb.auth.onAuthStateChange-listener
     // (nooit los daarvan) zodat ze altijd de echte Supabase-sessie
@@ -1730,9 +1731,8 @@
     else if (state.tab === 'gebouw') html += renderGebouw();
     else if (state.tab === 'planning') html += renderPlanning();
     else if (state.tab === 'rapport') html += renderRapport();
-    else if (state.tab === 'account') html += renderAccount();
+    else if (state.tab === 'account' || state.tab === 'instellingen') html += renderAccount();
     else if (state.tab === 'mijngebouwen') html += renderMijnGebouwen();
-    else if (state.tab === 'instellingen') html += renderInstellingen();
     html += renderTabBar();
     html += '</div>';
     return html;
@@ -1856,30 +1856,111 @@
   }
 
   // ---------------------------------------------------------------------
-  // Instellingen — bereikbaar via het icoon rechtsboven (mobiel) of
-  // linksonder in de zijbalk (desktop, zie renderTabBar()/.tab-bottom).
+  // Account — samengevoegde profiel-/instellingenpagina, bereikbaar via
+  // het accountmenu ("Account"/"Instellingen"), het tandwiel-icoon
+  // (mobiel) of de onderste tabbalk. Beide oude ingangen komen hier
+  // samen (zie ACTIONS['set-tab']), met een links sub-menu voor Profiel/
+  // Weergave/Rapport/Abonnement — vergelijkbaar met een gangbaar
+  // "Account settings"-scherm, maar zonder velden die MJOP Live niet
+  // vastlegt (geen naam/telefoon/adres/team — dit is geen multi-user-tool).
   // ---------------------------------------------------------------------
-  function renderInstellingen() {
-    var html = '<div style="padding:20px 0 8px">';
-    html += '<div style="padding:0 22px"><div class="page-title">Instellingen</div></div>';
+  function renderAccount() {
+    var html = '<div style="padding:24px 0 8px">';
+    html += '<div style="padding:0 22px"><div class="page-title">Account</div></div>';
 
-    html += '<div class="section"><div class="section-title">Weergave</div>';
-    html += '<div class="card" style="margin-top:11px">';
+    // Weergave/Rapport hebben geen Supabase nodig (lokale app-instellingen)
+    // — alleen Profiel (inloggen) en Abonnement zijn daarvan afhankelijk,
+    // dus de "niet geconfigureerd"-melding zit per sub-tab, niet hier
+    // bovenaan de hele pagina (anders was Weergave ook onbereikbaar).
+    var sub = state.accountSubTab;
+    var items = [
+      ['profiel', 'Mijn profiel'],
+      ['weergave', 'Weergave'],
+      ['rapport', 'Rapport'],
+      ['abonnement', 'Abonnement'],
+    ];
+
+    html += '<div class="section"><div class="acct-layout">';
+    html += '<div class="acct-nav">';
+    items.forEach(function (it) {
+      html += '<div class="acct-nav-item' + (sub === it[0] ? ' active' : '') + '" data-act="set-account-subtab" data-sub="' + it[0] + '">' + it[1] + '</div>';
+    });
+    if (state.session) {
+      html += '<div class="acct-nav-item danger" data-act="request-account-verwijderen">Account verwijderen</div>';
+    }
+    html += '</div>';
+
+    var titels = { profiel: 'Mijn profiel', weergave: 'Weergave', rapport: 'Rapport', abonnement: 'Abonnement' };
+    html += '<div class="acct-content"><div class="acct-content-title">' + titels[sub] + '</div>';
+    if (sub === 'weergave') html += renderAcctWeergave();
+    else if (sub === 'rapport') html += renderAcctRapport();
+    else if (sub === 'abonnement') html += renderAcctAbonnement();
+    else html += renderAcctProfiel();
+    html += '</div>';
+
+    html += '</div></div>';
+    html += '</div>';
+    return html;
+  }
+
+  function renderAcctProfiel() {
+    if (!sb) {
+      return '<div class="notice error">Inloggen is nog niet geconfigureerd. Vul de Supabase-projectgegevens (URL en anon-sleutel) in <code>src/config.js</code> in.</div>';
+    }
+    var a = state.auth;
+    if (!state.session) {
+      var html = '<div class="card pad">';
+      if (a.stap === 'sent') {
+        html += '<div style="font:500 13.5px/1.35 Inter,system-ui,sans-serif">Inloglink verstuurd naar ' + esc(a.email) + '</div>';
+        html += '<div class="hint" style="margin-top:6px">Open de e-mail en klik op de link — je komt dan hier terug, automatisch ingelogd. De link is eenmalig geldig; kom je op een foutmelding uit, vraag dan hieronder een nieuwe aan.</div>';
+        if (a.fout) html += '<div class="notice error" style="margin-top:10px">' + esc(a.fout) + '</div>';
+        html += '<div class="btn-row"><div class="ghost-btn" data-act="login-change-email">Andere e-mail / opnieuw versturen</div></div>';
+      } else {
+        html += '<div style="font:500 13.5px/1.35 Inter,system-ui,sans-serif">Inloggen met e-mail</div>';
+        html += '<div class="hint" style="margin-top:6px">Je krijgt een eenmalige inloglink per e-mail toegestuurd.</div>';
+        html += '<div class="input-row" style="margin-top:14px"><div class="label">E-mailadres</div><input id="auth-email" data-bind="auth-email" value="' + esc(a.email) + '" class="wide" placeholder="naam@voorbeeld.nl" style="width:200px;text-align:left" autocomplete="email" /></div>';
+        if (a.fout) html += '<div class="notice error" style="margin-top:10px">' + esc(a.fout) + '</div>';
+        html += '<div class="btn-row"><div class="primary-btn" data-act="login-request">' + (a.bezig ? 'Bezig…' : 'Stuur inloglink') + '</div></div>';
+      }
+      html += '</div>';
+      return html;
+    }
+
+    var initial = state.user.email.charAt(0).toUpperCase();
+    var html = '<div class="card pad acct-profile-card">';
+    html += '<div class="acct-avatar">' + esc(initial) + '</div>';
+    html += '<div class="grow"><div class="acct-profile-name">' + esc(displayName(state.user.email)) + '</div>';
+    html += '<div class="acct-profile-sub">' + (isSubscribed() ? 'Abonnee' : 'Ingelogd') + ' · ' + esc(state.user.email) + '</div></div>';
+    html += '<div class="ghost-btn" data-act="logout">Uitloggen</div>';
+    html += '</div>';
+
+    html += '<div class="action-box" style="margin-top:14px" data-act="set-tab" data-tab="mijngebouwen">';
+    html += '<div class="grow"><div class="title">Mijn gebouwen</div><div class="sub">' + state.savedPlans.length + ' opgeslagen plan' + (state.savedPlans.length === 1 ? '' : 'nen') + ' — bekijken, hernoemen of verwijderen</div></div>';
+    html += '<div class="arrow">›</div></div>';
+    return html;
+  }
+
+  function renderAcctWeergave() {
+    var html = '<div class="card">';
     html += '<div class="row" style="border-top:none">';
     html += '<span class="tab-icon" style="width:20px;height:20px;color:var(--ink-45)">' + (state.theme === 'dark' ? NAV_ICONS.maan : NAV_ICONS.zon) + '</span>';
     html += '<div class="grow"><div class="name">Donker thema</div><div class="meta">' + (state.theme === 'dark' ? 'Nu aan' : 'Nu uit') + '</div></div>';
     html += '<div class="toggle' + (state.theme === 'dark' ? ' on' : '') + '" data-act="toggle-theme"><div class="knob"></div></div>';
-    html += '</div></div></div>';
+    html += '</div></div>';
+    return html;
+  }
 
-    html += '<div class="section"><div class="section-title">Rapport</div>';
-    html += '<div class="card" style="margin-top:11px">';
+  function renderAcctRapport() {
+    var html = '<div class="card">';
     html += '<div class="row" style="border-top:none">';
     html += '<div class="grow"><div class="name">CBS-bouwkostenindex vermelden</div><div class="meta">Toont erbij welk indexatiepercentage gebruikt is, bijv. "(CBS-bouwkostenindex 2024)"</div></div>';
     html += '<div class="toggle' + (state.settings.toonCbsBron ? ' on' : '') + '" data-act="toggle-cbs-bron"><div class="knob"></div></div>';
-    html += '</div></div></div>';
+    html += '</div></div>';
+    return html;
+  }
 
-    html += '<div class="section"><div class="section-title">Abonnement</div>';
-    html += '<div class="card pad" style="margin-top:11px">';
+  function renderAcctAbonnement() {
+    var html = '<div class="card pad">';
     if (!state.session) {
       html += '<div class="hint" style="margin-top:0">Log eerst in om een abonnement af te sluiten.</div>';
     } else if (isSubscribed()) {
@@ -1893,20 +1974,6 @@
       html += '<div class="btn-row"><div class="primary-btn accent" data-act="upgrade-abonnement">' + (state.subscriptionUi.bezig ? 'Bezig…' : 'Abonneren — € 19/maand') + '</div></div>';
     }
     if (state.subscriptionUi.fout) html += '<div class="notice error" style="margin-top:12px">' + esc(state.subscriptionUi.fout) + '</div>';
-    html += '</div></div>';
-
-    html += '<div class="section"><div class="section-title">Account</div>';
-    html += '<div class="card" style="margin-top:11px">';
-    if (state.session) {
-      html += '<div class="row" style="border-top:none"><div class="grow"><div class="name">Ingelogd als</div><div class="meta">' + esc(state.session.user.email) + '</div></div></div>';
-      html += '<div class="row linkish" data-act="logout"><div class="grow"><div class="name">Uitloggen</div></div></div>';
-      html += '<div class="row linkish" data-act="request-account-verwijderen"><div class="grow"><div class="name">Account en gegevens laten verwijderen</div><div class="meta">Stuur een e-mail naar ons om je account en opgeslagen plannen te laten verwijderen</div></div></div>';
-    } else {
-      html += '<div class="row" style="border-top:none"><div class="grow"><div class="name">Niet ingelogd</div><div class="meta">Je bekijkt nu een voorbeeldgebouw, niets is opgeslagen</div></div></div>';
-      html += '<div class="row linkish" data-act="set-tab" data-tab="account"><div class="grow"><div class="name">Inloggen</div></div></div>';
-    }
-    html += '</div></div>';
-
     html += '</div>';
     return html;
   }
@@ -1920,57 +1987,6 @@
   // sessie na een klik op de link automatisch uit de url
   // (detectSessionInUrl, standaard aan) en meldt dat via de
   // onAuthStateChange-listener, net als bij elke andere in-/uitlog-actie.
-  // Opslaan/laden van een plan en "mijn gebouwen" volgen in een latere
-  // fase; dit scherm doet nu alleen inloggen, de sessie tonen, en
-  // uitloggen.
-  function renderAccount() {
-    var html = '<div style="padding:24px 0 8px">';
-    html += '<div style="padding:0 22px">';
-    html += '<div class="page-title">Account</div>';
-    html += '<div class="page-sub">Inloggen met een eenmalige link per e-mail — geen wachtwoord.</div>';
-    html += '</div>';
-
-    if (!sb) {
-      html += '<div class="section"><div class="notice error">Inloggen is nog niet geconfigureerd. Vul de Supabase-projectgegevens (URL en anon-sleutel) in <code>src/config.js</code> in.</div></div>';
-      html += '</div>';
-      return html;
-    }
-
-    var a = state.auth;
-
-    if (state.session) {
-      html += '<div class="section"><div class="card pad">';
-      html += '<div class="hint">Ingelogd als</div>';
-      html += '<div style="font:500 15px/1.4 Inter,system-ui,sans-serif;margin-top:6px">' + esc(state.user.email) + '</div>';
-      html += '<div class="btn-row"><div class="ghost-btn" data-act="logout">Uitloggen</div></div>';
-      html += '</div></div>';
-
-      html += '<div class="section"><div class="action-box" data-act="set-tab" data-tab="mijngebouwen">';
-      html += '<div class="grow"><div class="title">Mijn gebouwen</div><div class="sub">' + state.savedPlans.length + ' opgeslagen plan' + (state.savedPlans.length === 1 ? '' : 'nen') + ' — bekijken, hernoemen of verwijderen</div></div>';
-      html += '<div class="arrow">›</div></div></div>';
-
-      html += '</div>';
-      return html;
-    }
-
-    html += '<div class="section"><div class="card pad">';
-    if (a.stap === 'sent') {
-      html += '<div style="font:500 13.5px/1.35 Inter,system-ui,sans-serif">Inloglink verstuurd naar ' + esc(a.email) + '</div>';
-      html += '<div class="hint" style="margin-top:6px">Open de e-mail en klik op de link — je komt dan hier terug, automatisch ingelogd. De link is eenmalig geldig; kom je op een foutmelding uit, vraag dan hieronder een nieuwe aan.</div>';
-      if (a.fout) html += '<div class="notice error" style="margin-top:10px">' + esc(a.fout) + '</div>';
-      html += '<div class="btn-row"><div class="ghost-btn" data-act="login-change-email">Andere e-mail / opnieuw versturen</div></div>';
-    } else {
-      html += '<div style="font:500 13.5px/1.35 Inter,system-ui,sans-serif">Inloggen met e-mail</div>';
-      html += '<div class="hint" style="margin-top:6px">Je krijgt een eenmalige inloglink per e-mail toegestuurd.</div>';
-      html += '<div class="input-row" style="margin-top:14px"><div class="label">E-mailadres</div><input id="auth-email" data-bind="auth-email" value="' + esc(a.email) + '" class="wide" placeholder="naam@voorbeeld.nl" style="width:200px;text-align:left" autocomplete="email" /></div>';
-      if (a.fout) html += '<div class="notice error" style="margin-top:10px">' + esc(a.fout) + '</div>';
-      html += '<div class="btn-row"><div class="primary-btn" data-act="login-request">' + (a.bezig ? 'Bezig…' : 'Stuur inloglink') + '</div></div>';
-    }
-    html += '</div></div>';
-    html += '</div>';
-    return html;
-  }
-
   function renderMijnGebouwen() {
     var html = '<div style="padding:20px 0 8px">';
     html += '<div class="top-nav"><div class="back-link" data-act="set-tab" data-tab="home">‹ Overzicht</div></div>';
@@ -2836,7 +2852,7 @@
       // naar dat scherm i.p.v. de aanroep te doen, die RLS-technisch
       // toch zou lukken (opslaan zelf is niet abonnement-afhankelijk in
       // de database) maar product-matig niet de bedoeling is.
-      if (!isSubscribed()) { state.tab = 'instellingen'; render(); return; }
+      if (!isSubscribed()) { state.tab = 'instellingen'; state.accountSubTab = 'abonnement'; render(); return; }
       performSave();
     },
     'open-plan': function (d) {
@@ -2930,10 +2946,16 @@
     'set-tab': function (d) {
       state.tab = d.tab; state.activeElementId = null; state.confirmDeleteId = null;
       state.accountMenuOpen = false; state.buildingSwitcherOpen = false;
+      // Account en Instellingen zijn dezelfde pagina (zie renderAccount()),
+      // alleen met een ander sub-menu-item vooraf geselecteerd, zodat beide
+      // bestaande ingangen (accountmenu, tandwiel-icoon) blijven werken.
+      if (d.tab === 'account') state.accountSubTab = 'profiel';
+      if (d.tab === 'instellingen') state.accountSubTab = 'weergave';
       render();
     },
     'toggle-account-menu': function () { state.accountMenuOpen = !state.accountMenuOpen; render(); },
     'toggle-building-switcher': function () { state.buildingSwitcherOpen = !state.buildingSwitcherOpen; render(); },
+    'set-account-subtab': function (d) { state.accountSubTab = d.sub; render(); },
     'set-filter': function (d) { state.filter = d.filter; render(); },
     'toggle-gebreken-filter': function () { state.gebrekenFilter = !state.gebrekenFilter; render(); },
     'open-element': function (d) { state.tab = 'gebouw'; state.activeElementId = d.id; render(); },
