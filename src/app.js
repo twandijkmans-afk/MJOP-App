@@ -16,6 +16,7 @@
     return isNaN(n) ? 0 : n;
   }
   function clamp(n, lo, hi) { return Math.max(lo, Math.min(hi, n)); }
+  function meervoud(n, enkelvoud, meervoudVorm) { return n === 1 ? enkelvoud : meervoudVorm; }
   function esc(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
       return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
@@ -657,7 +658,7 @@
       }).join(', ');
       case 'gevel': return el.hoeveelheid + ' m² buitenmuur × ' + eur(el.kengetal);
       case 'steiger': return 'werkhoogte ' + el.werkhoogte + ' m';
-      case 'per-unit': return el.hoeveelheid + ' units × ' + eur(el.kengetal);
+      case 'per-unit': return el.hoeveelheid + ' ' + meervoud(el.hoeveelheid, 'unit', 'units') + ' × ' + eur(el.kengetal);
       case 'vast-variabel': return eur(el.basis) + ' vast + ' + el.hoeveelheid + ' × ' + eur(el.perEenheid);
       case 'custom':
         var indexPct = cbsIndexatie ? cbsIndexatie.pct : Math.round(INDEXATIE_PCT * 1000) / 10;
@@ -904,6 +905,25 @@
     }
   } catch (e) { /* sessionStorage niet beschikbaar (bv. privénavigatie) — gewoon bij de standaardwaarden blijven */ }
 
+  // Herschaalt alle bibliotheek-elementen (niet geïmporteerde/eigen posten
+  // — die hebben geen def, zie libraryEntry()) op de huidige gebouw-
+  // gegevens. Gedeeld door applyBuilding() (nieuw adres) en het bewerkbare
+  // "aantal appartementen"-veld op het Gebouw-scherm (zie BINDS['building-
+  // units']): in beide gevallen moeten per-appartement-hoeveelheden (koz-
+  // aantallen, intercom, riolering, enz.) meebewegen met het huidige
+  // aantal appartementen.
+  function rescaleElements(building) {
+    state.elements.forEach(function (el) {
+      var def = libraryEntry(el.id);
+      if (def && def.bron && def.bron !== 'none') el.hoeveelheid = bronWaarde(def.bron, building);
+      if (el.type === 'steiger') el.werkhoogte = building.werkhoogte;
+      if (el.type === 'kozijnen') {
+        var counts = scaleKozCounts(building.units);
+        el.koz.forEach(function (k, i) { if (KOZ_DEF[i]) k.aantal = counts[i]; });
+      }
+    });
+  }
+
   // Zet het gebouw vast. Als er nog geen elementen zijn (verse start) wordt
   // de standaardbibliotheek geïnstantieerd; zijn er al elementen (bv. uit
   // een MJOP-upload) dan worden alleen de bibliotheek-elementen herschaald
@@ -915,15 +935,7 @@
       // wij kunnen dat niet raden op basis van het aantal appartementen.
       state.elements = buildDefaultElements(building);
     } else {
-      state.elements.forEach(function (el) {
-        var def = libraryEntry(el.id);
-        if (def && def.bron && def.bron !== 'none') el.hoeveelheid = bronWaarde(def.bron, building);
-        if (el.type === 'steiger') el.werkhoogte = building.werkhoogte;
-        if (el.type === 'kozijnen') {
-          var counts = scaleKozCounts(building.units);
-          el.koz.forEach(function (k, i) { if (KOZ_DEF[i]) k.aantal = counts[i]; });
-        }
-      });
+      rescaleElements(building);
     }
     state.screen = 'app';
     state.tab = 'home';
@@ -2029,7 +2041,13 @@
     var html = '<div style="padding:24px 0 8px">';
     html += '<div style="padding:0 22px">';
     html += '<div class="page-title">Gebouw</div>';
-    html += '<div class="page-sub">' + esc(b.adres) + ' · bouwjaar ' + (b.bouwjaar || 'onbekend') + ' · ' + b.units + ' appartementen · ' + state.elements.length + ' elementen</div>';
+    // Aantal appartementen komt uit de BAG maar klopt niet altijd (bv. bij
+    // een pand dat als één verblijfsobject geregistreerd staat) — daarom
+    // hier bewerkbaar, met minimale styling zodat het in de tekstregel
+    // blijft opgaan (zelfde patroon als "Reservefonds nu" op Overzicht).
+    html += '<div class="page-sub">' + esc(b.adres) + ' · bouwjaar ' + (b.bouwjaar || 'onbekend') + ' · ';
+    html += '<input id="building-units" data-bind="building-units" type="number" min="1" inputmode="numeric" value="' + b.units + '" style="width:30px;border:none;border-bottom:1px dotted currentColor;background:none;outline:none;padding:0;font:inherit;color:inherit;text-align:right" /> ';
+    html += meervoud(b.units, 'appartement', 'appartementen') + ' · ' + state.elements.length + ' elementen</div>';
     html += '</div>';
 
     html += '<div class="section"><div class="chip-row">';
@@ -2870,6 +2888,12 @@
       clearTimeout(searchTimer);
       if (t.value.trim().length < 4) { s.sug = []; return; }
       searchTimer = setTimeout(function () { zoekAdres(t.value); }, 280);
+    },
+    // Herschaalt meteen alle per-appartement-hoeveelheden (koz-aantallen,
+    // intercom, riolering, enz.) mee — zie rescaleElements().
+    'building-units': function (t) {
+      state.building.units = Math.max(1, num(t.value) || 1);
+      rescaleElements(state.building);
     },
     'el-hoeveelheid': function (t, d) { var el = findEl(d.id); if (el) el.hoeveelheid = num(t.value); },
     'el-kengetal': function (t, d) { var el = findEl(d.id); if (el) el.kengetal = num(t.value); },
