@@ -864,7 +864,7 @@
     offertes: {}, // elId -> [{id, naam, btw, regels:[{naam,bedrag}]}]
     bijvullen: {}, // elId -> bool
     addForm: null,
-    accountMenuOpen: false, // mini-menu (Account/Instellingen/Uitloggen) onder het gebruikersblok in de zijbalk
+    accountMenuOpen: false, // mini-menu (Account/Uitloggen) onder het gebruikersblok in de zijbalk
     buildingSwitcherOpen: false, // dropdown van de gebouwkiezer boven in de zijbalk
     accountSubTab: 'profiel', // links sub-menu binnen de samengevoegde Account-pagina (zie renderAccount())
     // Login (fase 1 van SPEC_ACCOUNTS_AND_SAVING.md). session/user worden
@@ -1415,7 +1415,7 @@
       html += '<div class="mkt-preview-item' + (r[2] ? ' active' : '') + '"><span class="tab-icon">' + r[0] + '</span><span>' + r[1] + '</span></div>';
     });
     html += '<div class="mkt-preview-bottom">';
-    html += '<div class="mkt-preview-item"><span class="tab-icon">' + NAV_ICONS.instellingen + '</span><span>Instellingen</span></div>';
+    html += '<div class="mkt-preview-item"><span class="tab-icon">' + NAV_ICONS.instellingen + '</span><span>Account</span></div>';
     html += '<div class="mkt-preview-account"><span class="tab-account-avatar">B</span><div class="tab-account-info"><div class="tab-account-name">bestuur@vve-voorbeeld.nl</div><div class="tab-account-sub">Ingelogd</div></div></div>';
     html += '</div>';
     html += '</div>';
@@ -1704,7 +1704,7 @@
     // blijft staan) is dit de enige weg naar Instellingen. Vanaf 960px
     // schuift-ie via CSS vanzelf weg, want daar staat "Instellingen" al
     // linksonder in de zijbalk (zie renderTabBar()).
-    html += '<button class="mobile-settings-btn" data-act="set-tab" data-tab="instellingen" aria-label="Instellingen">' + NAV_ICONS.instellingen + '</button>';
+    html += '<button class="mobile-settings-btn" data-act="set-tab" data-tab="instellingen" aria-label="Account">' + NAV_ICONS.instellingen + '</button>';
     // Tegenhanger linksboven op mobiel/tablet — vanaf 960px zit dezelfde
     // functie al in het logo linksboven in de zijbalk (zie tab-brand
     // hierboven), dus dit icoontje verdwijnt daar via CSS (zie
@@ -1827,7 +1827,7 @@
     // losse icoontje rechtsboven (zie renderApp()).
     html += '<div class="tab-bottom">';
     html += '<button class="tab-item' + (state.tab === 'instellingen' ? ' active' : '') + '" data-act="set-tab" data-tab="instellingen">';
-    html += '<span class="tab-icon">' + NAV_ICONS.instellingen + '</span><span class="tab-label">Instellingen</span></button>';
+    html += '<span class="tab-icon">' + NAV_ICONS.instellingen + '</span><span class="tab-label">Account</span></button>';
     if (state.session) {
       var accountNaam = displayName(state.session.user.email);
       var avatarLetter = accountNaam.charAt(0).toUpperCase();
@@ -1840,7 +1840,6 @@
       if (state.accountMenuOpen) {
         html += '<div class="account-menu">';
         html += '<div class="account-menu-item" data-act="set-tab" data-tab="account">Account</div>';
-        html += '<div class="account-menu-item" data-act="set-tab" data-tab="instellingen">Instellingen</div>';
         html += '<div class="account-menu-item" data-act="logout">Uitloggen</div>';
         html += '</div>';
       }
@@ -1865,7 +1864,7 @@
   // vastlegt (geen naam/telefoon/adres/team — dit is geen multi-user-tool).
   // ---------------------------------------------------------------------
   function renderAccount() {
-    var html = '<div style="padding:24px 0 8px">';
+    var html = '<div class="acct-page" style="padding:24px 0 8px">';
     html += '<div style="padding:0 22px"><div class="page-title">Account</div></div>';
 
     // Weergave/Rapport hebben geen Supabase nodig (lokale app-instellingen)

@@ -513,6 +513,13 @@ input[type=range]::-moz-range-thumb {
    ruimte erboven) terwijl er onder de kiezer, vóór de navigatie, juist
    ruim wat lucht zit — iets meer ruimte hier balanceert dat beter. */
 .building-switcher-sidebar { margin-top: 14px; }
+/* De zijbalk is smaller dan de mobiele kopie hierboven, dus een lang
+   adres ("Jan Heesjesstraat 12, 1695CL Blokker") past daar al snel niet
+   op één regel — hier mag het daarom naar een tweede regel afbreken
+   i.p.v. af te kappen met "…", zodat het volledige adres leesbaar blijft. */
+.building-switcher-sidebar .bswitch-adres { white-space: normal; overflow: visible; text-overflow: unset; }
+.building-switcher-sidebar .bswitch-current { align-items: flex-start; }
+.building-switcher-sidebar .bswitch-chev { margin-top: 1px; }
 .bswitch-current { display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--ink-14); background: var(--card); }
 .bswitch-current:hover { background: var(--panel); }
 /* .grow is verder alleen als .row .grow/.tl-post .grow gedefinieerd —
@@ -721,6 +728,19 @@ input[type=range]::-moz-range-thumb {
     max-width: 1080px;
     background: var(--card);
     min-height: 100vh;
+  }
+  /* Uitzondering voor de Account-pagina: de linker sub-nav + rechter
+     kaart (.acct-layout) staan hier niet direct tegen elkaars randen aan
+     zoals bij de kaarten op andere pagina's, waardoor de rand van deze
+     achtergrond (bij 1080px) op een breed scherm goed zichtbaar was als
+     een naadje in de paginakleur. Achtergrond loopt hier daarom altijd
+     door tot de rand van het scherm; de max-width verhuist naar
+     .acct-layout zelf, dat verderop precies zo breed blijft als voorheen. */
+  .app-shell:has(.tab-bar) > div.acct-page {
+    max-width: none;
+  }
+  .app-shell:has(.tab-bar) .acct-layout {
+    max-width: 1080px;
   }
   /* Adres-opzoekscherm en mjop-upload-wizard hebben geen tabbalk. Die
      blijven op tablet een gecentreerde kaart (zie 640px-regel hierboven),
