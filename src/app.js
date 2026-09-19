@@ -912,6 +912,8 @@
     // huisnummer bij Facturatie (zie factuurAutofill() en BINDS
     // 'fact-postcode'/'fact-huisnummer') — puur UI-feedback, geen eigen data.
     facturatieZoek: { bezig: false, fout: '' },
+    privacyUi: { bezig: false, fout: '' },
+    accountVerwijderen: { actief: false, typedEmail: '', bezig: false, fout: '' },
   };
 
   // Thema en instellingen zo vroeg mogelijk toepassen (nog vóór
@@ -2002,9 +2004,6 @@
     items.forEach(function (it) {
       html += '<div class="acct-nav-item' + (sub === it[0] ? ' active' : '') + '" data-act="set-account-subtab" data-sub="' + it[0] + '">' + it[1] + '</div>';
     });
-    if (state.session) {
-      html += '<div class="acct-nav-item danger" data-act="request-account-verwijderen">Account verwijderen</div>';
-    }
     html += '</div>';
 
     var titels = { profiel: 'Mijn profiel', organisatie: 'Organisatie', weergave: 'Weergave', rapport: 'Rapport', abonnement: 'Abonnement' };
@@ -2106,6 +2105,39 @@
       state.savedPlans.forEach(function (p) { html += renderPlanRow(p); });
       html += '</div>';
       html += '<div class="linkish" style="margin-top:10px;display:block" data-act="goto-mijngebouwen">Alle gebouwen beheren</div>';
+    }
+    html += '</div>';
+
+    html += renderGegevensPrivacy();
+    return html;
+  }
+
+  // Stond eerder als "Account verwijderen" los in het sub-menu, met alleen
+  // een mailto-link naar support — nu écht zelf te doen (zie
+  // supabase/functions/delete-account) en met een gegevens-download
+  // ernaast, allebei op hun plek onderaan "Mijn profiel" i.p.v. in de
+  // navigatie (het is geen bestemming om naartoe te navigeren, maar een
+  // paar acties).
+  function renderGegevensPrivacy() {
+    var v = state.accountVerwijderen, pu = state.privacyUi;
+    var html = '<div class="card pad" style="margin-top:14px">';
+    html += '<div style="font:500 13.5px/1.3 Inter,system-ui,sans-serif">Gegevens en privacy</div>';
+
+    html += '<div class="row" style="border-top:none;margin-top:11px;padding:0 0 11px">';
+    html += '<div class="grow"><div class="name">Download mijn gegevens</div><div class="meta">Je profiel, organisatie- en factuurgegevens en al je opgeslagen plannen, als JSON-bestand</div></div>';
+    html += '<div class="ghost-btn" data-act="download-mijn-gegevens">' + (pu.bezig ? 'Bezig…' : 'Downloaden') + '</div>';
+    html += '</div>';
+    if (pu.fout) html += '<div class="notice error" style="margin-top:4px">' + esc(pu.fout) + '</div>';
+
+    html += '<div class="row" style="border-top:1px solid var(--ink-08);padding-top:11px">';
+    html += '<div class="grow"><div class="name" style="color:var(--accent)">Account verwijderen</div><div class="meta">Verwijdert je account en alle opgeslagen plannen definitief — dit kan niet ongedaan worden gemaakt</div></div>';
+    if (!v.actief) html += '<div class="ghost-btn" data-act="start-account-verwijderen">Verwijderen</div>';
+    html += '</div>';
+    if (v.actief) {
+      html += '<div class="hint" style="margin-top:2px">Typ je e-mailadres (' + esc(state.user.email) + ') om te bevestigen.</div>';
+      html += '<div class="input-row"><div class="label">E-mailadres</div><input data-bind="verwijder-email-typed" value="' + esc(v.typedEmail) + '" class="wide" style="width:200px;text-align:left" /></div>';
+      if (v.fout) html += '<div class="notice error" style="margin-top:6px">' + esc(v.fout) + '</div>';
+      html += '<div class="btn-row" style="margin-top:8px"><div class="primary-btn accent" data-act="submit-account-verwijderen">' + (v.bezig ? 'Bezig…' : 'Verwijder mijn account definitief') + '</div><div class="ghost-btn" data-act="cancel-account-verwijderen">Annuleer</div></div>';
     }
     html += '</div>';
     return html;
@@ -3369,10 +3401,60 @@
       try { localStorage.setItem('mjop-instellingen', JSON.stringify(state.settings)); } catch (e) {}
       render();
     },
-    'request-account-verwijderen': function () {
-      var email = state.session ? state.session.user.email : '';
-      window.location.href = 'mailto:info@mjoplive.nl?subject=' + encodeURIComponent('Account verwijderen') +
-        '&body=' + encodeURIComponent('Hallo,\n\nIk wil graag mijn account (' + email + ') en de daarin opgeslagen plannen laten verwijderen.\n\nMet vriendelijke groet,');
+    'download-mijn-gegevens': function () {
+      if (!sb || !state.session) return;
+      var pu = state.privacyUi;
+      pu.bezig = true; pu.fout = '';
+      render();
+      sb.from('saved_plans').select('id,label,adres,state,updated_at').then(function (res) {
+        pu.bezig = false;
+        if (res.error) { pu.fout = 'Kon je gegevens niet ophalen. Probeer het opnieuw.'; render(); return; }
+        var payload = {
+          geexporteerd_op: new Date().toISOString(),
+          account: { id: state.user.id, email: state.user.email },
+          profiel: state.profile,
+          abonnement: state.subscription,
+          plannen: res.data,
+        };
+        var blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = url;
+        a.download = 'mjop-live-mijn-gegevens.json';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        render();
+      }).catch(function () {
+        pu.bezig = false; pu.fout = 'Kon geen verbinding maken. Probeer het opnieuw.'; render();
+      });
+    },
+    'start-account-verwijderen': function () {
+      state.accountVerwijderen = { actief: true, typedEmail: '', bezig: false, fout: '' };
+      render();
+    },
+    'cancel-account-verwijderen': function () {
+      state.accountVerwijderen = { actief: false, typedEmail: '', bezig: false, fout: '' };
+      render();
+    },
+    'submit-account-verwijderen': function () {
+      if (!sb || !state.session) return;
+      var v = state.accountVerwijderen;
+      if (v.typedEmail.trim().toLowerCase() !== state.user.email.toLowerCase()) {
+        v.fout = 'Dit e-mailadres komt niet overeen met je account.';
+        render();
+        return;
+      }
+      v.bezig = true; v.fout = '';
+      render();
+      callSupabaseFunction('delete-account', {}).then(function (json) {
+        if (json.error) { v.bezig = false; v.fout = json.error; render(); return; }
+        if (sb) sb.auth.signOut();
+        window.location.href = window.location.origin + window.location.pathname;
+      }).catch(function (err) {
+        v.bezig = false; v.fout = err.message; render();
+      });
     },
     'upgrade-abonnement': function () {
       if (!sb || !state.session) return;
@@ -3548,6 +3630,7 @@
     },
     'fact-plaats': function (t) { if (state.profile) state.profile.factuurPlaats = t.value; },
     'fact-btw': function (t) { if (state.profile) state.profile.btwNummer = t.value; },
+    'verwijder-email-typed': function (t) { state.accountVerwijderen.typedEmail = t.value; },
     'email-wijzigen-nieuw': function (t) { state.emailWijzigen.nieuw = t.value; },
     'plan-label': function (t, d) {
       var p = state.savedPlans.filter(function (x) { return x.id === d.id; })[0];
