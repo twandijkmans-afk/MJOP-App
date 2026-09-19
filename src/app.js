@@ -1151,6 +1151,13 @@
     var volledig = p && (p.voornaam || p.achternaam) ? (p.voornaam + ' ' + p.achternaam).trim() : '';
     return volledig || displayName(state.user.email);
   }
+  // Organisatienaam voor op het rapport (scherm + pdf) — alleen als de
+  // gebruiker 'm heeft ingevuld én de schakelaar op de Organisatie-
+  // sectie aan heeft staan (zie renderAcctOrganisatie()).
+  function opstellerNaam() {
+    var p = state.profile;
+    return (p && p.toonOrgOpRapport && p.orgNaam) ? p.orgNaam : null;
+  }
   // Ruime, weinig-strikte NL-telefoonvalidatie (vast + mobiel, met of
   // zonder spaties/koppeltekens, met of zonder +31/0031-notatie) — het
   // veld is optioneel, dus alleen valideren als er iets is ingevuld.
@@ -1979,6 +1986,7 @@
     var sub = state.accountSubTab;
     var items = [
       ['profiel', 'Mijn profiel'],
+      ['organisatie', 'Organisatie'],
       ['weergave', 'Weergave'],
       ['rapport', 'Rapport'],
       ['abonnement', 'Abonnement'],
@@ -1994,9 +2002,10 @@
     }
     html += '</div>';
 
-    var titels = { profiel: 'Mijn profiel', weergave: 'Weergave', rapport: 'Rapport', abonnement: 'Abonnement' };
+    var titels = { profiel: 'Mijn profiel', organisatie: 'Organisatie', weergave: 'Weergave', rapport: 'Rapport', abonnement: 'Abonnement' };
     html += '<div class="acct-content"><div class="acct-content-title">' + titels[sub] + '</div>';
-    if (sub === 'weergave') html += renderAcctWeergave();
+    if (sub === 'organisatie') html += renderAcctOrganisatie();
+    else if (sub === 'weergave') html += renderAcctWeergave();
     else if (sub === 'rapport') html += renderAcctRapport();
     else if (sub === 'abonnement') html += renderAcctAbonnement();
     else html += renderAcctProfiel();
@@ -2086,6 +2095,36 @@
     html += '<div class="action-box" style="margin-top:14px" data-act="set-tab" data-tab="mijngebouwen">';
     html += '<div class="grow"><div class="title">Mijn gebouwen</div><div class="sub">' + state.savedPlans.length + ' opgeslagen plan' + (state.savedPlans.length === 1 ? '' : 'nen') + ' — bekijken, hernoemen of verwijderen</div></div>';
     html += '<div class="arrow">›</div></div>';
+    return html;
+  }
+
+  // Alles hier is optioneel — een particuliere eigenaar zonder VvE/bedrijf
+  // laat dit gewoon leeg, en dan verschijnt er ook niets extra's op het
+  // rapport (zie renderRapport()/renderPrintReport()).
+  function renderAcctOrganisatie() {
+    if (!sb) {
+      return '<div class="notice error">Inloggen is nog niet geconfigureerd. Vul de Supabase-projectgegevens (URL en anon-sleutel) in <code>src/config.js</code> in.</div>';
+    }
+    if (!state.session) {
+      return '<div class="hint" style="margin-top:0">Log eerst in om organisatiegegevens vast te leggen.</div>';
+    }
+    if (!state.profileLoaded) {
+      return '<div class="hint">Bezig met laden…</div>';
+    }
+    var p = state.profile, ui = state.orgUi;
+    var dirty = state.orgSnapshot !== JSON.stringify(orgVelden(p));
+    var html = '<div class="card pad">';
+    html += '<div class="input-row" style="margin-top:0"><div class="label">Naam VvE of bedrijf</div><input data-bind="org-naam" value="' + esc(p.orgNaam) + '" class="wide" placeholder="VvE Voorbeeldstraat 1-12" style="width:220px;text-align:left" /></div>';
+    html += '<div class="input-row"><div class="label">KvK-nummer</div><input data-bind="org-kvk" value="' + esc(p.kvkNummer) + '" class="wide" placeholder="12345678" style="width:120px;text-align:left" /></div>';
+    html += '<div class="row" style="border-top:none;margin-top:11px;padding:0">';
+    html += '<div class="grow"><div class="name">Tonen op het rapport</div><div class="meta">Voegt "Opgesteld door: ' + esc(p.orgNaam || '…') + '" toe aan het rapport (scherm en pdf)</div></div>';
+    html += '<div class="toggle' + (p.toonOrgOpRapport ? ' on' : '') + '" data-act="toggle-org-op-rapport"><div class="knob"></div></div>';
+    html += '</div>';
+    if (ui.fout) html += '<div class="notice error" style="margin-top:12px">' + esc(ui.fout) + '</div>';
+    else if (dirty) html += '<div class="hint" style="margin-top:12px;color:var(--accent)">Niet-opgeslagen wijzigingen</div>';
+    else if (ui.opgeslagen) html += '<div class="hint" style="margin-top:12px;color:var(--good-fg)">Opgeslagen</div>';
+    html += '<div class="btn-row" style="margin-top:10px"><div class="primary-btn" data-act="save-organisatie">' + (ui.bezig ? 'Bezig…' : 'Opslaan') + '</div></div>';
+    html += '</div>';
     return html;
   }
 
@@ -2805,6 +2844,8 @@
     html += '<div class="section"><div class="card pad">';
     html += '<div style="font:500 14.5px/1.3 Inter,system-ui,sans-serif">MJOP ' + CURRENT_YEAR + '–' + (CURRENT_YEAR + HORIZON - 1) + '</div>';
     html += '<div class="hint" style="margin-top:5px">Conditie per element, kostenopbouw en het voorstel voor de maandbijdrage.</div>';
+    var opsteller = opstellerNaam();
+    if (opsteller) html += '<div class="hint" style="margin-top:2px">Opgesteld door: ' + esc(opsteller) + '</div>';
     html += '<div class="btn-row"><div class="primary-btn" data-act="print-rapport">Afdrukken / PDF</div><div class="ghost-btn" data-act="export-csv">Exporteer CSV</div></div>';
     html += '</div></div>';
 
@@ -2863,10 +2904,12 @@
 
     var html = '<div class="print-report">';
 
+    var opsteller = opstellerNaam();
     html += '<div class="pr-page pr-cover">';
     html += '<div class="pr-eyebrow">Meerjarenonderhoudsplan</div>';
     html += '<h1>' + esc(b.adres) + '</h1>';
     html += '<div class="pr-sub">MJOP ' + CURRENT_YEAR + '–' + (CURRENT_YEAR + HORIZON - 1) + ' · opgesteld met MJOP Live · ' + vandaag + '</div>';
+    if (opsteller) html += '<div class="pr-sub">Opgesteld door: ' + esc(opsteller) + '</div>';
     html += '</div>';
 
     html += '<div class="pr-page">';
@@ -3206,6 +3249,15 @@
         return { voornaam: p.voornaam.trim(), achternaam: p.achternaam.trim(), telefoon: p.telefoon.trim(), rol: p.rol || null };
       });
     },
+    'toggle-org-op-rapport': function () {
+      if (state.profile) state.profile.toonOrgOpRapport = !state.profile.toonOrgOpRapport;
+      render();
+    },
+    'save-organisatie': function () {
+      saveProfileSection(state.orgUi, 'orgSnapshot', orgVelden, function (p) {
+        return { org_naam: p.orgNaam.trim() || null, kvk_nummer: p.kvkNummer.trim() || null, toon_organisatie_op_rapport: p.toonOrgOpRapport };
+      });
+    },
     'start-email-wijzigen': function () {
       state.emailWijzigen = { actief: true, nieuw: '', bezig: false, fout: '', verstuurd: false };
       render();
@@ -3360,6 +3412,8 @@
     'profiel-voornaam': function (t) { if (state.profile) state.profile.voornaam = t.value; },
     'profiel-achternaam': function (t) { if (state.profile) state.profile.achternaam = t.value; },
     'profiel-telefoon': function (t) { if (state.profile) state.profile.telefoon = t.value; },
+    'org-naam': function (t) { if (state.profile) state.profile.orgNaam = t.value; },
+    'org-kvk': function (t) { if (state.profile) state.profile.kvkNummer = t.value; },
     'email-wijzigen-nieuw': function (t) { state.emailWijzigen.nieuw = t.value; },
     'plan-label': function (t, d) {
       var p = state.savedPlans.filter(function (x) { return x.id === d.id; })[0];
