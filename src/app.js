@@ -893,6 +893,21 @@
     subscription: null,
     subscriptionLoaded: false,
     subscriptionUi: { bezig: false, fout: '' },
+    // Profielgegevens (naam/telefoon/rol, organisatie, facturatie) — één
+    // rij in de "profiles"-tabel (zie supabase/migrations), maar met drie
+    // losse opslaan-knoppen op de Account-pagina (Mijn profiel/
+    // Organisatie/Facturatie), dus ook drie losse snapshots/ui-objecten
+    // voor "niet-opgeslagen wijzigingen" per sectie — net als
+    // lastSavedSnapshot hierboven voor een heel plan.
+    profile: null, // pas gevuld na loadProfile(); null = nog niet geladen
+    profileLoaded: false,
+    profielUi: { bezig: false, fout: '', opgeslagen: false },
+    orgUi: { bezig: false, fout: '', opgeslagen: false },
+    facturatieUi: { bezig: false, fout: '', opgeslagen: false },
+    profielSnapshot: null,
+    orgSnapshot: null,
+    facturatieSnapshot: null,
+    emailWijzigen: { actief: false, nieuw: '', bezig: false, fout: '', verstuurd: false },
   };
 
   // Thema en instellingen zo vroeg mogelijk toepassen (nog vóór
@@ -1093,6 +1108,96 @@
 
   function isSubscribed() {
     return !!(state.subscription && (state.subscription.status === 'active' || state.subscription.status === 'trialing'));
+  }
+
+  // ---------------------------------------------------------------------
+  // Profielgegevens — één rij in de "profiles"-tabel (zie
+  // supabase/migrations/20260919000000_create_profiles.sql), met drie
+  // losse secties op de Account-pagina (Mijn profiel/Organisatie/
+  // Facturatie) die elk hun eigen opslaan-knop hebben. state.profile
+  // bevat alle velden plat door elkaar; de *Snapshot-velden (JSON van
+  // alleen de velden van die ene sectie) bepalen per sectie of er
+  // niet-opgeslagen wijzigingen zijn — zelfde patroon als
+  // lastSavedSnapshot/isDirty() voor een heel plan.
+  // ---------------------------------------------------------------------
+  function emptyProfile() {
+    return {
+      voornaam: '', achternaam: '', telefoon: '', rol: '',
+      orgNaam: '', kvkNummer: '', toonOrgOpRapport: false,
+      factuurStraat: '', factuurHuisnummer: '', factuurPostcode: '', factuurPlaats: '', factuurLand: 'Nederland', btwNummer: '',
+    };
+  }
+  function profielVelden(p) { return { voornaam: p.voornaam, achternaam: p.achternaam, telefoon: p.telefoon, rol: p.rol }; }
+  function orgVelden(p) { return { orgNaam: p.orgNaam, kvkNummer: p.kvkNummer, toonOrgOpRapport: p.toonOrgOpRapport }; }
+  function facturatieVelden(p) {
+    return {
+      factuurStraat: p.factuurStraat, factuurHuisnummer: p.factuurHuisnummer, factuurPostcode: p.factuurPostcode,
+      factuurPlaats: p.factuurPlaats, factuurLand: p.factuurLand, btwNummer: p.btwNummer,
+    };
+  }
+  function rowToProfile(row) {
+    var p = emptyProfile();
+    if (!row) return p;
+    return {
+      voornaam: row.voornaam || '', achternaam: row.achternaam || '', telefoon: row.telefoon || '', rol: row.rol || '',
+      orgNaam: row.org_naam || '', kvkNummer: row.kvk_nummer || '', toonOrgOpRapport: !!row.toon_organisatie_op_rapport,
+      factuurStraat: row.factuur_straat || '', factuurHuisnummer: row.factuur_huisnummer || '', factuurPostcode: row.factuur_postcode || '',
+      factuurPlaats: row.factuur_plaats || '', factuurLand: row.factuur_land || 'Nederland', btwNummer: row.btw_nummer || '',
+    };
+  }
+  var ROL_LABELS = { bestuurslid: 'Bestuurslid', vve_beheerder: 'VvE-beheerder', adviseur: 'Adviseur', anders: 'Anders' };
+  function displayNaam() {
+    var p = state.profile;
+    var volledig = p && (p.voornaam || p.achternaam) ? (p.voornaam + ' ' + p.achternaam).trim() : '';
+    return volledig || displayName(state.user.email);
+  }
+  // Ruime, weinig-strikte NL-telefoonvalidatie (vast + mobiel, met of
+  // zonder spaties/koppeltekens, met of zonder +31/0031-notatie) — het
+  // veld is optioneel, dus alleen valideren als er iets is ingevuld.
+  function isValidPhone(v) {
+    if (!v) return true;
+    var digits = v.replace(/[\s-]/g, '');
+    return /^(\+31|0031|0)[1-9][0-9]{7,9}$/.test(digits);
+  }
+  // Nederlandse postcode: 4 cijfers (niet startend met 0) + 2 letters,
+  // met optioneel een spatie ertussen — bv. "1234AB" of "1234 AB".
+  function isValidPostcode(v) { return /^[1-9][0-9]{3}\s?[A-Za-z]{2}$/.test(String(v || '').trim()); }
+  function normalizePostcode(v) {
+    var m = /^([1-9][0-9]{3})\s?([A-Za-z]{2})$/.exec(String(v || '').trim());
+    return m ? m[1] + ' ' + m[2].toUpperCase() : v;
+  }
+
+  function loadProfile() {
+    if (!sb || !state.session) return;
+    sb.from('profiles').select('*').eq('id', state.user.id).maybeSingle().then(function (res) {
+      state.profileLoaded = true;
+      state.profile = rowToProfile(res.error ? null : res.data);
+      state.profielSnapshot = JSON.stringify(profielVelden(state.profile));
+      state.orgSnapshot = JSON.stringify(orgVelden(state.profile));
+      state.facturatieSnapshot = JSON.stringify(facturatieVelden(state.profile));
+      render();
+    });
+  }
+
+  // Slaat alleen de velden van één sectie op (upsert — de rij bestaat
+  // misschien nog niet). ui/snapshotKey/velden bepalen welke sectie: dit
+  // wordt gedeeld door de drie 'save-*'-acties hieronder.
+  function saveProfileSection(ui, snapshotKey, veldenFn, rowFn) {
+    if (!sb || !state.session || !state.profile) return;
+    ui.bezig = true; ui.fout = ''; ui.opgeslagen = false;
+    render();
+    var row = rowFn(state.profile);
+    row.id = state.user.id;
+    row.updated_at = new Date().toISOString();
+    sb.from('profiles').upsert(row).select().single().then(function (res) {
+      ui.bezig = false;
+      if (res.error) { ui.fout = 'Opslaan is niet gelukt. Probeer het opnieuw.'; render(); return; }
+      ui.opgeslagen = true;
+      state[snapshotKey] = JSON.stringify(veldenFn(state.profile));
+      render();
+    }).catch(function () {
+      ui.bezig = false; ui.fout = 'Kon geen verbinding maken. Probeer het opnieuw.'; render();
+    });
   }
 
   // Roept een van de Stripe-gerelateerde Edge Functions aan (zie
@@ -1829,7 +1934,7 @@
     html += '<button class="tab-item' + (state.tab === 'instellingen' ? ' active' : '') + '" data-act="set-tab" data-tab="instellingen">';
     html += '<span class="tab-icon">' + NAV_ICONS.instellingen + '</span><span class="tab-label">Account</span></button>';
     if (state.session) {
-      var accountNaam = displayName(state.session.user.email);
+      var accountNaam = displayNaam();
       var avatarLetter = accountNaam.charAt(0).toUpperCase();
       html += '<div class="tab-account-row" data-act="toggle-account-menu">';
       html += '<span class="tab-account-avatar">' + esc(avatarLetter) + '</span>';
@@ -1925,12 +2030,57 @@
       return html;
     }
 
+    if (!state.profileLoaded) {
+      return '<div class="hint">Bezig met laden…</div>';
+    }
+
     var initial = state.user.email.charAt(0).toUpperCase();
+    var p = state.profile;
+    var rolLabel = p.rol ? ROL_LABELS[p.rol] : (isSubscribed() ? 'Abonnee' : 'Ingelogd');
     var html = '<div class="card pad acct-profile-card">';
     html += '<div class="acct-avatar">' + esc(initial) + '</div>';
-    html += '<div class="grow"><div class="acct-profile-name">' + esc(displayName(state.user.email)) + '</div>';
-    html += '<div class="acct-profile-sub">' + (isSubscribed() ? 'Abonnee' : 'Ingelogd') + ' · ' + esc(state.user.email) + '</div></div>';
+    html += '<div class="grow"><div class="acct-profile-name">' + esc(displayNaam()) + '</div>';
+    html += '<div class="acct-profile-sub">' + esc(rolLabel) + ' · ' + esc(state.user.email) + '</div></div>';
     html += '<div class="ghost-btn" data-act="logout">Uitloggen</div>';
+    html += '</div>';
+
+    var ui = state.profielUi;
+    var dirty = state.profielSnapshot !== JSON.stringify(profielVelden(p));
+    html += '<div class="card pad" style="margin-top:14px">';
+    html += '<div class="input-row" style="margin-top:0"><div class="label">Voornaam</div><input data-bind="profiel-voornaam" value="' + esc(p.voornaam) + '" class="wide" style="width:180px;text-align:left" /></div>';
+    html += '<div class="input-row"><div class="label">Achternaam</div><input data-bind="profiel-achternaam" value="' + esc(p.achternaam) + '" class="wide" style="width:180px;text-align:left" /></div>';
+
+    html += '<div class="input-row"><div class="label">E-mailadres</div>';
+    if (state.emailWijzigen.actief) {
+      html += '<input data-bind="email-wijzigen-nieuw" value="' + esc(state.emailWijzigen.nieuw) + '" class="wide" placeholder="nieuw@voorbeeld.nl" style="width:180px;text-align:left" />';
+    } else {
+      html += '<div style="width:180px;font:400 13px/1.35 ' + 'var(--sans);color:var(--ink)">' + esc(state.user.email) + '</div>';
+    }
+    html += '</div>';
+    if (state.emailWijzigen.actief) {
+      if (state.emailWijzigen.verstuurd) {
+        html += '<div class="hint">Bevestigingslink verstuurd naar ' + esc(state.emailWijzigen.nieuw) + ' — bevestig via de link(s) in je mailbox om het definitief te wijzigen.</div>';
+      } else {
+        if (state.emailWijzigen.fout) html += '<div class="notice error" style="margin-top:6px">' + esc(state.emailWijzigen.fout) + '</div>';
+        html += '<div class="btn-row" style="margin-top:8px"><div class="primary-btn" data-act="submit-email-wijzigen">' + (state.emailWijzigen.bezig ? 'Bezig…' : 'Verstuur bevestigingslink') + '</div><div class="ghost-btn" data-act="cancel-email-wijzigen">Annuleer</div></div>';
+      }
+    } else {
+      html += '<div class="linkish" data-act="start-email-wijzigen">Wijzigen</div>';
+    }
+
+    html += '<div class="input-row"><div class="label">Telefoonnummer</div><input data-bind="profiel-telefoon" value="' + esc(p.telefoon) + '" class="wide" placeholder="06 12345678" style="width:180px;text-align:left" /></div>';
+    html += '<div class="hint" style="margin-top:2px">Optioneel — alleen voor eventuele terugbelverzoeken over je account.</div>';
+
+    html += '<div class="input-row"><div class="label">Rol</div><select class="acct-select" data-change="profiel-rol">';
+    [['', 'Kies een rol…'], ['bestuurslid', 'Bestuurslid'], ['vve_beheerder', 'VvE-beheerder'], ['adviseur', 'Adviseur'], ['anders', 'Anders']].forEach(function (o) {
+      html += '<option value="' + o[0] + '"' + (p.rol === o[0] ? ' selected' : '') + '>' + o[1] + '</option>';
+    });
+    html += '</select></div>';
+
+    if (ui.fout) html += '<div class="notice error" style="margin-top:12px">' + esc(ui.fout) + '</div>';
+    else if (dirty) html += '<div class="hint" style="margin-top:12px;color:var(--accent)">Niet-opgeslagen wijzigingen</div>';
+    else if (ui.opgeslagen) html += '<div class="hint" style="margin-top:12px;color:var(--good-fg)">Opgeslagen</div>';
+    html += '<div class="btn-row" style="margin-top:10px"><div class="primary-btn" data-act="save-profiel">' + (ui.bezig ? 'Bezig…' : 'Opslaan') + '</div></div>';
     html += '</div>';
 
     html += '<div class="action-box" style="margin-top:14px" data-act="set-tab" data-tab="mijngebouwen">';
@@ -3049,6 +3199,36 @@
       render();
     },
     'logout': function () { state.accountMenuOpen = false; if (sb) sb.auth.signOut(); },
+    'save-profiel': function () {
+      var p = state.profile, ui = state.profielUi;
+      if (!isValidPhone(p.telefoon)) { ui.fout = 'Dit telefoonnummer klopt niet — bijv. 06 12345678 of 010 1234567.'; render(); return; }
+      saveProfileSection(ui, 'profielSnapshot', profielVelden, function (p) {
+        return { voornaam: p.voornaam.trim(), achternaam: p.achternaam.trim(), telefoon: p.telefoon.trim(), rol: p.rol || null };
+      });
+    },
+    'start-email-wijzigen': function () {
+      state.emailWijzigen = { actief: true, nieuw: '', bezig: false, fout: '', verstuurd: false };
+      render();
+    },
+    'cancel-email-wijzigen': function () {
+      state.emailWijzigen = { actief: false, nieuw: '', bezig: false, fout: '', verstuurd: false };
+      render();
+    },
+    'submit-email-wijzigen': function () {
+      var e = state.emailWijzigen;
+      var nieuw = e.nieuw.trim();
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(nieuw)) { e.fout = 'Vul een geldig e-mailadres in.'; render(); return; }
+      e.bezig = true; e.fout = '';
+      render();
+      sb.auth.updateUser({ email: nieuw }).then(function (res) {
+        e.bezig = false;
+        if (res.error) { e.fout = res.error.message; render(); return; }
+        e.verstuurd = true;
+        render();
+      }).catch(function () {
+        e.bezig = false; e.fout = 'Kon geen verbinding maken. Probeer het opnieuw.'; render();
+      });
+    },
     'toggle-theme': function () {
       state.theme = state.theme === 'dark' ? 'light' : 'dark';
       document.documentElement.setAttribute('data-theme', state.theme);
@@ -3177,6 +3357,10 @@
     'upload-regel-cyclus': function (t, d) { state.upload.regels[+d.i].cyclus = t.value; },
     'upload-basisjaar': function (t) { state.upload.basisjaar = t.value; },
     'auth-email': function (t) { state.auth.email = t.value; },
+    'profiel-voornaam': function (t) { if (state.profile) state.profile.voornaam = t.value; },
+    'profiel-achternaam': function (t) { if (state.profile) state.profile.achternaam = t.value; },
+    'profiel-telefoon': function (t) { if (state.profile) state.profile.telefoon = t.value; },
+    'email-wijzigen-nieuw': function (t) { state.emailWijzigen.nieuw = t.value; },
     'plan-label': function (t, d) {
       var p = state.savedPlans.filter(function (x) { return x.id === d.id; })[0];
       if (p) p.label = t.value;
@@ -3188,6 +3372,7 @@
     'bijdrage-bedrag': function (t) { state.bijdrage = clamp(num(t.value), 10, 400); render(); },
     'koz-materiaal': function (t, d) { var el = findEl(d.id); if (el) el.koz[+d.i].materiaal = t.value; render(); },
     'upload-map': function (t, d) { state.upload.mapping[d.veld] = +t.value; render(); },
+    'profiel-rol': function (t) { if (state.profile) { state.profile.rol = t.value; render(); } },
     'plan-label': function (t, d) {
       if (!sb || !state.session) return;
       var p = state.savedPlans.filter(function (x) { return x.id === d.id; })[0];
@@ -3303,6 +3488,7 @@
         if (session) {
           if (!state.plansLoaded) loadSavedPlans();
           if (!state.subscriptionLoaded) loadSubscription();
+          if (!state.profileLoaded) loadProfile();
         } else {
           // Opgeslagen-plannen-state hoort bij de sessie die 'm heeft
           // opgehaald; bij uitloggen (of op een gedeelde computer: bij het
@@ -3311,6 +3497,8 @@
           state.savedPlans = []; state.plansLoaded = false;
           state.currentPlanId = null; state.lastSavedSnapshot = null;
           state.subscription = null; state.subscriptionLoaded = false;
+          state.profile = null; state.profileLoaded = false;
+          state.profielSnapshot = null; state.orgSnapshot = null; state.facturatieSnapshot = null;
           try { sessionStorage.removeItem('mjop-worksessie'); } catch (e) {}
         }
         render();

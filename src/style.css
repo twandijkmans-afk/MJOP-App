@@ -219,6 +219,13 @@ input[type=range]::-moz-range-thumb {
 }
 .input-row input:focus { border-color: var(--blue); }
 .input-row input.wide { width: 96px; }
+.acct-select {
+  flex: none; width: 180px; box-sizing: border-box; padding: 8px;
+  border-radius: 6px; border: 1px solid var(--ink-14);
+  background: var(--card); color: var(--ink);
+  font: 400 13px var(--sans); outline: none;
+}
+.acct-select:focus { border-color: var(--blue); }
 .hint { font: 400 11px/1.55 var(--sans); color: var(--ink-50); margin-top: 8px; }
 .formula { margin-top: 11px; padding: 9px 11px; border-radius: 6px; background: var(--page); font: 500 12.5px/1.4 var(--mono); color: var(--ink-60); }
 
