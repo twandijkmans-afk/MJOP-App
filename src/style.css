@@ -407,7 +407,17 @@ input[type=range]::-moz-range-thumb {
 .tl-post .meta { font: 400 11px/1.35 var(--sans); color: var(--ink-50); margin-top: 2px; }
 .tl-post .amount { font: 500 12.5px/1 var(--mono); flex: none; background: var(--panel); padding: 6px 10px; border-radius: 6px; }
 .tl-empty { font: 400 11.5px/1 var(--sans); color: rgba(27,36,48,.35); padding: 5px 0 9px; }
-.tl-saldo { flex: none; align-self: flex-start; min-width: 46px; text-align: center; font: 500 11px/1 var(--mono); padding: 5px 8px; border-radius: 6px; }
+.tl-saldo { flex: none; align-self: flex-start; min-width: 64px; text-align: center; font: 500 11px/1 var(--mono); padding: 5px 8px; border-radius: 6px; white-space: nowrap; }
+
+.timeline-head { display: flex; justify-content: flex-end; padding: 0 4px 10px; }
+.timeline-head span { font: 600 9.5px/1 var(--sans); text-transform: uppercase; letter-spacing: .05em; color: var(--ink-45); }
+
+/* Compactere rij voor een jaar zonder posten, zodat een reeks rustige
+   jaren niet evenveel ruimte opeist als een jaar met werk. */
+.tl-row-empty .tl-body { padding-bottom: 4px; }
+.tl-row-empty .tl-empty { padding: 2px 0; }
+.tl-row-empty .tl-saldo { padding: 2px 8px; }
+.tl-row-empty .tl-dot { margin-top: 1px; }
 
 .tab-bar { flex: none; display: flex; border-top: 1px solid var(--ink-10); background: var(--card-tr); backdrop-filter: blur(12px); padding: 10px 0 26px; position: sticky; bottom: 0; }
 /* .tab-main houdt de eigenlijke navigatie-items; op mobiel is dit de

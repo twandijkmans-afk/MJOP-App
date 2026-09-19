@@ -11,6 +11,13 @@
     if (!isFinite(n)) n = 0;
     return '€ ' + Math.round(n).toLocaleString('nl-NL');
   }
+  // Consistente notatie voor een negatief bedrag: het minteken vóór het
+  // eurotekens ("-€ 2.652") i.p.v. eur()'s "€ -2.652" (toLocaleString
+  // zet het minteken vóór het getal, ná het al geplaatste eurotekens).
+  function eurSigned(n) {
+    if (!isFinite(n)) n = 0;
+    return (n < 0 ? '-' : '') + eur(Math.abs(n));
+  }
   function num(v) {
     var n = parseInt(String(v == null ? '' : v).replace(/[^0-9-]/g, ''), 10);
     return isNaN(n) ? 0 : n;
@@ -2026,7 +2033,7 @@
       // teken-onafhankelijke aanwijzing — het streeppatroon hieronder
       // (zie .bar-neg > div in style.css) is de extra, niet-op-kleur-
       // gebaseerde aanwijzing voor een negatief jaar.
-      html += '<div class="bar-col" title="' + esc(r.jaar + ': ' + eur(r.saldo)) + '">';
+      html += '<div class="bar-col" title="' + esc(r.jaar + ': ' + (r.saldo < 0 ? eurSigned(r.saldo) : eur(r.saldo))) + '">';
       html += '<div class="bar-pos"><div style="height:' + posH + 'px"></div></div>';
       html += '<div class="bar-neg"><div style="height:' + negH + 'px"></div></div>';
       html += '<div class="bar-label">' + r.jaar + '</div>';
@@ -2518,6 +2525,12 @@
     var catRijen = Object.keys(catTotalen).map(function (c) { return { naam: c, bedrag: catTotalen[c] }; })
       .sort(function (a, b) { return b.bedrag - a.bedrag; });
 
+    // Piekjaar: het jaar met de hoogste kosten binnen de horizon, apart
+    // vermeld bij de categorieën zodat ook duidelijk is wannéér het grote
+    // geld valt, niet alleen waaraan het wordt uitgegeven.
+    var piekjaar = rows.reduce(function (best, r) { return (!best || r.kosten > best.kosten) ? r : best; }, null);
+    var piekPosten = piekjaar ? plan.filter(function (p) { return p.jaar === piekjaar.jaar; }) : [];
+
     var html = '<div style="padding:24px 0 8px">';
     html += '<div style="padding:0 22px"><div class="page-title">Planning</div>';
     html += '<div class="page-sub">' + CURRENT_YEAR + ' – ' + (CURRENT_YEAR + HORIZON - 1) + ' · ' + eur(totaal) + ' totaal</div></div>';
@@ -2528,37 +2541,53 @@
     html += '<div class="card pad">';
     html += '<div class="kv"><div class="label">Totaal geraamd</div><div class="amount">' + eur(totaal) + '</div></div>';
     html += '<div class="divider"></div>';
-    html += '<div class="kv"><div class="label">Laagste fondsstand</div><div class="amount" style="' + (laagste < 0 ? 'color:var(--bad-fg)' : '') + '">' + eur(laagste) + '</div></div>';
+    html += '<div class="kv"><div class="label">Laagste fondsstand</div><div class="amount" style="' + (laagste < 0 ? 'color:var(--bad-fg)' : '') + '">' + (laagste < 0 ? eurSigned(laagste) : eur(laagste)) + '</div></div>';
     html += '<div class="hint"' + (eerste ? ' style="color:var(--bad-fg)"' : '') + '>' + (eerste
       ? 'Bij de huidige bijdrage raakt het fonds in ' + eerste.jaar + ' leeg.'
       : 'Bij de huidige bijdrage blijft het fonds ' + HORIZON + ' jaar positief.') + '</div>';
     html += '</div>';
     if (catRijen.length) {
-      html += '<div class="card" style="margin-top:14px">';
+      html += '<div class="section-title" style="margin-top:16px">Kosten per categorie</div>';
+      html += '<div class="card" style="margin-top:8px">';
       catRijen.forEach(function (c, i) {
         html += '<div class="row"' + (i === 0 ? ' style="border-top:none"' : '') + '><div class="grow name">' + esc(c.naam) + '</div><div class="value">' + eur(c.bedrag) + '</div></div>';
       });
       html += '</div>';
+      if (piekjaar && piekPosten.length) {
+        html += '<div class="hint" style="margin-top:8px">Piekjaar ' + piekjaar.jaar + ': ' + piekPosten.length + ' ' + meervoud(piekPosten.length, 'post', 'posten') + ' samen ' + eur(piekjaar.kosten) + '.</div>';
+      }
     }
     html += '</div></div>';
 
     html += '<div class="planning-main"><div class="section timeline" style="padding-top:14px">';
+    html += '<div class="timeline-head"><span>Saldo eind van het jaar</span></div>';
     rows.forEach(function (r) {
       var posten = plan.filter(function (p) { return p.jaar === r.jaar; });
+      var saldoTxt = r.saldo < 0 ? eurSigned(r.saldo) : eur(r.saldo);
+      var saldoStyle = 'color:' + (r.saldo < 0 ? 'var(--bad-fg)' : 'var(--ink-60)') + ';background:' + (r.saldo < 0 ? 'var(--bad-bg)' : 'var(--panel)');
+      if (!posten.length) {
+        // Lege jaren compacter tonen (dunnere rij) — een reeks rustige
+        // jaren hoeft niet evenveel ruimte te vragen als een druk jaar.
+        html += '<div class="tl-row tl-row-empty"><div class="tl-year" style="color:' + (r.saldo < 0 ? 'var(--bad-fg)' : 'var(--ink-50)') + '">' + r.jaar + '</div>';
+        html += '<div class="tl-dot-col"><div class="tl-dot" style="background:' + (r.saldo < 0 ? 'var(--accent)' : 'var(--ink-14)') + '"></div><div class="tl-line"></div></div>';
+        html += '<div class="tl-body"><div class="tl-empty">niets gepland</div></div>';
+        html += '<div class="tl-saldo" style="' + saldoStyle + '">' + saldoTxt + '</div></div>';
+        return;
+      }
       html += '<div class="tl-row"><div class="tl-year" style="color:' + (r.saldo < 0 ? 'var(--bad-fg)' : 'var(--ink-50)') + '">' + r.jaar + '</div>';
-      html += '<div class="tl-dot-col"><div class="tl-dot" style="background:' + (r.saldo < 0 ? 'var(--accent)' : (posten.length ? 'var(--blue)' : 'var(--ink-14)')) + '"></div><div class="tl-line"></div></div>';
+      html += '<div class="tl-dot-col"><div class="tl-dot" style="background:' + (r.saldo < 0 ? 'var(--accent)' : 'var(--blue)') + '"></div><div class="tl-line"></div></div>';
       html += '<div class="tl-body">';
-      if (!posten.length) html += '<div class="tl-empty">niets gepland</div>';
       posten.forEach(function (p) {
         html += '<div class="tl-post" data-act="open-element" data-id="' + p.elId + '" style="cursor:pointer"><div class="grow"><div class="name">' + esc(p.naam) + '</div><div class="meta">' + esc(p.meta) + '</div></div><div class="amount">' + eur(p.bedrag) + '</div></div>';
       });
       html += '</div>';
-      html += '<div class="tl-saldo" style="color:' + (r.saldo < 0 ? 'var(--bad-fg)' : 'var(--ink-60)') + ';background:' + (r.saldo < 0 ? 'var(--bad-bg)' : 'var(--panel)') + '">' + (r.saldo < 0 ? '−' : '') + '€ ' + Math.round(Math.abs(r.saldo) / 1000) + 'k</div>';
-      html += '</div>';
+      html += '<div class="tl-saldo" style="' + saldoStyle + '">' + saldoTxt + '</div></div>';
     });
     html += '</div></div>';
 
-    html += '</div></div>';
+    html += '</div>';
+    html += '<div class="footer-note">Kosten na ' + (CURRENT_YEAR + HORIZON - 1) + ' vallen buiten deze toets — de simulatie kijkt alleen naar de getoonde ' + HORIZON + ' jaar.</div>';
+    html += '</div>';
     return html;
   }
 
