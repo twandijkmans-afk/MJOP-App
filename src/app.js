@@ -908,6 +908,10 @@
     orgSnapshot: null,
     facturatieSnapshot: null,
     emailWijzigen: { actief: false, nieuw: '', bezig: false, fout: '', verstuurd: false },
+    // Status van de automatische straat/plaats-opzoeking op postcode+
+    // huisnummer bij Facturatie (zie factuurAutofill() en BINDS
+    // 'fact-postcode'/'fact-huisnummer') — puur UI-feedback, geen eigen data.
+    facturatieZoek: { bezig: false, fout: '' },
   };
 
   // Thema en instellingen zo vroeg mogelijk toepassen (nog vóór
@@ -2147,6 +2151,7 @@
     return html;
   }
 
+  var LANDEN = ['Nederland', 'België', 'Duitsland', 'Overig'];
   function renderAcctAbonnement() {
     var html = '<div class="card pad">';
     if (!state.session) {
@@ -2162,6 +2167,41 @@
       html += '<div class="btn-row"><div class="primary-btn accent" data-act="upgrade-abonnement">' + (state.subscriptionUi.bezig ? 'Bezig…' : 'Abonneren — € 19/maand') + '</div></div>';
     }
     if (state.subscriptionUi.fout) html += '<div class="notice error" style="margin-top:12px">' + esc(state.subscriptionUi.fout) + '</div>';
+    html += '</div>';
+
+    if (state.session && state.profileLoaded) html += renderFacturatie();
+    return html;
+  }
+
+  // Los van de abonnementsstatus hierboven getoond (en met een eigen
+  // opslaan-knop), maar op hetzelfde tabblad: dit ís de "Facturatie"-sectie
+  // uit de opdracht, bewust niet als los sub-menu-item, want het hoort
+  // inhoudelijk bij "Abonnement" (waar ook de eis vandaan komt). Verplicht
+  // wordt dit pas gecontroleerd bij het daadwerkelijk afsluiten van een
+  // betaald abonnement (zie ACTIONS['upgrade-abonnement']) — niet hier.
+  function renderFacturatie() {
+    var p = state.profile, ui = state.facturatieUi, z = state.facturatieZoek;
+    var dirty = state.facturatieSnapshot !== JSON.stringify(facturatieVelden(p));
+    var html = '<div class="card pad" style="margin-top:14px">';
+    html += '<div style="font:500 13.5px/1.3 Inter,system-ui,sans-serif">Factuurgegevens</div>';
+    html += '<div class="hint" style="margin-top:4px">Alleen nodig zodra je een betaald abonnement afsluit — bij het aanmaken van je account hoeft dit nog niet.</div>';
+
+    html += '<div class="input-row" style="margin-top:14px"><div class="label">Postcode</div><input data-bind="fact-postcode" value="' + esc(p.factuurPostcode) + '" class="wide" placeholder="1234 AB" style="width:90px;text-align:left" /></div>';
+    html += '<div class="input-row"><div class="label">Huisnummer</div><input data-bind="fact-huisnummer" value="' + esc(p.factuurHuisnummer) + '" class="wide" placeholder="12" style="width:70px;text-align:left" /></div>';
+    if (z.bezig) html += '<div class="hint" style="margin-top:2px">Straat en plaats opzoeken…</div>';
+    else if (z.fout) html += '<div class="hint" style="margin-top:2px">' + esc(z.fout) + '</div>';
+    html += '<div class="input-row"><div class="label">Straat</div><input data-bind="fact-straat" value="' + esc(p.factuurStraat) + '" class="wide" style="width:200px;text-align:left" /></div>';
+    html += '<div class="input-row"><div class="label">Plaats</div><input data-bind="fact-plaats" value="' + esc(p.factuurPlaats) + '" class="wide" style="width:200px;text-align:left" /></div>';
+    html += '<div class="input-row"><div class="label">Land</div><select class="acct-select" data-change="fact-land">';
+    LANDEN.forEach(function (l) { html += '<option value="' + l + '"' + (p.factuurLand === l ? ' selected' : '') + '>' + l + '</option>'; });
+    html += '</select></div>';
+    html += '<div class="input-row"><div class="label">BTW-nummer</div><input data-bind="fact-btw" value="' + esc(p.btwNummer) + '" class="wide" placeholder="NL123456789B01" style="width:160px;text-align:left" /></div>';
+    html += '<div class="hint" style="margin-top:2px">Optioneel.</div>';
+
+    if (ui.fout) html += '<div class="notice error" style="margin-top:12px">' + esc(ui.fout) + '</div>';
+    else if (dirty) html += '<div class="hint" style="margin-top:12px;color:var(--accent)">Niet-opgeslagen wijzigingen</div>';
+    else if (ui.opgeslagen) html += '<div class="hint" style="margin-top:12px;color:var(--good-fg)">Opgeslagen</div>';
+    html += '<div class="btn-row" style="margin-top:10px"><div class="primary-btn" data-act="save-facturatie">' + (ui.bezig ? 'Bezig…' : 'Opslaan') + '</div></div>';
     html += '</div>';
     return html;
   }
@@ -3023,6 +3063,7 @@
   // Actions (click) and Binds (input/change)
   // ---------------------------------------------------------------------
   var searchTimer = null;
+  var factuurZoekTimer = null;
 
   var ACTIONS = {
     'skip-onboarding': function () { applyBuilding(defaultBuilding()); render(); },
@@ -3258,6 +3299,24 @@
         return { org_naam: p.orgNaam.trim() || null, kvk_nummer: p.kvkNummer.trim() || null, toon_organisatie_op_rapport: p.toonOrgOpRapport };
       });
     },
+    'save-facturatie': function () {
+      var p = state.profile, ui = state.facturatieUi;
+      if (p.factuurPostcode.trim() && !isValidPostcode(p.factuurPostcode)) {
+        ui.fout = 'Deze postcode klopt niet — gebruik het formaat 1234 AB.';
+        render();
+        return;
+      }
+      saveProfileSection(ui, 'facturatieSnapshot', facturatieVelden, function (p) {
+        return {
+          factuur_straat: p.factuurStraat.trim() || null,
+          factuur_huisnummer: p.factuurHuisnummer.trim() || null,
+          factuur_postcode: p.factuurPostcode.trim() ? normalizePostcode(p.factuurPostcode) : null,
+          factuur_plaats: p.factuurPlaats.trim() || null,
+          factuur_land: p.factuurLand || 'Nederland',
+          btw_nummer: p.btwNummer.trim() || null,
+        };
+      });
+    },
     'start-email-wijzigen': function () {
       state.emailWijzigen = { actief: true, nieuw: '', bezig: false, fout: '', verstuurd: false };
       render();
@@ -3299,6 +3358,15 @@
     },
     'upgrade-abonnement': function () {
       if (!sb || !state.session) return;
+      // Factuuradres is niet verplicht bij het aanmaken van een account,
+      // maar wel zodra iemand daadwerkelijk gaat betalen (zie de opdracht
+      // bij Facturatie) — vandaar de check hier, niet bij het opslaan van
+      // het profiel zelf.
+      if (!factuuradresCompleet()) {
+        state.subscriptionUi = { bezig: false, fout: 'Vul eerst je factuuradres in (straat, huisnummer, postcode en plaats) hieronder bij Facturatie.' };
+        render();
+        return;
+      }
       state.subscriptionUi = { bezig: true, fout: '' };
       render();
       var here = window.location.origin + window.location.pathname;
@@ -3373,6 +3441,39 @@
       .catch(function () { s.fout = 'Kon de adressenservice niet bereiken.'; render(); });
   }
 
+  // PDOK-weergavenaam ("Straatnaam 12, 1012AB Amsterdam") splitsen in
+  // straat en plaats voor de factuuradres-autofill hieronder — dezelfde
+  // notatie als suggestAddress() elders in de app al teruggeeft.
+  function parseWeergavenaam(naam) {
+    var m = /^(.*?)\s+[0-9].*,\s*[0-9]{4}\s?[A-Za-z]{2}\s+(.+)$/.exec(String(naam || ''));
+    return m ? { straat: m[1].trim(), plaats: m[2].trim() } : null;
+  }
+
+  // Vult straat/plaats automatisch aan zodra postcode én huisnummer allebei
+  // zijn ingevuld — zelfde PDOK-locatieserver (suggestAddress) als de
+  // adreszoeker bij het aanmaken van een gebouw, alleen hier met
+  // postcode+huisnummer als zoekterm i.p.v. een vrije tekst.
+  function factuurAutofill() {
+    var p = state.profile;
+    if (!p || !isValidPostcode(p.factuurPostcode) || !p.factuurHuisnummer.trim()) return;
+    var z = state.facturatieZoek;
+    z.bezig = true; z.fout = '';
+    render();
+    suggestAddress(normalizePostcode(p.factuurPostcode) + ' ' + p.factuurHuisnummer.trim()).then(function (sug) {
+      z.bezig = false;
+      var eerste = sug[0] && parseWeergavenaam(sug[0].naam);
+      if (eerste) { p.factuurStraat = eerste.straat; p.factuurPlaats = eerste.plaats; }
+      else z.fout = 'Geen adres gevonden bij deze postcode/huisnummer — vul straat en plaats zelf in.';
+      render();
+    }).catch(function () {
+      z.bezig = false; z.fout = 'Kon de adressenservice niet bereiken — vul straat en plaats zelf in.'; render();
+    });
+  }
+  function factuuradresCompleet() {
+    var p = state.profile;
+    return !!(p && p.factuurStraat.trim() && p.factuurHuisnummer.trim() && isValidPostcode(p.factuurPostcode) && p.factuurPlaats.trim());
+  }
+
   var BINDS = {
     'addr-q': function (t) {
       var s = state.onboarding;
@@ -3414,6 +3515,21 @@
     'profiel-telefoon': function (t) { if (state.profile) state.profile.telefoon = t.value; },
     'org-naam': function (t) { if (state.profile) state.profile.orgNaam = t.value; },
     'org-kvk': function (t) { if (state.profile) state.profile.kvkNummer = t.value; },
+    'fact-straat': function (t) { if (state.profile) state.profile.factuurStraat = t.value; },
+    'fact-huisnummer': function (t) {
+      if (!state.profile) return;
+      state.profile.factuurHuisnummer = t.value;
+      clearTimeout(factuurZoekTimer);
+      factuurZoekTimer = setTimeout(factuurAutofill, 400);
+    },
+    'fact-postcode': function (t) {
+      if (!state.profile) return;
+      state.profile.factuurPostcode = t.value;
+      clearTimeout(factuurZoekTimer);
+      factuurZoekTimer = setTimeout(factuurAutofill, 400);
+    },
+    'fact-plaats': function (t) { if (state.profile) state.profile.factuurPlaats = t.value; },
+    'fact-btw': function (t) { if (state.profile) state.profile.btwNummer = t.value; },
     'email-wijzigen-nieuw': function (t) { state.emailWijzigen.nieuw = t.value; },
     'plan-label': function (t, d) {
       var p = state.savedPlans.filter(function (x) { return x.id === d.id; })[0];
@@ -3427,6 +3543,7 @@
     'koz-materiaal': function (t, d) { var el = findEl(d.id); if (el) el.koz[+d.i].materiaal = t.value; render(); },
     'upload-map': function (t, d) { state.upload.mapping[d.veld] = +t.value; render(); },
     'profiel-rol': function (t) { if (state.profile) { state.profile.rol = t.value; render(); } },
+    'fact-land': function (t) { if (state.profile) { state.profile.factuurLand = t.value; render(); } },
     'plan-label': function (t, d) {
       if (!sb || !state.session) return;
       var p = state.savedPlans.filter(function (x) { return x.id === d.id; })[0];
