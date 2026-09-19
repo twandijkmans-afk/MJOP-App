@@ -741,12 +741,20 @@
     return posten;
   }
 
-  function kasstroom(state) {
-    var posten = fullPlan(state);
+  // Jaar -> totale kosten binnen de horizon, los van een bepaalde bijdrage —
+  // gedeeld door kasstroom() en benodigdeBijdrage() hieronder, die daar elk
+  // een andere bijdrage overheen leggen.
+  function perJaarKosten(state) {
     var perJaar = {};
-    posten.forEach(function (p) { perJaar[p.jaar] = (perJaar[p.jaar] || 0) + p.bedrag; });
+    fullPlan(state).forEach(function (p) { perJaar[p.jaar] = (perJaar[p.jaar] || 0) + p.bedrag; });
+    return perJaar;
+  }
+
+  // Simuleert het fondssaldo jaar voor jaar bij een gegeven (hypothetische)
+  // maandbijdrage per appartement, uitgaande van het ingevulde startsaldo.
+  function simuleerSaldi(state, bijdrage, perJaar) {
     var units = Math.max(1, state.building.units);
-    var inkomen = state.bijdrage * 12 * units;
+    var inkomen = bijdrage * 12 * units;
     var saldo = state.fonds;
     var rows = [];
     for (var j = CURRENT_YEAR; j <= CURRENT_YEAR + HORIZON - 1; j++) {
@@ -754,6 +762,33 @@
       rows.push({ jaar: j, kosten: perJaar[j] || 0, saldo: saldo });
     }
     return rows;
+  }
+
+  function kasstroom(state) {
+    return simuleerSaldi(state, state.bijdrage, perJaarKosten(state));
+  }
+
+  // Laagste maandbijdrage per appartement (naar boven afgerond op 5 euro)
+  // waarbij het fondssaldo aan het EIND VAN ELK JAAR in de planningshorizon
+  // niet onder 0 komt — niet simpelweg totale kosten / aantal maanden. Dat
+  // gemiddelde negeert wanneer de kosten vallen: bij veel kosten vroeg in
+  // de horizon liet het fonds bij dat gemiddelde bedrag alsnog leeglopen in
+  // een vroeg jaar, terwijl de app datzelfde bedrag als "voorstel" toonde.
+  // Simuleert daarom oplopende bedragen in stappen van 5 euro (dezelfde
+  // afronding als de UI altijd al toonde) tot het laagste jaareindsaldo
+  // niet meer negatief is.
+  function benodigdeBijdrage(state) {
+    var perJaar = perJaarKosten(state);
+    var bijdrage = 0;
+    var guard = 0; // veiligheidsgrens tegen een oneindige lus bij onzinnige invoer
+    while (guard < 10000) {
+      var rows = simuleerSaldi(state, bijdrage, perJaar);
+      var laagste = Math.min.apply(null, rows.map(function (r) { return r.saldo; }));
+      if (laagste >= -0.005) break; // kleine marge tegen float-afrondingsfouten
+      bijdrage += 5;
+      guard++;
+    }
+    return Math.max(5, bijdrage);
   }
 
   // Jaar -> bedrag voor één element, voor de jarenplan-tabel van het
@@ -1898,9 +1933,8 @@
     var rows = kasstroom(state);
     var laagste = Math.min.apply(null, rows.map(function (r) { return r.saldo; }));
     var eerste = rows.filter(function (r) { return r.saldo < 0; })[0];
-    var units = Math.max(1, b.units);
     var totaal = rows.reduce(function (a, r) { return a + r.kosten; }, 0);
-    var nodig = Math.max(5, Math.ceil((totaal - state.fonds) / (10 * 12 * units) / 5) * 5);
+    var nodig = benodigdeBijdrage(state);
 
     var html = '<div style="padding:24px 0 8px">';
     if (state.idxBalk) {
@@ -1919,9 +1953,13 @@
     html += '<input type="range" min="10" max="400" step="5" value="' + state.bijdrage + '" data-change="bijdrage" />';
     html += projectionBars(rows);
     html += '<div class="advice">' + (eerste
-      ? 'Bij ' + eur(state.bijdrage) + ' per maand is het fonds in ' + eerste.jaar + ' leeg. Er is ongeveer ' + eur(nodig) + ' per appartement per maand nodig om alle posten te dekken.'
+      ? 'Bij ' + eur(state.bijdrage) + ' per maand is het fonds in ' + eerste.jaar + ' leeg. Er is ' + eur(nodig) + ' per appartement per maand nodig om alle posten te dekken.'
       : 'Bij ' + eur(state.bijdrage) + ' per maand blijft het fonds ' + HORIZON + ' jaar positief, met ' + eur(laagste) + ' als laagste stand.') + '</div>';
-    html += '<div class="advice-btn" data-act="zet-advies" data-nodig="' + nodig + '">Zet op het benodigde bedrag (' + eur(nodig) + ')</div>';
+    // Alleen tonen als de huidige bijdrage het voorstel nog niet haalt —
+    // staat 'ie al op of boven het voorstel, dan voegt de knop niets toe.
+    if (state.bijdrage < nodig) {
+      html += '<div class="advice-btn" data-act="zet-advies" data-nodig="' + nodig + '">Zet op het benodigde bedrag (' + eur(nodig) + ')</div>';
+    }
     html += '</div></div>';
 
     html += '<div class="stat-pair">';
@@ -2364,7 +2402,7 @@
     var beoordeeld = state.elements.filter(isAssessed).length;
     var laagste = Math.min.apply(null, rows.map(function (r) { return r.saldo; }));
     var eerste = rows.filter(function (r) { return r.saldo < 0; })[0];
-    var nodig = Math.max(5, Math.ceil((totaal - state.fonds) / (10 * 12 * Math.max(1, b.units)) / 5) * 5);
+    var nodig = benodigdeBijdrage(state);
 
     var html = '<div style="padding:24px 0 8px">';
     html += '<div style="padding:0 22px"><div class="page-title">Rapport</div>';
@@ -2417,7 +2455,7 @@
     var totaal = rows.reduce(function (a, r) { return a + r.kosten; }, 0);
     var laagste = Math.min.apply(null, rows.map(function (r) { return r.saldo; }));
     var eerste = rows.filter(function (r) { return r.saldo < 0; })[0];
-    var nodig = Math.max(5, Math.ceil((totaal - state.fonds) / (10 * 12 * Math.max(1, b.units)) / 5) * 5);
+    var nodig = benodigdeBijdrage(state);
     var vandaag = new Date().toLocaleDateString('nl-NL');
     var cats = PRINT_CATS.filter(function (c) { return state.elements.some(function (el) { return el.categorie === c; }); });
 
