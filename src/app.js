@@ -2060,12 +2060,12 @@
     var ui = state.profielUi;
     var dirty = state.profielSnapshot !== JSON.stringify(profielVelden(p));
     html += '<div class="card pad" style="margin-top:14px">';
-    html += '<div class="input-row" style="margin-top:0"><div class="label">Voornaam</div><input data-bind="profiel-voornaam" value="' + esc(p.voornaam) + '" class="wide" style="width:180px;text-align:left" /></div>';
-    html += '<div class="input-row"><div class="label">Achternaam</div><input data-bind="profiel-achternaam" value="' + esc(p.achternaam) + '" class="wide" style="width:180px;text-align:left" /></div>';
+    html += '<div class="input-row" style="margin-top:0"><div class="label">Voornaam</div><input id="profiel-voornaam" data-bind="profiel-voornaam" value="' + esc(p.voornaam) + '" class="wide" style="width:180px;text-align:left" /></div>';
+    html += '<div class="input-row"><div class="label">Achternaam</div><input id="profiel-achternaam" data-bind="profiel-achternaam" value="' + esc(p.achternaam) + '" class="wide" style="width:180px;text-align:left" /></div>';
 
     html += '<div class="input-row"><div class="label">E-mailadres</div>';
     if (state.emailWijzigen.actief) {
-      html += '<input data-bind="email-wijzigen-nieuw" value="' + esc(state.emailWijzigen.nieuw) + '" class="wide" placeholder="nieuw@voorbeeld.nl" style="width:180px;text-align:left" />';
+      html += '<input id="email-wijzigen-nieuw" data-bind="email-wijzigen-nieuw" value="' + esc(state.emailWijzigen.nieuw) + '" class="wide" placeholder="nieuw@voorbeeld.nl" style="width:180px;text-align:left" />';
     } else {
       html += '<div style="width:180px;font:400 13px/1.35 ' + 'var(--sans);color:var(--ink)">' + esc(state.user.email) + '</div>';
     }
@@ -2081,7 +2081,7 @@
       html += '<div class="linkish" data-act="start-email-wijzigen">Wijzigen</div>';
     }
 
-    html += '<div class="input-row"><div class="label">Telefoonnummer</div><input data-bind="profiel-telefoon" value="' + esc(p.telefoon) + '" class="wide" placeholder="06 12345678" style="width:180px;text-align:left" /></div>';
+    html += '<div class="input-row"><div class="label">Telefoonnummer</div><input id="profiel-telefoon" data-bind="profiel-telefoon" value="' + esc(p.telefoon) + '" class="wide" placeholder="06 12345678" style="width:180px;text-align:left" /></div>';
     html += '<div class="hint" style="margin-top:2px">Optioneel — alleen voor eventuele terugbelverzoeken over je account.</div>';
 
     html += '<div class="input-row"><div class="label">Rol</div><select class="acct-select" data-change="profiel-rol">';
@@ -2135,7 +2135,7 @@
     html += '</div>';
     if (v.actief) {
       html += '<div class="hint" style="margin-top:2px">Typ je e-mailadres (' + esc(state.user.email) + ') om te bevestigen.</div>';
-      html += '<div class="input-row"><div class="label">E-mailadres</div><input data-bind="verwijder-email-typed" value="' + esc(v.typedEmail) + '" class="wide" style="width:200px;text-align:left" /></div>';
+      html += '<div class="input-row"><div class="label">E-mailadres</div><input id="verwijder-email-typed" data-bind="verwijder-email-typed" value="' + esc(v.typedEmail) + '" class="wide" style="width:200px;text-align:left" /></div>';
       if (v.fout) html += '<div class="notice error" style="margin-top:6px">' + esc(v.fout) + '</div>';
       html += '<div class="btn-row" style="margin-top:8px"><div class="primary-btn accent" data-act="submit-account-verwijderen">' + (v.bezig ? 'Bezig…' : 'Verwijder mijn account definitief') + '</div><div class="ghost-btn" data-act="cancel-account-verwijderen">Annuleer</div></div>';
     }
@@ -2159,8 +2159,8 @@
     var p = state.profile, ui = state.orgUi;
     var dirty = state.orgSnapshot !== JSON.stringify(orgVelden(p));
     var html = '<div class="card pad">';
-    html += '<div class="input-row" style="margin-top:0"><div class="label">Naam VvE of bedrijf</div><input data-bind="org-naam" value="' + esc(p.orgNaam) + '" class="wide" placeholder="VvE Voorbeeldstraat 1-12" style="width:220px;text-align:left" /></div>';
-    html += '<div class="input-row"><div class="label">KvK-nummer</div><input data-bind="org-kvk" value="' + esc(p.kvkNummer) + '" class="wide" placeholder="12345678" style="width:120px;text-align:left" /></div>';
+    html += '<div class="input-row" style="margin-top:0"><div class="label">Naam VvE of bedrijf</div><input id="org-naam" data-bind="org-naam" value="' + esc(p.orgNaam) + '" class="wide" placeholder="VvE Voorbeeldstraat 1-12" style="width:220px;text-align:left" /></div>';
+    html += '<div class="input-row"><div class="label">KvK-nummer</div><input id="org-kvk" data-bind="org-kvk" value="' + esc(p.kvkNummer) + '" class="wide" placeholder="12345678" style="width:120px;text-align:left" /></div>';
     html += '<div class="row" style="border-top:none;margin-top:11px;padding:0">';
     html += '<div class="grow"><div class="name">Tonen op het rapport</div><div class="meta">Voegt "Opgesteld door: ' + esc(p.orgNaam || '…') + '" toe aan het rapport (scherm en pdf)</div></div>';
     html += '<div class="toggle' + (p.toonOrgOpRapport ? ' on' : '') + '" data-act="toggle-org-op-rapport"><div class="knob"></div></div>';
@@ -2227,16 +2227,16 @@
     html += '<div style="font:500 13.5px/1.3 Inter,system-ui,sans-serif">Factuurgegevens</div>';
     html += '<div class="hint" style="margin-top:4px">Alleen nodig zodra je een betaald abonnement afsluit — bij het aanmaken van je account hoeft dit nog niet.</div>';
 
-    html += '<div class="input-row" style="margin-top:14px"><div class="label">Postcode</div><input data-bind="fact-postcode" value="' + esc(p.factuurPostcode) + '" class="wide" placeholder="1234 AB" style="width:90px;text-align:left" /></div>';
-    html += '<div class="input-row"><div class="label">Huisnummer</div><input data-bind="fact-huisnummer" value="' + esc(p.factuurHuisnummer) + '" class="wide" placeholder="12" style="width:70px;text-align:left" /></div>';
+    html += '<div class="input-row" style="margin-top:14px"><div class="label">Postcode</div><input id="fact-postcode" data-bind="fact-postcode" value="' + esc(p.factuurPostcode) + '" class="wide" placeholder="1234 AB" style="width:90px;text-align:left" /></div>';
+    html += '<div class="input-row"><div class="label">Huisnummer</div><input id="fact-huisnummer" data-bind="fact-huisnummer" value="' + esc(p.factuurHuisnummer) + '" class="wide" placeholder="12" style="width:70px;text-align:left" /></div>';
     if (z.bezig) html += '<div class="hint" style="margin-top:2px">Straat en plaats opzoeken…</div>';
     else if (z.fout) html += '<div class="hint" style="margin-top:2px">' + esc(z.fout) + '</div>';
-    html += '<div class="input-row"><div class="label">Straat</div><input data-bind="fact-straat" value="' + esc(p.factuurStraat) + '" class="wide" style="width:200px;text-align:left" /></div>';
-    html += '<div class="input-row"><div class="label">Plaats</div><input data-bind="fact-plaats" value="' + esc(p.factuurPlaats) + '" class="wide" style="width:200px;text-align:left" /></div>';
+    html += '<div class="input-row"><div class="label">Straat</div><input id="fact-straat" data-bind="fact-straat" value="' + esc(p.factuurStraat) + '" class="wide" style="width:200px;text-align:left" /></div>';
+    html += '<div class="input-row"><div class="label">Plaats</div><input id="fact-plaats" data-bind="fact-plaats" value="' + esc(p.factuurPlaats) + '" class="wide" style="width:200px;text-align:left" /></div>';
     html += '<div class="input-row"><div class="label">Land</div><select class="acct-select" data-change="fact-land">';
     LANDEN.forEach(function (l) { html += '<option value="' + l + '"' + (p.factuurLand === l ? ' selected' : '') + '>' + l + '</option>'; });
     html += '</select></div>';
-    html += '<div class="input-row"><div class="label">BTW-nummer</div><input data-bind="fact-btw" value="' + esc(p.btwNummer) + '" class="wide" placeholder="NL123456789B01" style="width:160px;text-align:left" /></div>';
+    html += '<div class="input-row"><div class="label">BTW-nummer</div><input id="fact-btw" data-bind="fact-btw" value="' + esc(p.btwNummer) + '" class="wide" placeholder="NL123456789B01" style="width:160px;text-align:left" /></div>';
     html += '<div class="hint" style="margin-top:2px">Optioneel.</div>';
 
     if (ui.fout) html += '<div class="notice error" style="margin-top:12px">' + esc(ui.fout) + '</div>';
