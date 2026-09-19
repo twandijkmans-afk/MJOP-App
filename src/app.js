@@ -3016,6 +3016,37 @@
   }
 
   // ---------------------------------------------------------------------
+  // TIJDELIJK — debugtool voor het "volgende beurt"-jaartal (onderzoek
+  // naar een gemeld verschil tussen verwachte en getoonde cyclusjaren,
+  // bv. 2044 i.p.v. 2048 bij een dak zonder gebreken). Leest de al in het
+  // geheugen geladen state rechtstreeks uit (niet uit localStorage/
+  // Supabase — waar het plan vandaan kwam maakt dus niet uit, zolang het
+  // maar open staat in de app). Roep in de browserconsole aan met
+  // window.__mjopDebugElementen(). Weer verwijderen zodra dit onderzoek
+  // is afgerond.
+  window.__mjopDebugElementen = function () {
+    if (!state.building) { console.log('Geen gebouw geladen.'); return; }
+    console.log('CURRENT_YEAR (wat de code als "vandaag" ziet):', CURRENT_YEAR);
+    console.log('state.building.bouwjaar:', state.building.bouwjaar, '| adres:', state.building.adres);
+    var rows = state.elements.map(function (el) {
+      var score = conditionScore(el);
+      var jaar = conditionYear(el);
+      var regel;
+      if (el.type === 'custom') regel = el.cyclus ? 'custom+cyclus: nextOccurrence(cyclus, el.jaar)' : 'custom zonder cyclus: el.jaar zelf';
+      else if (el.type === 'kozijnen') regel = 'kozijnen: yearForCycle per materiaalgroep';
+      else if (score == null) regel = 'geen gebreken: nextOccurrence(cyclus, laatsteBeurt+cyclus)';
+      else regel = 'gebrek aanwezig (score ' + score + '): CURRENT_YEAR + resterende jaren';
+      return {
+        naam: el.naam, id: el.id, type: el.type, cyclus: el.cyclus,
+        laatsteBeurt: el.laatsteBeurt, aantalGebreken: (el.gebreken || []).length,
+        conditionScore: score, berekendJaar: jaar, bepaaldDoor: regel,
+      };
+    });
+    console.table(rows);
+    return rows;
+  };
+
+  // ---------------------------------------------------------------------
   // Boot
   // ---------------------------------------------------------------------
   document.addEventListener('DOMContentLoaded', function () {
