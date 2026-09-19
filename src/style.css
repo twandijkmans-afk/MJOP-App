@@ -660,6 +660,8 @@ input[type=range]::-moz-range-thumb {
   .app-shell:has(.tab-bar) > div:not(.tab-bar) {
     flex: 1;
     min-width: 0;
+    max-width: 1080px;
+    margin: 0 auto;
     background: var(--card);
     min-height: 100vh;
   }
