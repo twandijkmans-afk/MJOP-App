@@ -1153,8 +1153,8 @@
     maan: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/></svg>',
   };
 
-  function mktLogo(wordmarkOnly, action) {
-    return '<div class="mkt-logo" data-act="' + (action || 'goto-marketing') + '"><div class="mark">M</div>' + (wordmarkOnly ? '' : '<div class="word">MJOP Live</div>') + '</div>';
+  function mktLogo(wordmarkOnly) {
+    return '<div class="mkt-logo" data-act="goto-marketing"><div class="mark">M</div>' + (wordmarkOnly ? '' : '<div class="word">MJOP Live</div>') + '</div>';
   }
 
   // ---------------------------------------------------------------------
@@ -1633,8 +1633,10 @@
     // Tegenhanger linksboven op mobiel/tablet — vanaf 960px zit dezelfde
     // functie al in het logo linksboven in de zijbalk (zie tab-brand
     // hierboven), dus dit icoontje verdwijnt daar via CSS (zie
-    // .mobile-home-btn in style.css).
-    html += '<button class="mobile-home-btn" data-act="goto-app-home" aria-label="Overzicht">M</button>';
+    // .mobile-home-btn in style.css). Gaat naar de publieke marketing-
+    // homepage, net als het logo elders — het Overzicht-tabblad is zelf
+    // altijd al één tik verderop via de tabbalk onderin.
+    html += '<button class="mobile-home-btn" data-act="goto-marketing" aria-label="Naar de homepage">M</button>';
     // De enige weg naar screen 'app' zonder building is de snelkoppeling
     // naar "Mijn gebouwen" vanaf het adresscherm (zie 'goto-mijngebouwen')
     // — home/gebouw/planning/rapport gaan er allemaal van uit dat
@@ -1664,10 +1666,7 @@
       ['rapport', 'Rapport', NAV_ICONS.rapport],
     ];
     var html = '<div class="tab-bar">';
-    // 'goto-app-home' i.p.v. het gewone 'goto-marketing': dit logo staat
-    // in de ingelogde/werkende app zelf, dus "terug naar home" betekent
-    // hier het Overzicht-tabblad, niet de publieke marketing-homepage.
-    html += '<div class="tab-brand">' + mktLogo(false, 'goto-app-home') + '</div>';
+    html += '<div class="tab-brand">' + mktLogo() + '</div>';
     html += '<div class="tab-main">';
     tabs.forEach(function (t) {
       var active = state.tab === t[0];
@@ -2599,12 +2598,6 @@
     // vanaf het adresscherm te bereiken vóórdat er deze sessie al een
     // gebouw gekozen is.
     'goto-mijngebouwen': function () { state.screen = 'app'; state.tab = 'mijngebouwen'; render(); },
-    // Logo/terugknop vanuit binnen de app zelf (zie renderTabBar() en de
-    // mobile-home-btn in renderApp()) — "thuis" betekent hier het
-    // Overzicht-tabblad, niet de publieke marketing-homepage (dat is
-    // 'goto-marketing', voor buiten de app). Zonder gebouw valt renderApp()
-    // vanzelf terug op "Mijn gebouwen" (zie needsBuilding daar).
-    'goto-app-home': function () { state.tab = 'home'; state.activeElementId = null; state.confirmDeleteId = null; render(); },
     'goto-login': function () { state.screen = 'login'; render(); },
     'goto-onboarding': function () { state.screen = 'onboarding'; render(); },
     // Het live-doorzoeken tijdens het typen (BINDS['addr-q']) blijft de
