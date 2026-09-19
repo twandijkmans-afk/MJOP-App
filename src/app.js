@@ -915,7 +915,14 @@
   function rescaleElements(building) {
     state.elements.forEach(function (el) {
       var def = libraryEntry(el.id);
-      if (def && def.bron && def.bron !== 'none') el.hoeveelheid = bronWaarde(def.bron, building);
+      if (!def) return; // geïmporteerde/eigen posten hebben geen def — die blijven ongemoeid
+      // Zonder dit bleef laatsteBeurt vastzitten op het bouwjaar dat gold
+      // op het moment dat dit element werd aangemaakt — als een latere
+      // adreswijziging een ander (correcter) bouwjaar oplevert, schoof de
+      // cyclus van elk element zonder gebrek daardoor niet mee, en bleef
+      // "volgende beurt" op het oude, inmiddels foute jaar staan.
+      el.laatsteBeurt = building.bouwjaar || (CURRENT_YEAR - def.cyclus);
+      if (def.bron && def.bron !== 'none') el.hoeveelheid = bronWaarde(def.bron, building);
       if (el.type === 'steiger') el.werkhoogte = building.werkhoogte;
       if (el.type === 'kozijnen') {
         var counts = scaleKozCounts(building.units);
