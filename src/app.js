@@ -1180,6 +1180,11 @@
     var m = /^([1-9][0-9]{3})\s?([A-Za-z]{2})$/.exec(String(v || '').trim());
     return m ? m[1] + ' ' + m[2].toUpperCase() : v;
   }
+  // Beide optioneel, dus alleen valideren als er iets is ingevuld.
+  function isValidKvk(v) { return !v || /^[0-9]{8}$/.test(String(v).trim()); }
+  // Alleen het NL-btw-nummerpatroon (deze app is NL-gericht) — bv.
+  // "NL123456789B01", hoofdletterongevoelig.
+  function isValidBtw(v) { return !v || /^NL[0-9]{9}B[0-9]{2}$/i.test(String(v).trim()); }
 
   function loadProfile() {
     if (!sb || !state.session) return;
@@ -2130,7 +2135,7 @@
     if (pu.fout) html += '<div class="notice error" style="margin-top:4px">' + esc(pu.fout) + '</div>';
 
     html += '<div class="row" style="border-top:1px solid var(--ink-08);padding-top:11px">';
-    html += '<div class="grow"><div class="name" style="color:var(--accent)">Account verwijderen</div><div class="meta">Verwijdert je account en alle opgeslagen plannen definitief — dit kan niet ongedaan worden gemaakt</div></div>';
+    html += '<div class="grow"><div class="name" style="color:var(--accent)">Account verwijderen</div><div class="meta">Verwijdert je account en alle opgeslagen plannen definitief en zegt een actief abonnement direct op — dit kan niet ongedaan worden gemaakt</div></div>';
     if (!v.actief) html += '<div class="ghost-btn" data-act="start-account-verwijderen">Verwijderen</div>';
     html += '</div>';
     if (v.actief) {
@@ -3345,7 +3350,13 @@
       render();
     },
     'save-organisatie': function () {
-      saveProfileSection(state.orgUi, 'orgSnapshot', orgVelden, function (p) {
+      var p = state.profile, ui = state.orgUi;
+      if (!isValidKvk(p.kvkNummer)) {
+        ui.fout = 'Dit KvK-nummer klopt niet — dat zijn 8 cijfers.';
+        render();
+        return;
+      }
+      saveProfileSection(ui, 'orgSnapshot', orgVelden, function (p) {
         return { org_naam: p.orgNaam.trim() || null, kvk_nummer: p.kvkNummer.trim() || null, toon_organisatie_op_rapport: p.toonOrgOpRapport };
       });
     },
@@ -3356,6 +3367,11 @@
         render();
         return;
       }
+      if (!isValidBtw(p.btwNummer)) {
+        ui.fout = 'Dit btw-nummer klopt niet — gebruik het formaat NL123456789B01.';
+        render();
+        return;
+      }
       saveProfileSection(ui, 'facturatieSnapshot', facturatieVelden, function (p) {
         return {
           factuur_straat: p.factuurStraat.trim() || null,
@@ -3363,7 +3379,7 @@
           factuur_postcode: p.factuurPostcode.trim() ? normalizePostcode(p.factuurPostcode) : null,
           factuur_plaats: p.factuurPlaats.trim() || null,
           factuur_land: p.factuurLand || 'Nederland',
-          btw_nummer: p.btwNummer.trim() || null,
+          btw_nummer: p.btwNummer.trim() ? p.btwNummer.trim().toUpperCase() : null,
         };
       });
     },
