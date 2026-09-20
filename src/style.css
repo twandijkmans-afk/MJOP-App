@@ -1132,3 +1132,31 @@ input[type=range].ov-slider::-moz-range-thumb { width: 20px; height: 20px; borde
   .entry-alt .ov-btn { width: 100%; }
   .entry-foot { padding: 0 16px 24px; }
 }
+
+/* ------------------------------------------------------------------
+   Begeleide start en gewone taal: stappenlijst, conditie in woorden,
+   lege grafiek zolang het saldo onbekend is.
+   ------------------------------------------------------------------ */
+.cond-pill { display: inline-block; margin-right: 8px; padding: 2px 9px; border-radius: 999px; font: 600 12.5px/1.5 var(--sans); vertical-align: 1px; }
+.ov .pg-intro { max-width: 40em; margin: 8px 0 0; font: 400 15px/1.55 var(--sans); color: var(--ink-60); }
+.ov-alt { max-width: 34em; margin: 12px 0 0; font: 400 15px/1.5 var(--sans); color: var(--ink-60); }
+.mkt-hero-demo .ov-alt { font-size: 14px; }
+.ov-empty { display: flex; align-items: center; justify-content: center; min-height: 240px; padding: 24px; box-sizing: border-box; border: 1.5px dashed var(--ink-14); border-radius: 10px; text-align: center; font: 400 15px/1.55 var(--sans); color: var(--ink-60); }
+
+.ov-steps { display: grid; margin: 12px 0 0; padding: 0; list-style: none; }
+.ov-step { display: flex; gap: 14px; padding: 14px 0; border-top: 1px solid var(--ink-08); }
+.ov-step:first-child { border-top: 0; }
+.ov-step-mark { flex: none; display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; border: 1.5px solid var(--ink-28); border-radius: 50%; font: 700 13px/1 var(--sans); color: var(--ink-60); }
+.ov-step-mark svg { width: 14px; height: 14px; }
+.ov-step.done .ov-step-mark { border-color: var(--good-fg); background: var(--good-fg); color: var(--card); }
+.ov-step.next .ov-step-mark { border-color: var(--blue); background: var(--blue); color: var(--card); }
+.ov-step-body { min-width: 0; }
+.ov-step-title { font: 600 15px/1.35 var(--sans); }
+.ov-step.done .ov-step-title { font-weight: 500; color: var(--ink-60); }
+.ov-step-text { margin-top: 3px; font: 400 14px/1.5 var(--sans); color: var(--ink-60); }
+.ov-step .ov-btn { margin-top: 12px; }
+.ov-step .linkish { display: inline-block; margin-top: 6px; font: 600 14px/1.3 var(--sans); }
+
+.ov-details { margin-top: 14px; font: 400 14px/1.5 var(--sans); color: var(--ink-60); }
+.ov-details summary { cursor: pointer; font-weight: 600; }
+.ov-details p { margin: 8px 0 0; }

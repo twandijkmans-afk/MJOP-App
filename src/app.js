@@ -854,6 +854,10 @@
     upload: null, // zie renderUploadWizard voor de vorm van dit object
     building: null,
     fonds: 0,
+    // Wat de gebruiker zelf heeft ingevuld: zolang het saldo van het reservefonds
+    // onbekend is, zegt het verdict niets (een startsaldo van 0 zou anders een
+    // schrikbeeld tonen), en de bijdrage van 55 is nog een startwaarde.
+    invul: { fonds: false, bijdrage: false },
     bijdrage: 55,
     elements: [],
     tab: 'home',
@@ -982,6 +986,7 @@
       // Reservefonds start op 0 — de VvE vult het werkelijke saldo zelf in,
       // wij kunnen dat niet raden op basis van het aantal appartementen.
       state.elements = buildDefaultElements(building);
+      state.invul = { fonds: false, bijdrage: false };
     } else {
       rescaleElements(building);
     }
@@ -1002,6 +1007,7 @@
       elements: state.elements,
       fonds: state.fonds,
       bijdrage: state.bijdrage,
+      invul: state.invul,
       offertes: state.offertes,
       bijvullen: state.bijvullen,
     };
@@ -1012,6 +1018,8 @@
     state.elements = blob.elements || [];
     state.fonds = blob.fonds || 0;
     state.bijdrage = blob.bijdrage || 55;
+    // Plannen van vóór deze velden zijn al eens gebruikt: dan gelden beide als ingevuld.
+    state.invul = blob.invul || { fonds: true, bijdrage: true };
     state.offertes = blob.offertes || {};
     state.bijvullen = blob.bijvullen || {};
   }
@@ -1432,7 +1440,7 @@
     html += '<div class="mkt-hero">';
     html += '<div class="mkt-hero-copy">';
     html += '<h1 class="mkt-h1">Spaart jullie VvE genoeg voor het onderhoud?</h1>';
-    html += '<p class="mkt-sub">Zoek je adres op. MJOP Live haalt bouwjaar, dakoppervlak en gevelmaten uit de BAG en 3D BAG en rekent uit welke bijdrage per maand nodig is.</p>';
+    html += '<p class="mkt-sub">Een meerjarenonderhoudsplan (MJOP) laat zien welk onderhoud je VvE de komende jaren verwacht en hoeveel je daarvoor moet sparen. Zoek je adres op: MJOP Live haalt bouwjaar, dakoppervlak en gevelmaten uit de BAG en 3D BAG en rekent de bijdrage voor je uit.</p>';
     html += '<div class="mkt-cta-row">';
     html += state.session
       ? '<div class="mkt-cta-primary" data-act="goto-app">Naar mijn plan</div>'
@@ -1461,7 +1469,7 @@
     html += '<div class="mkt-feature-grid">';
     [
       [MKT_ICONS.pin, 'Echte bouwdata', 'Bouwjaar, dakoppervlak en gevelmaten komen uit de BAG en 3D BAG. Je hoeft niets op te meten.'],
-      [MKT_ICONS.clipboard, 'NEN 2767 conditiescore', 'Leg gebreken vast per post. De conditie bepaalt wanneer een post echt aan de beurt is.'],
+      [MKT_ICONS.clipboard, 'Staat van onderhoud', 'Leg vast wat je ziet, bijvoorbeeld lekkage of houtrot. De app schat daarmee wanneer een post echt aan de beurt is, volgens de NEN 2767-methodiek.'],
       [MKT_ICONS.trend, 'Fondsadvies voor 10 jaar', 'De kasstroom laat zien of de huidige bijdrage genoeg is, en wat er nodig is als dat niet zo is.'],
     ].forEach(function (f) {
       html += '<div class="mkt-feature-card"><div class="mkt-feature-icon">' + f[0] + '</div>';
@@ -2257,6 +2265,8 @@
       totaal: rows.reduce(function (a, r) { return a + r.kosten; }, 0),
       nodig: benodigdeBijdrage(st),
       bijdrage: st.bijdrage,
+      units: Math.max(1, st.building.units),
+      saldoBekend: st.invul ? st.invul.fonds : true,
       fonds: st.fonds,
       eind: eind
     };
@@ -2292,7 +2302,7 @@
   }
 
   function overzichtCalloutNaam(g) {
-    return g.top.naam + (g.aantal > 1 ? ' en ' + (g.aantal - 1) + ' andere' : '');
+    return g.top.naam + (g.aantal > 1 ? ' + ' + (g.aantal - 1) + ' ' + meervoud(g.aantal - 1, 'post', 'posten') : '');
   }
 
   // zonderKnop = de homepage-weergave: geen actieknop, en de kop is een h2
@@ -2300,13 +2310,22 @@
   function ovVerdictHtml(m, zonderKnop) {
     var b = m.bijdrage;
     var kop = zonderKnop ? 'h2' : 'h1';
+    if (!m.saldoBekend) {
+      return '<' + kop + ' class="ov-head">Vul eerst in wat er op de reservekas staat.</' + kop + '>' +
+        '<p class="ov-lede">Daarna zie je of jullie genoeg sparen voor het onderhoud van de komende ' + HORIZON + ' jaar. Het saldo vind je in de administratie van de VvE, of bij de beheerder of de bank.</p>' +
+        '<button type="button" class="ov-btn" data-act="focus-fonds">Saldo invullen</button>';
+    }
     var html = '<' + kop + ' class="ov-head">' + (m.eerste
       ? 'Bij ' + eur(b) + ' per maand is het fonds in ' + m.eerste.jaar + ' leeg.'
       : 'Bij ' + eur(b) + ' per maand blijft het fonds de komende ' + HORIZON + ' jaar op peil.') + '</' + kop + '>';
     html += '<p class="ov-lede">' + (m.eerste
-      ? 'Je hebt ' + eur(m.nodig) + ' per appartement per maand nodig om alle posten tot en met ' + m.eind + ' te betalen' +
-        (b < m.nodig ? ', ' + eur(m.nodig - b) + ' meer dan nu.' : '.')
+      ? 'Je hebt ' + eur(m.nodig) + ' per appartement per maand nodig om alle posten tot en met ' + m.eind + ' te betalen (' + eur(m.nodig * m.units) + ' per maand voor het hele gebouw)' +
+        (b < m.nodig ? ', ' + eur(m.nodig - b) + ' per appartement meer dan nu.' : '.')
       : 'Het laagste saldo in deze periode is ' + eurSigned(m.laagste.saldo) + ' (' + m.laagste.jaar + ').') + '</p>';
+    if (m.eerste) {
+      var tekort = Math.ceil(-m.laagste.saldo);
+      html += '<p class="ov-alt">Of stort eenmalig ' + eur(tekort) + ' extra in het fonds (' + eur(Math.ceil(tekort / m.units)) + ' per appartement).</p>';
+    }
     if (b < m.nodig && !zonderKnop) {
       html += '<button type="button" class="ov-btn" data-act="zet-advies" data-nodig="' + m.nodig + '">Zet bijdrage op ' + eur(m.nodig) + '</button>';
     }
@@ -2315,10 +2334,14 @@
 
   function ovLowHtml(m) {
     var neg = m.laagste.saldo < 0;
-    return '<span>Laagste saldo (' + m.laagste.jaar + ')</span><b class="' + (neg ? 'ov-neg' : '') + '">' + eurSigned(m.laagste.saldo) + '</b>';
+    if (!m.saldoBekend) return '<span>Laagste stand van het fonds</span><b>Nog onbekend</b>';
+    return '<span>Laagste stand van het fonds (' + m.laagste.jaar + ')</span><b class="' + (neg ? 'ov-neg' : '') + '">' + eurSigned(m.laagste.saldo) + '</b>';
   }
 
   function ovChartHtml(m) {
+    if (!m.saldoBekend) {
+      return '<div class="ov-empty">Zodra je het saldo van het reservefonds hebt ingevuld, zie je hier per jaar hoeveel er in het fonds zit en wanneer er een tekort dreigt.</div>';
+    }
     var rows = m.rows;
     var saldi = rows.map(function (r) { return r.saldo; });
     var hi = Math.max.apply(null, saldi.concat(0));
@@ -2395,6 +2418,7 @@
   }
 
   function renderHome() {
+    var b = state.building;
     var m = overzichtModel();
     var aandacht = state.elements.filter(needsAssessment);
     var totalAssessable = state.elements.filter(function (el) { return el.type !== 'custom'; }).length;
@@ -2409,7 +2433,8 @@
     html += '<section class="ov-card ov-area-chart" aria-labelledby="ov-chart-title">';
     html += '<div class="ov-card-head"><div><h2 class="ov-h2" id="ov-chart-title">Saldo van het reservefonds</h2>';
     html += '<p class="ov-sub">Aan het einde van elk jaar, bij de ingestelde bijdrage</p></div>';
-    html += '<div class="ov-key"><span class="k-pos"></span>Saldo positief<span class="k-neg"></span>Fonds is leeg</div></div>';
+    if (m.saldoBekend) html += '<div class="ov-key"><span class="k-pos"></span>Saldo positief<span class="k-neg"></span>Fonds is leeg</div>';
+    html += '</div>';
     html += '<div class="ov-chart" id="ov-chart">' + ovChartHtml(m) + '</div>';
     html += '</section>';
 
@@ -2418,12 +2443,13 @@
     html += '<span class="ov-eurinput">€<input id="bijdrage-num" type="text" inputmode="numeric" data-change="bijdrage-bedrag" value="' + state.bijdrage + '" /></span></label>';
     html += '<input id="bijdrage-slider" class="ov-slider" type="range" min="10" max="400" step="5" value="' + state.bijdrage + '" data-change="bijdrage" aria-label="Bijdrage per appartement per maand" />';
     html += '<div class="ov-range"><span>€ 10</span><span>€ 400</span></div>';
+    if (!state.invul.bijdrage) html += '<p class="ov-hint">Dit is een startwaarde. Vul in wat de eigenaren nu per maand betalen.</p>';
     html += '<div class="ov-rule"></div>';
     html += '<label class="ov-row" for="fonds-bedrag"><span>Reservefonds nu</span>';
-    html += '<span class="ov-eurinput">€<input id="fonds-bedrag" data-bind="fonds-bedrag" inputmode="numeric" placeholder="0" value="' + (state.fonds === 0 ? '' : state.fonds) + '" /></span></label>';
-    html += '<p class="ov-hint">' + (state.fonds === 0 ? 'Nog niet ingevuld. Vul het saldo uit de VvE-administratie in.' : 'Saldo uit de VvE-administratie.') + '</p>';
+    html += '<span class="ov-eurinput">€<input id="fonds-bedrag" data-bind="fonds-bedrag" inputmode="numeric" placeholder="0" value="' + (state.invul.fonds ? state.fonds : '') + '" /></span></label>';
+    html += '<p class="ov-hint">' + (!state.invul.fonds ? 'Nog niet ingevuld. Vul het saldo uit de VvE-administratie in.' : 'Saldo uit de VvE-administratie.') + '</p>';
     html += '<div class="ov-rule"></div>';
-    html += '<div class="ov-kv"><span>Kosten t/m ' + m.eind + '</span><b>' + eur(m.totaal) + '</b></div>';
+    html += '<div class="ov-kv"><span>Onderhoud de komende ' + HORIZON + ' jaar</span><b>' + eur(m.totaal) + '</b></div>';
     html += '<div class="ov-kv" id="ov-low">' + ovLowHtml(m) + '</div>';
     html += '</section>';
 
@@ -2441,21 +2467,49 @@
     }
     html += '</section>';
 
-    html += '<section class="ov-card"><h2 class="ov-h2">Conditie van de posten</h2>';
-    html += '<p class="ov-sub">' + beoordeeld + ' van ' + totalAssessable + ' ' + meervoud(totalAssessable, 'post', 'posten') + ' beoordeeld</p>';
-    html += '<div class="pct-bar"><div style="width:' + (totalAssessable ? Math.round(beoordeeld / totalAssessable * 100) : 0) + '%;background:var(--blue)"></div></div>';
-    if (aandacht.length) {
-      html += '<p class="ov-hint">De conditie bepaalt wanneer een post echt aan de beurt is. Zonder beoordeling rekent de app met de standaardcyclus.</p>';
-      html += '<button type="button" class="ov-btn secondary" data-act="open-element" data-id="' + aandacht[0].id + '">Begin met beoordelen</button>';
-    } else {
-      html += '<p class="ov-hint">Alle posten zijn beoordeeld.</p>';
-    }
+    // Stappenlijst: de route door de app in gewone volgorde, met wat al klaar is.
+    var stappen = [
+      { klaar: true, titel: 'Gebouw gevonden', tekst: b.adres },
+      { klaar: state.invul.fonds, titel: 'Saldo van het reservefonds invullen', tekst: 'Wat staat er nu op de reservekas?', actie: ['focus-fonds', 'Saldo invullen'] },
+      { klaar: state.invul.bijdrage, titel: 'Bijdrage van de eigenaren invullen', tekst: 'Wat betaalt elk appartement nu per maand?', actie: ['focus-bijdrage', 'Bijdrage invullen'] },
+      { klaar: !aandacht.length, titel: 'Staat van de posten beoordelen', tekst: beoordeeld + ' van ' + totalAssessable + ' ' + meervoud(totalAssessable, 'post', 'posten') + ' beoordeeld. Zonder beoordeling rekent de app met de gebruikelijke levensduur.', actie: aandacht.length ? ['open-element', 'Begin met beoordelen', aandacht[0].id] : null },
+      { klaar: false, titel: 'Voorstel voor de vergadering', tekst: 'Print het rapport met de bijdrage die nodig is.', actie: ['set-tab', 'Naar het rapport', 'rapport'] },
+    ];
+    var eersteOpen = -1;
+    stappen.forEach(function (s, i) { if (!s.klaar && eersteOpen < 0 && i < stappen.length - 1) eersteOpen = i; });
+    if (eersteOpen < 0) eersteOpen = stappen.length - 1;
+    var klaarAantal = stappen.filter(function (s) { return s.klaar; }).length;
+    html += '<section class="ov-card"><h2 class="ov-h2">Zo werk je verder</h2>';
+    html += '<p class="ov-sub">' + klaarAantal + ' van ' + stappen.length + ' stappen klaar</p>';
+    html += '<ol class="ov-steps">';
+    stappen.forEach(function (s, i) {
+      html += '<li class="ov-step' + (s.klaar ? ' done' : '') + (i === eersteOpen ? ' next' : '') + '">';
+      html += '<span class="ov-step-mark" aria-hidden="true">' + (s.klaar ? CHOICE_ICONS.check : (i + 1)) + '</span>';
+      html += '<div class="ov-step-body"><div class="ov-step-title">' + esc(s.titel) + (s.klaar ? '<span class="sr-only"> (klaar)</span>' : '') + '</div>';
+      if (s.tekst && (!s.klaar || i === 0)) html += '<div class="ov-step-text">' + esc(s.tekst) + '</div>';
+      if (s.actie && !s.klaar && i === eersteOpen) {
+        var dataId = s.actie[2] ? (s.actie[0] === 'set-tab' ? ' data-tab="' + s.actie[2] + '"' : ' data-id="' + s.actie[2] + '"') : '';
+        html += '<button type="button" class="ov-btn" data-act="' + s.actie[0] + '"' + dataId + '>' + s.actie[1] + '</button>';
+      } else if (s.actie && !s.klaar) {
+        var dataId2 = s.actie[2] ? (s.actie[0] === 'set-tab' ? ' data-tab="' + s.actie[2] + '"' : ' data-id="' + s.actie[2] + '"') : '';
+        html += '<span class="linkish" data-act="' + s.actie[0] + '"' + dataId2 + '>' + s.actie[1] + '</span>';
+      }
+      html += '</div></li>';
+    });
+    html += '</ol>';
     html += '</section>';
     html += '</div>';
 
-    html += '<p class="ov-foot">Kengetallen zijn indicatieve richtprijzen inclusief btw op prijspeil ' + CURRENT_YEAR + ', geen offerte. Cycli zijn gebaseerd op het bouwjaar uit de BAG; een echte conditiemeting kan posten naar voren of naar achteren schuiven. Kosten na ' + m.eind + ' vallen buiten deze toets.</p>';
+    html += '<p class="ov-foot">De bedragen zijn indicatieve richtprijzen (inclusief btw, prijspeil ' + CURRENT_YEAR + '), geen offerte. Hoe vaak onderhoud nodig is volgt uit het bouwjaar in de BAG. Beoordeel je de staat van een post, dan schuift het onderhoud naar voren of naar achteren. Kosten na ' + m.eind + ' tellen niet mee.</p>';
     html += '</div></div>';
     return html;
+  }
+
+  // Conditie als woord met kleur (i.p.v. een cijfer 1-6 waarbij hoog "slecht"
+  // is): de tekst draagt de betekenis, de kleur is bijzaak.
+  function conditiePill(score) {
+    var c = scoreColors(score);
+    return '<span class="cond-pill" style="background:' + c[0] + ';color:' + c[1] + '">' + (score == null ? 'Nog niet beoordeeld' : CONDITIE_LABELS[score]) + '</span>';
   }
 
   function needsAssessment(el) { return el.type !== 'custom' && conditionScore(el) == null; }
@@ -2520,7 +2574,8 @@
     var uOrigin = unitsOrigin();
     html += '<div class="page-sub">' + esc(b.adres) + ' · bouwjaar ' + (b.bouwjaar || 'onbekend') + ' · ';
     html += '<input id="building-units" data-bind="building-units" type="number" min="1" inputmode="numeric" value="' + b.units + '" class="inline-num" /> ';
-    html += meervoud(b.units, 'appartement', 'appartementen') + (uOrigin ? ' <span class="origin-tag origin-' + uOrigin.cls + '">' + uOrigin.label + '</span>' : '') + ' · ' + state.elements.length + ' elementen</div>';
+    html += meervoud(b.units, 'appartement', 'appartementen') + (uOrigin ? ' <span class="origin-tag origin-' + uOrigin.cls + '">' + uOrigin.label + '</span>' : '') + ' · ' + state.elements.length + ' posten</div>';
+    html += '<p class="pg-intro">Dit zijn de onderdelen van het gebouw waar onderhoud voor nodig is. Open een post om de staat te beoordelen of de kosten aan te passen.</p>';
     html += '</div>';
 
     html += '<div class="section"><div class="chip-row">';
@@ -2534,20 +2589,18 @@
 
     html += '<div class="section"><div class="card">';
     if (!els.length) {
-      html += '<div class="row" style="border-top:none"><div class="grow meta" style="font-size:12.5px">Geen elementen in deze weergave.</div></div>';
+      html += '<div class="row" style="border-top:none"><div class="grow meta" style="font-size:12.5px">Geen posten in deze weergave.</div></div>';
     }
     els.forEach(function (el, i) {
       var bedrag = eur(elementCost(el, state));
       var score = conditionScore(el);
-      var colors = scoreColors(score);
       html += '<div class="row" data-act="open-element" data-id="' + el.id + '" style="cursor:pointer' + (i === 0 ? ';border-top:none' : '') + '">';
-      html += '<div class="el-badge" style="background:' + colors[0] + ';color:' + colors[1] + '">' + (score == null ? '–' : score) + '</div>';
-      html += '<div class="grow"><div class="name">' + esc(el.naam) + (el.sfb ? ' <span class="sfb-tag">NL-SfB ' + esc(el.sfb) + '</span>' : '') + '</div><div class="meta">' + elementRowMeta(el) + '</div></div>';
-      html += '<div class="value">' + bedrag + '<div class="value-sub">per beurt</div></div>';
+      html += '<div class="grow"><div class="name">' + esc(el.naam) + '</div><div class="meta">' + conditiePill(score) + elementRowMeta(el) + '</div></div>';
+      html += '<div class="value">' + bedrag + '<div class="value-sub">per keer</div></div>';
       html += '<div class="chev">›</div></div>';
     });
     html += '</div>';
-    html += '<div class="add-el" data-act="open-add-element"><div class="plus">+</div><div><div class="title">Element toevoegen</div><div class="sub">Bijv. balkons, hekwerk, liftinstallatie</div></div></div>';
+    html += '<div class="add-el" data-act="open-add-element"><div class="plus">+</div><div><div class="title">Post toevoegen</div><div class="sub">Bijv. balkons, hekwerk, liftinstallatie</div></div></div>';
     html += '</div>';
 
     if (state.addForm) html += renderAddElementForm();
@@ -2563,9 +2616,9 @@
     if (el.type === 'kozijnen') {
       var score = conditionScore(el);
       var jaren = kozGroepen(el).map(function (g) { return yearForCycle(g.cyclus, el.laatsteBeurt, score); });
-      return 'volgende beurt ' + Math.min.apply(null, jaren);
+      return 'Volgt in ' + Math.min.apply(null, jaren);
     }
-    return 'volgende beurt ' + conditionYear(el) + ' · cyclus ' + el.cyclus + ' jaar';
+    return 'Volgt in ' + conditionYear(el) + ' · elke ' + el.cyclus + ' jaar';
   }
 
   function renderAddElementForm() {
@@ -2578,24 +2631,24 @@
 
     var libraryRow = function (d, i) {
       var row = '<div class="row" data-act="add-from-library" data-key="' + d.key + '" style="cursor:pointer' + (i === 0 ? ';border-top:none' : '') + '">';
-      row += '<div class="grow"><div class="name">' + esc(d.naam) + ' <span class="sfb-tag">NL-SfB ' + esc(d.sfb) + '</span></div><div class="meta">' + esc(d.categorie) + ' · cyclus ' + d.cyclus + ' jaar</div></div>';
+      row += '<div class="grow"><div class="name">' + esc(d.naam) + '</div><div class="meta">' + esc(d.categorie) + ' · elke ' + d.cyclus + ' jaar</div></div>';
       row += '<div class="chev" style="color:var(--blue)">+</div></div>';
       return row;
     };
 
     var html = '';
     if (aanbevolen.length) {
-      html += '<div class="section"><div class="section-title">Vaak gemist bij een eerste MJOP</div>';
+      html += '<div class="section"><div class="section-title">Vaak vergeten in een onderhoudsplan</div>';
       html += '<div class="hint" style="padding:0 4px 9px">Deze posten komen bij de meeste VvE’s voor, maar staan niet standaard in het plan.</div>';
       html += '<div class="card">';
       aanbevolen.forEach(function (d, i) { html += libraryRow(d, i); });
       html += '</div></div>';
     }
 
-    html += '<div class="section"><div class="section-title">Uit de elementenbibliotheek (NL-SfB)</div>';
+    html += '<div class="section"><div class="section-title">Meer posten om toe te voegen</div>';
     html += '<div class="card" style="margin-top:11px">';
     if (!overig.length) {
-      html += '<div class="row" style="border-top:none"><div class="grow meta" style="font-size:12.5px">Alle overige bibliotheek-elementen staan al in het plan.</div></div>';
+      html += '<div class="row" style="border-top:none"><div class="grow meta" style="font-size:12.5px">Alle andere standaardposten staan al in het plan.</div></div>';
     }
     overig.forEach(function (d, i) { html += libraryRow(d, i); });
     html += '</div></div>';
@@ -2605,7 +2658,7 @@
     html += '<div class="input-row" style="margin-top:11px"><div class="label">Naam</div><input id="add-el-naam" data-bind="add-el-naam" value="' + esc(f.naam) + '" style="width:170px;text-align:left" /></div>';
     html += '<div class="input-row"><div class="label">Jaar</div><input id="add-el-jaar" data-bind="add-el-jaar" value="' + f.jaar + '" /></div>';
     html += '<div class="input-row"><div class="label">Bedrag</div><input id="add-el-bedrag" data-bind="add-el-bedrag" value="' + f.bedrag + '" class="wide" /></div>';
-    html += '<div class="input-row"><div class="label">Cyclus in jaren (optioneel, leeg = eenmalig)</div><input id="add-el-cyclus" data-bind="add-el-cyclus" value="' + (f.cyclus || '') + '" /></div>';
+    html += '<div class="input-row"><div class="label">Herhaling in jaren (leeg laten = eenmalig)</div><input id="add-el-cyclus" data-bind="add-el-cyclus" value="' + (f.cyclus || '') + '" /></div>';
     html += '<div class="btn-row"><div class="primary-btn" data-act="save-add-element">Toevoegen</div><div class="ghost-btn" data-act="cancel-add-element">Annuleer</div></div>';
     html += '</div></div>';
     return html;
@@ -2622,7 +2675,7 @@
     var html = pgOpen(true);
     html += '<div class="top-nav"><div class="back-link" data-act="close-element">‹ Gebouw</div></div>';
     html += '<div class="pg-head">';
-    html += '<div class="eyebrow">' + esc(el.categorie) + (el.sfb ? ' · NL-SfB ' + esc(el.sfb) : '') + ' · cyclus ' + el.cyclus + ' jaar</div>';
+    html += '<div class="eyebrow">' + esc(el.categorie) + (el.cyclus ? ' · elke ' + el.cyclus + ' jaar' : ' · eenmalig') + '</div>';
     html += '<h1 class="page-title">' + esc(el.naam) + '</h1>';
     html += '</div>';
 
@@ -2631,14 +2684,15 @@
     // hoe erg), dus meteen zichtbaar zonder eerst de invoervelden en
     // gebreken-lijst te hoeven passeren.
     html += '<div class="section"><div class="card pad">';
-    html += '<div class="kv"><div class="label">Eerstvolgende beurt</div><div class="amount" style="font-size:19px">' + jaar + '</div></div>';
+    html += '<div class="kv"><div class="label">Volgend onderhoud</div><div class="amount" style="font-size:19px">' + jaar + '</div></div>';
     html += '<div class="divider"></div>';
-    html += '<div class="kv strong"><div class="label">Geraamde kosten</div><div class="amount">' + eur(bedrag) + '</div></div>';
+    html += '<div class="kv strong"><div class="label">Verwachte kosten</div><div class="amount">' + eur(bedrag) + '</div></div>';
     html += '<div class="divider"></div>';
-    html += '<div class="kv" style="align-items:center"><div class="label">Conditie</div><div class="el-badge" style="background:' + colors[0] + ';color:' + colors[1] + '">' + (score == null ? '–' : score) + '</div></div>';
+    html += '<div class="kv" style="align-items:center"><div class="label">Staat</div>' + conditiePill(score) + '</div>';
     html += '<div class="divider"></div>';
     var origin = elementOrigin(el);
-    html += '<div class="kv" style="align-items:center"><div class="label">Herkomst</div><div class="origin-tag origin-' + origin.cls + '">' + origin.label + '</div></div>';
+    html += '<div class="kv" style="align-items:center"><div class="label">Bron van de cijfers</div><div class="origin-tag origin-' + origin.cls + '">' + origin.label + '</div></div>';
+    if (el.sfb) html += '<details class="ov-details"><summary>Technische details</summary><p>NL-SfB-code ' + esc(el.sfb) + '. Dat is de Nederlandse indeling van bouwdelen; die code staat ook in de csv-export.</p></details>';
     html += '</div></div>';
 
     if (el.type === 'kozijnen') html += renderKozijnen(el);
@@ -2668,7 +2722,7 @@
   function renderGebreken(el) {
     var suggesties = GEBREK_SUGGESTIES[el.categorie] || GEBREK_SUGGESTIES.Overig;
     var score = conditionScore(el);
-    var html = '<div class="section"><div class="section-title">Gebreken (NEN 2767-methodiek)</div>';
+    var html = '<div class="section"><div class="section-title">Staat van onderhoud</div>';
 
     if (!el.gebreken.length) {
       // Eén samengevoegd beoordelingsblok i.p.v. twee losse "nog niets"-
@@ -2676,7 +2730,7 @@
       // eronder) — die zeiden allebei hetzelfde over dezelfde situatie.
       html += '<div class="card pad" style="margin-top:11px;text-align:center">';
       html += '<div style="font:700 15px/1.3 var(--heading)">Nog niet beoordeeld</div>';
-      html += '<div class="hint" style="margin-top:7px">Leg een gebrek vast (ernst, omvang, intensiteit) om het jaar van vervanging op de werkelijke toestand te baseren — tot die tijd volgt het plan de standaardcyclus vanaf het bouwjaar.</div>';
+      html += '<div class="hint" style="margin-top:7px">Noteer wat je ziet, bijvoorbeeld lekkage of houtrot. De app schat daarmee wanneer vervanging echt nodig is. Tot die tijd rekent het plan met de gebruikelijke levensduur vanaf het bouwjaar.</div>';
       html += '<div class="primary-btn" style="margin-top:14px" data-act="gb-add" data-id="' + el.id + '">Gebrek toevoegen</div>';
       html += '</div></div>';
       return html;
@@ -2686,10 +2740,11 @@
     el.gebreken.forEach(function (g, gi) {
       html += '<div class="row" style="align-items:flex-start' + (gi === 0 ? ';border-top:none' : '') + '">';
       html += '<div class="grow">';
-      html += '<input id="gb-naam-' + el.id + '-' + gi + '" data-bind="gb-naam" data-id="' + el.id + '" data-gi="' + gi + '" value="' + esc(g.omschrijving) + '" list="gb-sug-' + el.id + '" style="width:100%;box-sizing:border-box;border:1px solid var(--ink-14);border-radius:8px;padding:6px 8px;font:500 12.5px var(--sans)" placeholder="omschrijving gebrek" />';
-      ['ernst', 'omvang', 'intensiteit'].forEach(function (dim) {
+      html += '<input id="gb-naam-' + el.id + '-' + gi + '" data-bind="gb-naam" data-id="' + el.id + '" data-gi="' + gi + '" value="' + esc(g.omschrijving) + '" list="gb-sug-' + el.id + '" style="width:100%;box-sizing:border-box;border:1px solid var(--ink-14);border-radius:8px;padding:6px 8px;font:500 14px var(--sans)" placeholder="Beschrijf wat je ziet, bijv. lekkage" />';
+      [['ernst', 'Ernst'], ['omvang', 'Omvang'], ['intensiteit', 'Intensiteit']].forEach(function (dd) {
+        var dim = dd[0];
         html += '<div style="display:flex;align-items:center;gap:8px;margin-top:8px">';
-        html += '<div style="width:64px;font:400 11px/1.3 var(--sans);color:var(--ink-50);text-transform:capitalize">' + dim + '</div>';
+        html += '<div style="width:88px;font:400 13px/1.3 var(--sans);color:var(--ink-60);">' + dd[1] + '</div>';
         html += '<div class="seg" style="margin-top:0;flex:1">';
         [1, 2, 3].forEach(function (v) {
           html += '<div class="seg-opt' + (g[dim] === v ? ' active' : '') + '" style="padding:7px 0" data-act="gb-set" data-id="' + el.id + '" data-gi="' + gi + '" data-dim="' + dim + '" data-val="' + v + '">' + v + '</div>';
@@ -2697,17 +2752,18 @@
         html += '</div></div>';
       });
       html += '</div>';
-      html += '<div class="linkish" style="margin-top:2px;font-size:11px" data-act="gb-del" data-id="' + el.id + '" data-gi="' + gi + '">verwijder</div>';
+      html += '<div class="linkish" style="margin-top:2px;font-size:13px" data-act="gb-del" data-id="' + el.id + '" data-gi="' + gi + '">verwijder</div>';
       html += '</div>';
     });
+    html += '<div class="hint" style="padding:0 20px 14px">Geef elk onderdeel een cijfer: 1 = licht, 2 = matig, 3 = zwaar. Het zwaarste gebrek bepaalt de staat van de post.</div>';
     html += '<datalist id="gb-sug-' + el.id + '">' + suggesties.map(function (s) { return '<option value="' + esc(s) + '">'; }).join('') + '</datalist>';
     html += '<div class="row" style="cursor:pointer" data-act="gb-add" data-id="' + el.id + '"><div class="grow" style="font:500 13px var(--sans);color:var(--blue)">+ Gebrek toevoegen</div></div>';
     html += '</div>';
 
     html += '<div class="result-box' + (score >= 4 ? ' bad' : ' good') + '">';
-    html += '<div class="label">Conditiescore volgens NEN 2767-methodiek</div>';
-    html += '<div class="head">' + score + ' — ' + CONDITIE_LABELS[score] + '</div>';
-    html += '<div class="body">Het zwaarste vastgelegde gebrek bepaalt de score. Dit is een praktische toepassing van de NEN 2767-systematiek voor planningsdoeleinden, geen vervanging voor een inspectie door een gecertificeerd inspecteur.</div>';
+    html += '<div class="label">Staat van deze post</div>';
+    html += '<div class="head">' + CONDITIE_LABELS[score] + '</div>';
+    html += '<div class="body">Het zwaarste gebrek bepaalt de staat. Dit is een hulpmiddel voor de planning (gebaseerd op de NEN 2767-methodiek) en geen vervanging van een inspectie door een gecertificeerd inspecteur.</div>';
     html += '</div></div>';
     return html;
   }
@@ -2721,7 +2777,7 @@
     html += '<div class="input-row"><div class="label">Prijs per ' + (isPerUnit ? 'unit' : 'm²') + '</div><input id="kg-' + el.id + '" data-bind="el-kengetal" data-id="' + el.id + '" value="' + el.kengetal + '" /></div>';
     // De rekenformule stond eerder in de Gebouw-lijst (bv. "11 m² × € 165")
     // — die is verplaatst naar hier, de detailpagina, samen met het resultaat.
-    html += '<div class="formula">' + el.hoeveelheid + ' ' + eenheid + ' × ' + eur(el.kengetal) + ' = ' + eur(elementCost(el, state)) + ' per beurt</div>';
+    html += '<div class="formula">' + el.hoeveelheid + ' ' + eenheid + ' × ' + eur(el.kengetal) + ' = ' + eur(elementCost(el, state)) + ' per keer</div>';
     if (el.type === 'dak' && !state.building.isVoorbeeld) {
       html += '<div class="hint">Dakoppervlak komt uit de 3D BAG (echt dakvlak, plat + schuin). Pas het aan als een offerte of opname iets anders laat zien.</div>';
     }
@@ -2734,7 +2790,7 @@
     var html = '<div class="section"><div class="card pad">';
     html += '<div class="input-row" style="margin-top:0"><div class="label">Buitenmuur in m²</div><input id="hv-' + el.id + '" data-bind="el-hoeveelheid" data-id="' + el.id + '" value="' + el.hoeveelheid + '" /></div>';
     html += '<div class="input-row"><div class="label">Werkhoogte in m</div><input id="wh-' + el.id + '" data-bind="el-werkhoogte" data-id="' + el.id + '" value="' + el.werkhoogte + '" /></div>';
-    html += '<div class="formula">' + el.hoeveelheid + ' m² × ' + eur(rate) + ' = ' + eur(elementCost(el, state)) + ' per beurt</div>';
+    html += '<div class="formula">' + el.hoeveelheid + ' m² × ' + eur(rate) + ' = ' + eur(elementCost(el, state)) + ' per keer</div>';
     html += '<div class="hint">' + (el.werkhoogte > 8
       ? 'Boven 8 meter rekent de app met een hoogwerker of rolsteiger: € 11 per m² gevel.'
       : 'Tot 8 meter kan het met een lichte steiger: € 6 per m² gevel.') + '</div>';
@@ -2776,7 +2832,7 @@
     var html = '<div class="section"><div class="section-title">Offertes</div>';
     html += '<div class="card" style="margin-top:11px">';
     if (!offs.length) {
-      html += '<div class="row" style="border-top:none"><div class="grow meta" style="font-size:12.5px">Nog geen offertes toegevoegd voor dit element.</div></div>';
+      html += '<div class="row" style="border-top:none"><div class="grow meta" style="font-size:12.5px">Nog geen offertes toegevoegd voor deze post.</div></div>';
     }
     offs.forEach(function (o, oi) {
       var totaal = o.regels.reduce(function (a, r) { return a + num(r.bedrag); }, 0);
@@ -2786,18 +2842,18 @@
       html += '<div class="name" style="font-weight:500">' + esc(o.naam) + '</div>';
       o.regels.forEach(function (r, ri) {
         html += '<div style="display:flex;gap:8px;margin-top:6px">';
-        html += '<input id="of-' + o.id + '-naam-' + ri + '" data-bind="of-regel-naam" data-oid="' + o.id + '" data-ri="' + ri + '" value="' + esc(r.naam) + '" style="flex:1;border:1px solid var(--ink-14);border-radius:8px;padding:5px 7px;font:400 11.5px var(--sans)" placeholder="regel" />';
-        html += '<input id="of-' + o.id + '-bedrag-' + ri + '" data-bind="of-regel-bedrag" data-oid="' + o.id + '" data-ri="' + ri + '" value="' + esc(r.bedrag) + '" style="width:80px;border:1px solid var(--ink-14);border-radius:8px;padding:5px 7px;text-align:right;font:500 11.5px var(--sans)" placeholder="€" />';
+        html += '<input id="of-' + o.id + '-naam-' + ri + '" data-bind="of-regel-naam" data-oid="' + o.id + '" data-ri="' + ri + '" value="' + esc(r.naam) + '" style="flex:1;border:1px solid var(--ink-14);border-radius:8px;padding:5px 7px;font:400 13px var(--sans)" placeholder="regel" />';
+        html += '<input id="of-' + o.id + '-bedrag-' + ri + '" data-bind="of-regel-bedrag" data-oid="' + o.id + '" data-ri="' + ri + '" value="' + esc(r.bedrag) + '" style="width:80px;border:1px solid var(--ink-14);border-radius:8px;padding:5px 7px;text-align:right;font:500 13px var(--sans)" placeholder="€" />';
         html += '<button data-act="of-del-regel" data-oid="' + o.id + '" data-ri="' + ri + '" style="border:none;background:none;color:var(--ink-45);cursor:pointer">×</button>';
         html += '</div>';
       });
       html += '<div style="margin-top:8px" class="linkish" data-act="of-add-regel" data-oid="' + o.id + '">+ regel toevoegen</div>';
       html += '<div class="toggle-row" style="margin-top:9px" data-act="of-toggle-btw" data-oid="' + o.id + '">';
-      html += '<div class="grow" style="font:400 11.5px var(--sans)">' + (o.btw ? 'inclusief 21% btw' : 'exclusief btw') + '</div>';
+      html += '<div class="grow" style="font:400 13px var(--sans)">' + (o.btw ? 'inclusief 21% btw' : 'exclusief btw') + '</div>';
       html += '<div class="toggle' + (o.btw ? ' on' : '') + '"><div class="knob"></div></div></div>';
       html += '</div>';
       html += '<div style="text-align:right"><div class="value" style="font-size:14px">' + eur(totaal) + '</div>';
-      html += '<div class="linkish" style="margin-top:6px;font-size:11px" data-act="of-del" data-oid="' + o.id + '">verwijder</div></div>';
+      html += '<div class="linkish" style="margin-top:6px;font-size:13px" data-act="of-del" data-oid="' + o.id + '">verwijder</div></div>';
       html += '</div>';
     });
     html += '<div class="row" style="cursor:pointer" data-act="of-add">';
@@ -2905,13 +2961,17 @@
     html += '<div class="card pad">';
     html += '<div class="kv"><div class="label">Totaal geraamd</div><div class="amount">' + eur(totaal) + '</div></div>';
     html += '<div class="divider"></div>';
+    if (!state.invul.fonds) {
+      html += '<div class="hint">Vul op het Overzicht het saldo van het reservefonds in om te zien of het fonds toereikend is.</div>';
+    } else {
     html += '<div class="kv"><div class="label">Laagste fondsstand</div><div class="amount" style="' + (laagste < 0 ? 'color:var(--bad-fg)' : '') + '">' + (laagste < 0 ? eurSigned(laagste) : eur(laagste)) + '</div></div>';
     html += '<div class="hint"' + (eerste ? ' style="color:var(--bad-fg)"' : '') + '>' + (eerste
       ? 'Bij de huidige bijdrage raakt het fonds in ' + eerste.jaar + ' leeg.'
       : 'Bij de huidige bijdrage blijft het fonds ' + HORIZON + ' jaar positief.') + '</div>';
+    }
     html += '</div>';
     if (catRijen.length) {
-      html += '<div class="section-title" style="margin-top:16px">Kosten per categorie</div>';
+      html += '<div class="section-title" style="margin-top:16px">Kosten per onderdeel</div>';
       html += '<div class="card" style="margin-top:8px">';
       catRijen.forEach(function (c, i) {
         html += '<div class="row"' + (i === 0 ? ' style="border-top:none"' : '') + '><div class="grow name">' + esc(c.naam) + '</div><div class="value">' + eur(c.bedrag) + '</div></div>';
@@ -2966,11 +3026,11 @@
 
     var html = pgOpen(true);
     html += '<div class="pg-head"><h1 class="page-title">Rapport</h1>';
-    html += '<div class="page-sub">' + esc(b.adres) + ' · ' + beoordeeld + ' van ' + state.elements.length + ' elementen beoordeeld</div></div>';
+    html += '<div class="page-sub">' + esc(b.adres) + ' · ' + beoordeeld + ' van ' + state.elements.length + ' posten beoordeeld</div></div>';
 
     html += '<div class="section"><div class="card pad">';
     html += '<div style="font:500 14.5px/1.3 var(--sans)">MJOP ' + CURRENT_YEAR + '–' + (CURRENT_YEAR + HORIZON - 1) + '</div>';
-    html += '<div class="hint" style="margin-top:5px">Conditie per element, kostenopbouw en het voorstel voor de maandbijdrage.</div>';
+    html += '<div class="hint" style="margin-top:5px">Staat per post, kostenopbouw en het voorstel voor de maandbijdrage.</div>';
     var opsteller = opstellerNaam();
     if (opsteller) html += '<div class="hint" style="margin-top:2px">Opgesteld door: ' + esc(opsteller) + '</div>';
     html += '<div class="btn-row"><div class="primary-btn" data-act="print-rapport">Afdrukken / PDF</div><div class="ghost-btn" data-act="export-csv">Exporteer CSV</div></div>';
@@ -2980,9 +3040,12 @@
     html += '</div></div>';
 
     if (beoordeeld < state.elements.length) {
-      html += '<div class="section"><div class="notice">Indicatie op basis van standaardcycli; ' + beoordeeld + ' van ' + state.elements.length + ' beoordeeld.</div></div>';
+      html += '<div class="section"><div class="notice">Indicatie op basis van de gebruikelijke levensduur; ' + beoordeeld + ' van ' + state.elements.length + ' posten beoordeeld.</div></div>';
     }
 
+    if (!state.invul.fonds) {
+      html += '<div class="section"><div class="notice">Het voorstel voor de vergadering hangt af van het saldo van het reservefonds. <span class="linkish" data-act="set-tab" data-tab="home">Vul het saldo in op het Overzicht</span>.</div></div>';
+    } else {
     html += '<div class="section"><div class="card pad">';
     html += '<div style="font:500 13.5px/1.3 var(--sans)">Voorstel voor de vergadering</div>';
     html += '<div style="display:flex;align-items:baseline;gap:9px;margin-top:10px">';
@@ -2992,18 +3055,17 @@
       ? 'Bij de huidige bijdrage van ' + eur(state.bijdrage) + ' raakt het fonds in ' + eerste.jaar + ' leeg.'
       : 'Bij ' + eur(state.bijdrage) + ' per maand blijft het fonds ' + HORIZON + ' jaar positief, met ' + eur(laagste) + ' als laagste stand.') + '</div>';
     html += '</div></div>';
+    }
 
-    html += '<div class="section"><div class="section-title">Elementen</div><div class="card" style="margin-top:11px">';
+    html += '<div class="section"><div class="section-title">Alle posten</div><div class="card" style="margin-top:11px">';
     // Op volgende-beurt-jaar gesorteerd — zo staat wat het eerst aan de
     // beurt is bovenaan, i.p.v. de (willekeurige) volgorde waarin
     // elementen ooit zijn aangemaakt.
     var elementenOpJaar = state.elements.slice().sort(function (a, b) { return conditionYear(a) - conditionYear(b); });
     elementenOpJaar.forEach(function (el, i) {
       var score = conditionScore(el);
-      var colors = scoreColors(score);
       html += '<div class="row"' + (i === 0 ? ' style="border-top:none"' : '') + '>';
-      html += '<div class="el-badge" style="background:' + colors[0] + ';color:' + colors[1] + '">' + (score == null ? '–' : score) + '</div>';
-      html += '<div class="grow"><div class="name">' + esc(el.naam) + (el.sfb ? ' <span class="sfb-tag">NL-SfB ' + esc(el.sfb) + '</span>' : '') + '</div><div class="meta">volgende beurt ' + conditionYear(el) + '</div></div>';
+      html += '<div class="grow"><div class="name">' + esc(el.naam) + '</div><div class="meta">' + conditiePill(score) + 'Volgt in ' + conditionYear(el) + '</div></div>';
       html += '<div class="value">' + eur(elementCost(el, state)) + '</div></div>';
     });
     html += '</div></div>';
@@ -3139,6 +3201,7 @@
     html += '<div class="pr-page">';
     html += '<div class="pr-section-title">Voorstel voor de vergadering</div>';
     html += '<div class="pr-proposal">' + eur(eerste ? nodig : state.bijdrage) + ' <span>per appartement per maand</span></div>';
+    if (!state.invul.fonds) html += '<div class="pr-note">Het saldo van het reservefonds is niet ingevuld; dit voorstel gaat uit van € 0.</div>';
     html += '<div class="pr-note">' + (eerste
       ? 'Bij de huidige bijdrage van ' + eur(state.bijdrage) + ' raakt het reservefonds in ' + eerste.jaar + ' leeg.'
       : 'Bij ' + eur(state.bijdrage) + ' per maand blijft het reservefonds ' + HORIZON + ' jaar positief, met ' + eur(laagste) + ' als laagste stand.') + '</div>';
@@ -3162,6 +3225,7 @@
       applyBuilding(defaultBuilding());
       if (vers && !state.fonds) state.fonds = state.building.units * VOORBEELD_FONDS_PER_APP;
       if (vers) state.bijdrage = mktDemoBijdrage;
+      state.invul = { fonds: true, bijdrage: true };
       render();
     },
     'skip-onboarding': function () { ACTIONS['open-voorbeeld'](); },
@@ -3308,7 +3372,15 @@
     },
     'koz-min': function (d) { var el = findEl(d.id); if (!el) return; var k = el.koz[+d.i]; k.aantal = Math.max(0, k.aantal - 1); render(); },
     'koz-plus': function (d) { var el = findEl(d.id); if (!el) return; var k = el.koz[+d.i]; k.aantal = k.aantal + 1; render(); },
-    'zet-advies': function (d) { state.bijdrage = clamp(+d.nodig, 10, 400); render(); },
+    'zet-advies': function (d) { state.bijdrage = clamp(+d.nodig, 10, 400); state.invul.bijdrage = true; render(); },
+    'focus-bijdrage': function () {
+      var f = document.getElementById('bijdrage-num');
+      if (f) { f.scrollIntoView({ block: 'center' }); f.focus(); }
+    },
+    'focus-fonds': function () {
+      var f = document.getElementById('fonds-bedrag');
+      if (f) { f.scrollIntoView({ block: 'center' }); f.focus(); }
+    },
     'open-add-element': function () { state.addForm = { naam: '', jaar: CURRENT_YEAR + 1, bedrag: 0, cyclus: '' }; render(); },
     'cancel-add-element': function () { state.addForm = null; render(); },
     'add-from-library': function (d) {
@@ -3656,7 +3728,7 @@
     'el-cyclus': function (t, d) { var el = findEl(d.id); if (el) el.cyclus = num(t.value); },
     'el-bedrag': function (t, d) { var el = findEl(d.id); if (el) el.bedrag = num(t.value); },
     'el-basisjaar': function (t, d) { var el = findEl(d.id); if (el) el.basisjaar = num(t.value); },
-    'fonds-bedrag': function (t) { state.fonds = num(t.value); },
+    'fonds-bedrag': function (t) { state.fonds = num(t.value); state.invul.fonds = String(t.value).trim() !== ''; },
     'add-el-naam': function (t) { state.addForm.naam = t.value; },
     'add-el-jaar': function (t) { state.addForm.jaar = t.value; },
     'add-el-bedrag': function (t) { state.addForm.bedrag = t.value; },
@@ -3698,8 +3770,8 @@
   };
 
   var CHANGES = {
-    'bijdrage': function (t) { state.bijdrage = +t.value; render(); },
-    'bijdrage-bedrag': function (t) { state.bijdrage = clamp(num(t.value), 10, 400); render(); },
+    'bijdrage': function (t) { state.bijdrage = +t.value; state.invul.bijdrage = true; render(); },
+    'bijdrage-bedrag': function (t) { state.bijdrage = clamp(num(t.value), 10, 400); state.invul.bijdrage = true; render(); },
     'koz-materiaal': function (t, d) { var el = findEl(d.id); if (el) el.koz[+d.i].materiaal = t.value; render(); },
     'upload-map': function (t, d) { state.upload.mapping[d.veld] = +t.value; render(); },
     'profiel-rol': function (t) { if (state.profile) { state.profile.rol = t.value; render(); } },
@@ -3875,6 +3947,7 @@
       // pagina — een volledige render() haalt de slider weg tijdens het slepen.
       if (e.target && e.target.id === 'bijdrage-slider') {
         state.bijdrage = clamp(+e.target.value, 10, 400);
+        state.invul.bijdrage = true;
         var numEl = document.getElementById('bijdrage-num');
         if (numEl) numEl.value = state.bijdrage;
         updateOverzichtLive();
