@@ -1735,6 +1735,13 @@
     return html;
   }
 
+  // Gedeelde paginaopzet van de tabs (Gebouw, Planning, Rapport, elementdetail,
+  // Mijn gebouwen, Account): dezelfde grijze pagina met kaarten als het
+  // Overzicht (zie .ov-page/.ov in style.css). smal = leesbare kolombreedte
+  // voor lijsten; Planning en Account gebruiken de volle breedte.
+  function pgOpen(smal) { return '<div class="ov-page"><div class="ov' + (smal ? ' ov-narrow' : '') + '">'; }
+  var PG_CLOSE = '</div></div>';
+
   function renderApp() {
     var html = '<div class="app-shell">';
     // Los van de tabbalk: op mobiel (waar de tabbalk onderin ongewijzigd
@@ -1901,8 +1908,8 @@
   // vastlegt (geen naam/telefoon/adres/team — dit is geen multi-user-tool).
   // ---------------------------------------------------------------------
   function renderAccount() {
-    var html = '<div class="acct-page" style="padding:24px 0 8px">';
-    html += '<div style="padding:0 22px"><div class="page-title">Account</div></div>';
+    var html = pgOpen(false);
+    html += '<div class="pg-head"><h1 class="page-title">Account</h1></div>';
 
     // Weergave/Rapport hebben geen Supabase nodig (lokale app-instellingen)
     // — alleen Profiel (inloggen) en Abonnement zijn daarvan afhankelijk,
@@ -1934,7 +1941,7 @@
     html += '</div>';
 
     html += '</div></div>';
-    html += '</div>';
+    html += PG_CLOSE;
     return html;
   }
 
@@ -2175,10 +2182,10 @@
   // (detectSessionInUrl, standaard aan) en meldt dat via de
   // onAuthStateChange-listener, net als bij elke andere in-/uitlog-actie.
   function renderMijnGebouwen() {
-    var html = '<div style="padding:20px 0 8px">';
+    var html = pgOpen(true);
     html += '<div class="top-nav"><div class="back-link" data-act="set-tab" data-tab="home">‹ Overzicht</div></div>';
-    html += '<div style="padding:0 22px">';
-    html += '<div class="page-title">Mijn gebouwen</div>';
+    html += '<div class="pg-head">';
+    html += '<h1 class="page-title">Mijn gebouwen</h1>';
     html += '<div class="page-sub">Opgeslagen plannen — openen, hernoemen of verwijderen.</div>';
     html += '</div>';
 
@@ -2187,7 +2194,7 @@
     }
 
     if (state.plansUi.bezig && !state.plansLoaded) {
-      html += '<div class="section"><div class="hint" style="padding:0 22px">Bezig met laden…</div></div>';
+      html += '<div class="section"><div class="hint">Bezig met laden…</div></div>';
     } else if (state.savedPlans.length === 0) {
       html += '<div class="empty-block"><div class="empty-card">';
       html += '<div class="title">Nog geen opgeslagen plannen</div>';
@@ -2199,7 +2206,7 @@
       html += '</div></div>';
     }
 
-    html += '</div>';
+    html += PG_CLOSE;
     return html;
   }
 
@@ -2500,9 +2507,9 @@
     var metGebrekenCount = state.elements.filter(function (el) { return el.gebreken.length > 0; }).length;
     if (state.gebrekenFilter) els = els.filter(function (el) { return el.gebreken.length > 0; });
 
-    var html = '<div style="padding:24px 0 8px">';
-    html += '<div style="padding:0 22px">';
-    html += '<div class="page-title">Gebouw</div>';
+    var html = pgOpen(true);
+    html += '<div class="pg-head">';
+    html += '<h1 class="page-title">Gebouw</h1>';
     // Aantal appartementen komt uit de BAG maar klopt niet altijd (bv. bij
     // een pand dat als één verblijfsobject geregistreerd staat) — daarom
     // hier bewerkbaar, met dezelfde zichtbare invoerstijl als de velden
@@ -2543,7 +2550,7 @@
 
     if (state.addForm) html += renderAddElementForm();
 
-    html += '</div>';
+    html += PG_CLOSE;
     return html;
   }
 
@@ -2610,11 +2617,11 @@
     var score = conditionScore(el);
     var colors = scoreColors(score);
 
-    var html = '<div style="padding:20px 0 8px">';
+    var html = pgOpen(true);
     html += '<div class="top-nav"><div class="back-link" data-act="close-element">‹ Gebouw</div></div>';
-    html += '<div style="padding:0 22px">';
+    html += '<div class="pg-head">';
     html += '<div class="eyebrow">' + esc(el.categorie) + (el.sfb ? ' · NL-SfB ' + esc(el.sfb) : '') + ' · cyclus ' + el.cyclus + ' jaar</div>';
-    html += '<div class="page-title" style="font-size:24px;margin-top:8px">' + esc(el.naam) + '</div>';
+    html += '<h1 class="page-title">' + esc(el.naam) + '</h1>';
     html += '</div>';
 
     // Samenvatting bovenaan i.p.v. onderaan — dit is de eerste vraag die
@@ -2639,7 +2646,7 @@
     html += renderGebreken(el);
     html += renderOffertes(el);
 
-    html += '</div>';
+    html += PG_CLOSE;
     return html;
   }
 
@@ -2886,8 +2893,8 @@
     var piekjaar = rows.reduce(function (best, r) { return (!best || r.kosten > best.kosten) ? r : best; }, null);
     var piekPosten = piekjaar ? plan.filter(function (p) { return p.jaar === piekjaar.jaar; }) : [];
 
-    var html = '<div style="padding:24px 0 8px">';
-    html += '<div style="padding:0 22px"><div class="page-title">Planning</div>';
+    var html = pgOpen(false);
+    html += '<div class="pg-head"><h1 class="page-title">Planning</h1>';
     html += '<div class="page-sub">' + CURRENT_YEAR + ' – ' + (CURRENT_YEAR + HORIZON - 1) + ' · ' + eur(totaal) + ' totaal</div></div>';
 
     html += '<div class="planning-layout">';
@@ -2942,7 +2949,7 @@
 
     html += '</div>';
     html += '<div class="footer-note">Kosten na ' + (CURRENT_YEAR + HORIZON - 1) + ' vallen buiten deze toets — de simulatie kijkt alleen naar de getoonde ' + HORIZON + ' jaar.</div>';
-    html += '</div>';
+    html += PG_CLOSE;
     return html;
   }
 
@@ -2955,8 +2962,8 @@
     var eerste = rows.filter(function (r) { return r.saldo < 0; })[0];
     var nodig = benodigdeBijdrage(state);
 
-    var html = '<div style="padding:24px 0 8px">';
-    html += '<div style="padding:0 22px"><div class="page-title">Rapport</div>';
+    var html = pgOpen(true);
+    html += '<div class="pg-head"><h1 class="page-title">Rapport</h1>';
     html += '<div class="page-sub">' + esc(b.adres) + ' · ' + beoordeeld + ' van ' + state.elements.length + ' elementen beoordeeld</div></div>';
 
     html += '<div class="section"><div class="card pad">';
@@ -3000,7 +3007,7 @@
     html += '</div></div>';
 
     html += '<div class="footer-note">Bronnen: PDOK Locatieserver en BAG (Public Domain Mark 1.0), 3D BAG van de TU Delft (CC BY 4.0). Kengetallen zijn indicatieve richtprijzen, geen offerte.</div>';
-    html += '</div>';
+    html += PG_CLOSE;
     return html;
   }
 

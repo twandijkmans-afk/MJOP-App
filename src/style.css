@@ -670,16 +670,8 @@ input[type=range]::-moz-range-thumb {
     background: var(--card);
     min-height: 100vh;
   }
-  /* Uitzondering voor de Account-pagina: de linker sub-nav + rechter
-     kaart (.acct-layout) staan hier niet direct tegen elkaars randen aan
-     zoals bij de kaarten op andere pagina's, waardoor de rand van deze
-     achtergrond (bij 1080px) op een breed scherm goed zichtbaar was als
-     een naadje in de paginakleur. Achtergrond loopt hier daarom altijd
-     door tot de rand van het scherm; de max-width verhuist naar
-     .acct-layout zelf, dat verderop precies zo breed blijft als voorheen. */
-  .app-shell:has(.tab-bar) > div.acct-page {
-    max-width: none;
-  }
+  /* De tabs met een .ov-page (alle tabs, zie pgOpen() in app.js) lopen
+     zelf door tot de rand van het scherm; hun max-width staat op .ov. */
   .app-shell:has(.tab-bar) .acct-layout {
     max-width: 1080px;
   }
@@ -1069,4 +1061,93 @@ input[type=range].ov-slider::-moz-range-thumb { width: 20px; height: 20px; borde
   .ov-lower { grid-template-columns: minmax(320px, 400px) minmax(0, 1fr); column-gap: 48px; margin-top: 48px; }
   .ov-lower > :nth-child(1) { order: 2; }
   .ov-lower > :nth-child(2) { order: 1; }
+}
+
+/* ------------------------------------------------------------------
+   Overige tabs (Gebouw, Planning, Rapport, elementdetail, Mijn gebouwen,
+   Account) in dezelfde stijl als het Overzicht: grijze pagina met
+   kaarten (zie pgOpen() in app.js), groter lettertype, geen
+   hoofdletterlabels. Alles hieronder is gescoped op .ov, zodat de
+   gedeelde klassen (.row, .card, .chip, .tl-*, ...) elders — het
+   adresscherm, de upload-wizard, het afdrukrapport — ongemoeid blijven.
+   ------------------------------------------------------------------ */
+.ov-narrow { max-width: 1016px; margin-left: 0; }
+.ov .pg-head { padding: 0; }
+.ov .top-nav { padding: 0 0 12px; }
+.ov .back-link { font: 600 15px/1 var(--sans); }
+.ov .page-title { font: 800 clamp(28px, 3.4vw, 36px)/1.1 var(--heading); letter-spacing: -.025em; text-wrap: balance; }
+.ov .page-sub { margin-top: 10px; font: 400 15px/1.5 var(--sans); color: var(--ink-60); }
+.ov .eyebrow { margin-bottom: 8px; font: 500 14px/1.4 var(--sans); letter-spacing: 0; text-transform: none; color: var(--ink-60); }
+.ov .section { padding: 24px 0 0; }
+.ov .section-title { padding: 0; font: 700 17px/1.3 var(--heading); letter-spacing: 0; text-transform: none; color: var(--ink); }
+.ov .section-sub { padding: 4px 0 0; font-size: 14px; }
+.ov .card.pad { padding: 20px; }
+.ov .card .card { border: 0; }
+.ov .row { gap: 14px; padding: 14px 20px; }
+.ov .row .name { font: 500 15px/1.35 var(--sans); }
+.ov .row .meta { margin-top: 3px; font: 400 13px/1.4 var(--sans); }
+.ov .row .value { font: 700 15px/1 var(--sans); }
+.ov .row .value-sub { font: 400 12px/1 var(--sans); }
+.ov .row[data-act]:hover, .ov .tl-post[data-act]:hover { background: var(--panel); }
+.ov .el-badge { width: 36px; height: 36px; font: 700 14px/1 var(--sans); }
+.ov .sfb-tag { padding: 3px 6px; font: 500 12px/1 var(--sans); }
+.ov .origin-tag { font: 500 12px/1 var(--sans); letter-spacing: 0; text-transform: none; }
+.ov .chev { font-size: 22px; }
+.ov .chip-row { gap: 8px; padding: 20px 0 0; }
+.ov .chip { min-height: 40px; padding: 11px 16px; font: 500 14px/1 var(--sans); }
+.ov .add-el { padding: 16px 20px; }
+.ov .add-el .title { font: 600 15px/1.35 var(--sans); }
+.ov .add-el .sub { font: 400 13px/1.35 var(--sans); }
+.ov .kv .label { font: 400 14px/1.3 var(--sans); }
+.ov .kv.strong .label { font: 600 14px/1.3 var(--sans); }
+.ov .kv .amount { font: 700 20px/1 var(--sans); }
+.ov .hint { font: 400 13.5px/1.5 var(--sans); }
+.ov .notice { font: 400 14px/1.5 var(--sans); }
+.ov .input-row .label { font: 400 14px/1.35 var(--sans); }
+.ov .input-row input { min-height: 40px; font: 600 15px var(--sans); }
+.ov .inline-num { width: 56px; padding: 3px 6px; font: 500 14px var(--sans); }
+.ov .primary-btn, .ov .ghost-btn { padding: 15px 20px; border-radius: 8px; font: 600 15px/1 var(--sans); }
+.ov .primary-btn { background: var(--blue); color: #fff; }
+.ov .primary-btn:hover { background: var(--blue-dark); }
+.ov .primary-btn.accent { background: var(--accent); }
+.ov .primary-btn.accent:hover { background: var(--accent-dark); }
+.ov .footer-note { padding: 24px 0 0; font: 400 13px/1.6 var(--sans); color: var(--ink-60); }
+.ov .empty-block { padding: 24px 0 0; }
+
+/* Kozijnen en offertevergelijking */
+.ov .koz-head { font: 600 12px/1 var(--sans); letter-spacing: 0; text-transform: none; }
+.ov .koz-row .c1 { font-size: 14px; }
+.ov .koz-row .c1b select { font-size: 13px; }
+.ov .koz-row .c3 input { font-size: 13px; }
+.ov .koz-row .c3 .hint { font-size: 11px; }
+.ov .koz-row .c4, .ov .koz-row .c2 .val { font-size: 13px; }
+.ov .ct-head .c1 { font-size: 12px; }
+.ov .ct-colname { font-size: 12px; }
+.ov .ct-row .c1, .ov .ct-total .c1 { font-size: 13px; }
+.ov .ct-cell, .ov .ct-total .amount, .ov .ct-rang { font-size: 12.5px; }
+.ov .compare-text { font-size: 12px; }
+
+/* Planning: samenvatting naast de tijdlijn */
+.ov .planning-layout { gap: 32px; }
+.ov .planning-side .section { padding-left: 0; padding-right: 0; }
+.ov .timeline { margin-top: 0; }
+.ov .timeline-head span { font: 500 13px/1 var(--sans); letter-spacing: 0; text-transform: none; }
+.ov .tl-year { width: 46px; font: 700 14px/1.2 var(--sans); }
+.ov .tl-post { padding: 14px 16px; }
+.ov .tl-post .name { font: 500 15px/1.35 var(--sans); }
+.ov .tl-post .meta { font: 400 13px/1.4 var(--sans); }
+.ov .tl-post .amount { padding: 6px 10px; font: 700 14px/1 var(--sans); }
+.ov .tl-empty { font-size: 13px; }
+.ov .tl-saldo { min-width: 76px; font: 600 13px/1 var(--sans); }
+
+/* Account */
+.ov .acct-nav-item { font-size: 14.5px; }
+.ov .acct-content-title { font: 700 17px/1.3 var(--heading); }
+.ov .acct-profile-name { font-size: 15px; }
+.ov .acct-profile-sub { font-size: 13px; }
+.ov .toggle-row .hint, .ov .row .meta { max-width: 60em; }
+
+@media (min-width: 960px) {
+  .ov .planning-layout { gap: 40px; }
+  .ov .planning-side { flex: 0 0 320px; }
 }
