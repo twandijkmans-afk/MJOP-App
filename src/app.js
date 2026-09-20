@@ -1310,7 +1310,6 @@
       if (!el.hasAttribute('tabindex')) el.setAttribute('tabindex', '0');
       if (!el.hasAttribute('role')) el.setAttribute('role', 'button');
     });
-    if (screen === 'marketing') initMktHeroScroll();
     if (focusInfo) {
       var el = document.getElementById(focusInfo.id);
       if (el) {
@@ -1369,90 +1368,13 @@
     return '<div class="choice-logo" data-act="goto-marketing"><div class="mark">M</div><div class="word">MJOP Live</div></div>';
   }
 
-  // ---------------------------------------------------------------------
-  // Sfeerbeeld in de hero (marketing-homepage): geen <video>, maar een
-  // reeks van 40 losse jpg-beeldjes (assets/hero-scroll/frame-01..40.jpg)
-  // die op een <canvas> getekend worden, telkens één stap verder terwijl
-  // de bezoeker door de hero scrollt. Alleen op desktopbreedte (zie
-  // isDesktopWidth(), dezelfde grens als de marketing-gating) — op een
-  // smallere weergave staat er gewoon een losse posterfoto (zie
-  // renderMarketing()), geen canvas/JS-overhead.
-  // ---------------------------------------------------------------------
-  var HERO_FRAME_COUNT = 40;
-  var heroFrames = null;
-
-  function loadHeroFrames() {
-    if (heroFrames) return;
-    heroFrames = [];
-    for (var i = 1; i <= HERO_FRAME_COUNT; i++) {
-      var img = new Image();
-      img.src = 'assets/hero-scroll/frame-' + (i < 10 ? '0' + i : i) + '.jpg';
-      heroFrames.push(img);
-    }
-  }
-
-  function drawHeroFrame(canvas, img) {
-    if (!img || !img.complete || !img.naturalWidth) return;
-    var dpr = window.devicePixelRatio || 1;
-    var displayW = canvas.clientWidth, displayH = canvas.clientHeight;
-    if (!displayW || !displayH) return;
-    var targetW = Math.round(displayW * dpr), targetH = Math.round(displayH * dpr);
-    if (canvas.width !== targetW || canvas.height !== targetH) {
-      canvas.width = targetW;
-      canvas.height = targetH;
-    }
-    var ctx = canvas.getContext('2d');
-    // "cover"-gedrag: uitvullen zonder de beeldverhouding te vervormen,
-    // overschot valt buiten het canvas (zelfde als CSS object-fit:cover).
-    var scale = Math.max(targetW / img.naturalWidth, targetH / img.naturalHeight);
-    var drawW = img.naturalWidth * scale, drawH = img.naturalHeight * scale;
-    var dx = (targetW - drawW) / 2, dy = (targetH - drawH) / 2;
-    ctx.clearRect(0, 0, targetW, targetH);
-    ctx.drawImage(img, dx, dy, drawW, drawH);
-  }
-
-  var heroScrollTicking = false;
-  function updateHeroScrollFrame() {
-    heroScrollTicking = false;
-    var canvas = document.querySelector('.mkt-hero-canvas');
-    // .mkt-hero-pin-wrap is hoger dan het scherm (200vh) en .mkt-hero
-    // blijft daarbinnen "vastgeplakt" (position:sticky) — de voortgang
-    // wordt dus afgemeten aan hoever de wrapper zelf al gescrold is
-    // (i.p.v. aan .mkt-hero, die zolang 'ie vastzit altijd top:71px
-    // blijft tonen en dus geen bruikbare voortgang zou geven).
-    var wrap = document.querySelector('.mkt-hero-pin-wrap');
-    if (!canvas || !wrap || !heroFrames) return;
-    var rect = wrap.getBoundingClientRect();
-    var scrollable = rect.height - window.innerHeight;
-    var progress = scrollable > 0 ? clamp(-rect.top / scrollable, 0, 1) : 0;
-    var idx = Math.min(HERO_FRAME_COUNT - 1, Math.floor(progress * HERO_FRAME_COUNT));
-    drawHeroFrame(canvas, heroFrames[idx]);
-  }
-
-  function onHeroScroll() {
-    if (heroScrollTicking) return;
-    heroScrollTicking = true;
-    requestAnimationFrame(updateHeroScrollFrame);
-  }
-
-  // Na elke render() opnieuw aanroepen (zie render()) — root.innerHTML
-  // vervangt de hele DOM, dus het <canvas>-element van hiervoor bestaat
-  // niet meer en moet z'n eerste frame opnieuw getekend krijgen. De
-  // geladen Image()-objecten (heroFrames) blijven wel gewoon in het
-  // geheugen staan tussen renders, dus geen dubbel laden.
-  function initMktHeroScroll() {
-    var canvas = document.querySelector('.mkt-hero-canvas');
-    if (!canvas) return; // posterfoto i.p.v. canvas (smalle weergave)
-    if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-    loadHeroFrames();
-    if (heroFrames[0].complete) updateHeroScrollFrame();
-    else heroFrames[0].addEventListener('load', updateHeroScrollFrame, { once: true });
-  }
-
   // Het voorbeeldgebouw start met een richtsaldo (€ 2.500 per appartement,
   // zie README) i.p.v. € 0, zodat de homepage en het geopende voorbeeld
   // dezelfde, herkenbare cijfers tonen.
   var VOORBEELD_FONDS_PER_APP = 2500;
+  // Bijdrage van de slider in de homepage-hero; het geopende voorbeeld
+  // start met dezelfde waarde.
+  var mktDemoBijdrage = 55;
 
   // Een losstaand plan van het voorbeeldgebouw, voor de weergave op de
   // homepage. Raakt `state` niet aan: overzichtModel() rekent op wat het
@@ -1461,7 +1383,7 @@
     var b = defaultBuilding();
     return {
       building: b, elements: buildDefaultElements(b), fonds: b.units * VOORBEELD_FONDS_PER_APP,
-      bijdrage: 55, offertes: {}, bijvullen: {}, settings: state.settings
+      bijdrage: mktDemoBijdrage, offertes: {}, bijvullen: {}, settings: state.settings
     };
   }
 
@@ -1493,14 +1415,8 @@
     var html = '<div class="mkt">';
     html += renderMarketingHeader();
 
-    html += '<div class="mkt-hero-pin-wrap"><div class="mkt-hero">';
-    html += '<div class="mkt-hero-bg">';
-    html += isDesktopWidth()
-      ? '<canvas class="mkt-hero-canvas"></canvas>'
-      : '<img src="assets/hero-scroll/poster-mobile.jpg" alt="" />';
-    html += '</div>';
-    html += '<div class="mkt-hero-scrim"></div>';
-    html += '<div class="mkt-hero-inner">';
+    var demo = overzichtModel(voorbeeldPlan());
+    html += '<div class="mkt-hero">';
     html += '<div class="mkt-hero-copy">';
     html += '<h1 class="mkt-h1">Spaart jullie VvE genoeg voor het onderhoud?</h1>';
     html += '<p class="mkt-sub">Zoek je adres op. MJOP Live haalt bouwjaar, dakoppervlak en gevelmaten uit de BAG en 3D BAG en rekent uit welke bijdrage per maand nodig is.</p>';
@@ -1512,22 +1428,19 @@
     html += '</div>';
     html += state.session ? '' : '<div class="mkt-fineprint">Gratis, zonder account. Inloggen hoef je pas om je plan op te slaan.</div>';
     html += '</div>';
-    html += '</div>'; // .mkt-hero-inner
-    html += '</div></div>'; // .mkt-hero, .mkt-hero-pin-wrap
 
     // Het echte Overzicht van het voorbeeldplan (zelfde functies als de
-    // app), i.p.v. een nagebouwde, vervaagde mockup.
-    var demo = overzichtModel(voorbeeldPlan());
-    html += '<div class="mkt-section" id="mkt-preview"><div class="mkt-section-title">Zo ziet je plan eruit</div>';
-    html += '<div class="mkt-section-sub">Een portiekflat uit 1978 met 8 appartementen, een bijdrage van ' + eur(demo.bijdrage) + ' per maand en ' + eur(demo.fonds) + ' in het reservefonds.</div>';
-    html += '<div class="mkt-demo">';
-    html += '<div class="mkt-demo-text">' + ovVerdictHtml(demo, true);
-    if (!eigen) html += '<button type="button" class="ov-btn" data-act="open-voorbeeld">Open het voorbeeldplan</button>';
+    // app), met een slider die verdict en grafiek live bijwerkt (zie de
+    // input-listener onderaan).
+    html += '<div class="ov-card mkt-hero-demo">';
+    html += '<p class="ov-sub">Voorbeeld: een portiekflat uit 1978 met 8 appartementen en ' + eur(demo.fonds) + ' in het reservefonds.</p>';
+    html += '<div id="mkt-live-verdict">' + ovVerdictHtml(demo, true) + '</div>';
+    html += '<div class="mkt-demo-slider"><label class="ov-row" for="mkt-slider"><span>Bijdrage per appartement per maand</span><output id="mkt-out" class="mkt-out">' + eur(demo.bijdrage) + '</output></label>';
+    html += '<input id="mkt-slider" class="ov-slider" type="range" min="10" max="400" step="5" value="' + demo.bijdrage + '" />';
+    html += '<div class="ov-range"><span>€ 10</span><span>€ 400</span></div></div>';
+    html += '<div class="ov-chart" id="mkt-live-chart">' + ovChartHtml(demo) + '</div>';
     html += '</div>';
-    html += '<div class="ov-card"><h2 class="ov-h2">Saldo van het reservefonds</h2>';
-    html += '<p class="ov-sub">Aan het einde van elk jaar</p>';
-    html += '<div class="ov-chart">' + ovChartHtml(demo) + '</div></div>';
-    html += '</div></div>';
+    html += '</div>';
 
     html += '<div class="mkt-section shaded" id="mkt-features"><div class="mkt-section-inner">';
     html += '<div class="mkt-section-title">Alles wat een bestuur nodig heeft</div>';
@@ -2359,11 +2272,14 @@
     return g.top.naam + (g.aantal > 1 ? ' en ' + (g.aantal - 1) + ' andere' : '');
   }
 
+  // zonderKnop = de homepage-weergave: geen actieknop, en de kop is een h2
+  // omdat de hero zelf al een h1 heeft.
   function ovVerdictHtml(m, zonderKnop) {
     var b = m.bijdrage;
-    var html = '<h1 class="ov-head">' + (m.eerste
+    var kop = zonderKnop ? 'h2' : 'h1';
+    var html = '<' + kop + ' class="ov-head">' + (m.eerste
       ? 'Bij ' + eur(b) + ' per maand is het fonds in ' + m.eerste.jaar + ' leeg.'
-      : 'Bij ' + eur(b) + ' per maand blijft het fonds de komende ' + HORIZON + ' jaar op peil.') + '</h1>';
+      : 'Bij ' + eur(b) + ' per maand blijft het fonds de komende ' + HORIZON + ' jaar op peil.') + '</' + kop + '>';
     html += '<p class="ov-lede">' + (m.eerste
       ? 'Je hebt ' + eur(m.nodig) + ' per appartement per maand nodig om alle posten tot en met ' + m.eind + ' te betalen' +
         (b < m.nodig ? ', ' + eur(m.nodig - b) + ' meer dan nu.' : '.')
@@ -3219,6 +3135,7 @@
       var vers = !state.elements.length;
       applyBuilding(defaultBuilding());
       if (vers && !state.fonds) state.fonds = state.building.units * VOORBEELD_FONDS_PER_APP;
+      if (vers) state.bijdrage = mktDemoBijdrage;
       render();
     },
     'skip-onboarding': function () { ACTIONS['open-voorbeeld'](); },
@@ -3858,11 +3775,6 @@
     // gewoon null en valt indexeerBedrag()/elementMeta() terug op de vaste
     // INDEXATIE_PCT-schatting.
     laadCbsIndexatie();
-    // Eén keer geregistreerd, niet per render() — render() vervangt de
-    // hele DOM (root.innerHTML = ...), dus deze listener zoekt bij elke
-    // scroll opnieuw naar .mkt-hero-canvas i.p.v. een vaste referentie
-    // vast te houden die na een re-render niet meer bestaat.
-    window.addEventListener('scroll', onHeroScroll, { passive: true });
     // Enige plek die state.session/state.user zet: dit vuurt bij het
     // laden meteen met de bestaande sessie (of null), en daarna bij elke
     // in-/uitlog-actie — zo blijft een reload ingelogd (Supabase bewaart
@@ -3939,6 +3851,14 @@
         var numEl = document.getElementById('bijdrage-num');
         if (numEl) numEl.value = state.bijdrage;
         updateOverzichtLive();
+        return;
+      }
+      if (e.target && e.target.id === 'mkt-slider') {
+        mktDemoBijdrage = clamp(+e.target.value, 10, 400);
+        var dm = overzichtModel(voorbeeldPlan());
+        document.getElementById('mkt-live-verdict').innerHTML = ovVerdictHtml(dm, true);
+        document.getElementById('mkt-live-chart').innerHTML = ovChartHtml(dm);
+        document.getElementById('mkt-out').textContent = eur(dm.bijdrage);
         return;
       }
       var t = e.target.closest('[data-bind]');

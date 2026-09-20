@@ -48,10 +48,14 @@ duidelijke melding op het "Inloggen"-tabblad. Om het aan te zetten:
 Een niet-ingelogde bezoeker op desktopbreedte (≥960px) krijgt eerst een
 marketing-homepage te zien (`renderMarketing` in `src/app.js`) in plaats
 van direct het adres-opzoekscherm: header met logo/navigatie, een hero met
-een vervaagde/vergrendelde mockup van het Overzicht-scherm, een
-featuressectie en "hoe het werkt". "Inloggen en MJOP starten" gaat naar een
-los loginscherm (`renderLoginScreen`); "Bekijk een voorbeeldplan" gaat
-direct door naar het gewone adres-opzoekscherm, ook zonder account.
+links de vraag en de knoppen en rechts het echte Overzicht van het
+voorbeeldgebouw (dezelfde verdict-/grafiekfuncties als de app, met een
+slider die live meebeweegt), een featuressectie, "hoe het werkt" en
+prijzen. "Reken je eigen gebouw door" gaat naar het adres-opzoekscherm en
+"Bekijk het voorbeeldplan" opent het voorbeeldgebouw (actie
+`open-voorbeeld`), beide zonder account; inloggen kan via de knop
+rechtsboven. Wie al een eigen plan open heeft, krijgt geen
+voorbeeldplan-links.
 
 Dit is puur een landingsscherm, geen harde toegangscontrole: het adres
 opzoeken, het voorbeeldgebouw en het bekijken/bewerken van een plan blijven
