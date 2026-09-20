@@ -8,91 +8,140 @@
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="icon" href="icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="theme-color" content="#223555">
+<meta name="theme-color" content="#1F5FA8">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="src/style.css">
+<script>
+  // Zelfde donker/licht-keuze als in de app (die slaat 'm op onder mjop-theme).
+  try {
+    var t = localStorage.getItem('mjop-theme');
+    document.documentElement.setAttribute('data-theme', t === 'dark' ? 'dark' : 'light');
+  } catch (e) { document.documentElement.setAttribute('data-theme', 'light'); }
+</script>
 <style>
-  body { background: var(--page); margin: 0; }
-  .pv-wrap { max-width: 720px; margin: 0 auto; padding: 60px 24px 80px; }
-  .pv-back { display: inline-flex; align-items: center; gap: 8px; color: var(--link); font: 500 13.5px/1 var(--sans); text-decoration: none; cursor: pointer; }
-  .pv-back:hover { color: var(--link-dark); }
-  .pv-logo { display: flex; align-items: center; gap: 10px; margin-top: 28px; }
-  .pv-logo .mark { width: 30px; height: 30px; border-radius: 6px; background: var(--blue); color: #fff; display: flex; align-items: center; justify-content: center; font: 700 15px/1 var(--heading); flex: none; }
-  .pv-logo .word { font: 700 16px/1 var(--heading); letter-spacing: -.01em; color: var(--blue); }
-  h1.pv-title { font: 700 30px/1.25 var(--heading); color: var(--ink); margin: 28px 0 6px; letter-spacing: -.01em; }
-  .pv-updated { font: 400 12.5px/1.5 var(--sans); color: var(--ink-45); margin-bottom: 36px; }
-  .pv-wrap h2 { font: 700 18px/1.3 var(--heading); color: var(--ink); margin: 40px 0 12px; }
-  .pv-wrap p, .pv-wrap li { font: 400 14.5px/1.7 var(--sans); color: var(--ink-60); }
-  .pv-wrap ul { margin: 8px 0; padding-left: 20px; }
-  .pv-wrap li { margin: 4px 0; }
-  .pv-wrap strong { color: var(--ink); font-weight: 500; }
+  body { margin: 0; background: var(--page); color: var(--ink); }
+  .pv-wrap { max-width: 760px; margin: 0 auto; padding: 32px 24px 80px; }
+  .pv-top { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+  .pv-logo { display: inline-flex; align-items: center; gap: 10px; color: var(--ink); text-decoration: none; }
+  .pv-logo .mark { display: flex; align-items: center; justify-content: center; flex: none; width: 30px; height: 30px; border-radius: 6px; background: var(--blue); color: #fff; font: 700 15px/1 var(--heading); }
+  .pv-logo .word { font: 700 16px/1 var(--heading); letter-spacing: -.01em; }
+  .pv-back { color: var(--link); font: 600 15px/1 var(--sans); text-decoration: none; }
+  .pv-back:hover { text-decoration: underline; }
+  .pv-title { margin: 48px 0 0; font: 800 clamp(32px, 5vw, 44px)/1.08 var(--heading); letter-spacing: -.03em; text-wrap: balance; }
+  .pv-updated { margin: 12px 0 0; font: 400 14px/1.5 var(--sans); color: var(--ink-60); }
+  .pv-summary { margin-top: 32px; padding: 24px; border: 1px solid var(--ink-10); border-radius: 10px; background: var(--card); }
+  .pv-wrap h2 { margin: 48px 0 12px; font: 700 21px/1.3 var(--heading); letter-spacing: -.01em; }
+  .pv-wrap .pv-summary h2 { margin: 0 0 8px; font-size: 18px; }
+  .pv-wrap p, .pv-wrap li { font: 400 16px/1.7 var(--sans); color: var(--ink-60); }
+  .pv-wrap p { margin: 0 0 12px; }
+  .pv-wrap ul { margin: 8px 0 12px; padding-left: 22px; }
+  .pv-wrap li { margin: 6px 0; }
+  .pv-wrap strong { color: var(--ink); font-weight: 600; }
   .pv-wrap a { color: var(--link); }
-  .pv-todo { margin-top: 8px; padding: 14px 16px; border-radius: 8px; background: var(--bad-bg); color: var(--bad-fg); font: 500 13px/1.6 var(--sans); }
-  .pv-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-  .pv-table th, .pv-table td { text-align: left; padding: 9px 10px; font: 400 13px/1.5 var(--sans); color: var(--ink-60); border-bottom: 1px solid var(--ink-08); vertical-align: top; }
-  .pv-table th { color: var(--ink); font-weight: 500; }
+  .pv-summary ul { margin-bottom: 0; }
+  .pv-todo { margin: 12px 0 0; padding: 16px 18px; border-radius: 8px; background: var(--warn-bg); color: var(--warn-fg); font: 500 14px/1.6 var(--sans); }
+  .pv-todo strong { color: inherit; }
+  .pv-todo ul { margin: 8px 0 0; }
+  .pv-todo li { font: 500 14px/1.6 var(--sans); color: inherit; }
+  .pv-scroll { overflow-x: auto; margin: 12px 0; border: 1px solid var(--ink-10); border-radius: 10px; background: var(--card); }
+  .pv-table { width: 100%; border-collapse: collapse; }
+  .pv-table th, .pv-table td { padding: 12px 16px; border-top: 1px solid var(--ink-08); text-align: left; vertical-align: top; font: 400 14.5px/1.55 var(--sans); color: var(--ink-60); }
+  .pv-table tr:first-child th { border-top: 0; }
+  .pv-table th { background: var(--panel); color: var(--ink); font-weight: 600; font-size: 14px; }
+  .pv-table td:first-child { color: var(--ink); font-weight: 600; white-space: nowrap; }
+  @media (max-width: 640px) { .pv-table td:first-child { white-space: normal; } }
 </style>
 </head>
 <body>
 <div class="pv-wrap">
-  <a class="pv-back" href="index.html">← Terug naar MJOP Live</a>
-  <div class="pv-logo"><div class="mark">M</div><div class="word">MJOP Live</div></div>
+  <div class="pv-top">
+    <a class="pv-logo" href="index.html"><span class="mark">M</span><span class="word">MJOP Live</span></a>
+    <a class="pv-back" href="index.html">‹ Terug naar MJOP Live</a>
+  </div>
   <h1 class="pv-title">Privacyverklaring</h1>
-  <div class="pv-updated">Laatst bijgewerkt: 17 september 2026</div>
+  <p class="pv-updated">Laatst bijgewerkt: 20 september 2026</p>
 
-  <h2>Wie is verantwoordelijk voor uw gegevens</h2>
-  <div class="pv-todo">
-    ⚠️ Nog in te vullen vóór publicatie: naam (of bedrijfsnaam) en een contact-e-mailadres voor privacyvragen van de verwerkingsverantwoordelijke van MJOP Live.
+  <div class="pv-summary">
+    <h2>Kort samengevat</h2>
+    <ul>
+      <li>Zonder account bewaren wij niets van je. Je plan blijft in je eigen browser.</li>
+      <li>Met een account bewaren we je e-mailadres, je plannen en de gegevens die je zelf invult.</li>
+      <li>Betalen gaat via Stripe. Je kaart- of iDEAL-gegevens zien en bewaren wij niet.</li>
+      <li>We gebruiken je gegevens niet voor marketing en verkopen ze niet door.</li>
+      <li>Je kunt je gegevens zelf downloaden en je account zelf verwijderen, onder Account.</li>
+    </ul>
   </div>
 
-  <h2>Welke gegevens verzamelen we</h2>
-  <p>MJOP Live verzamelt zo min mogelijk gegevens — precies wat nodig is om in te loggen en uw meerjarenonderhoudsplan te bewaren:</p>
-  <ul>
-    <li><strong>E-mailadres</strong> — voor het versturen van de eenmalige inloglink en om uw opgeslagen plannen aan uw account te koppelen.</li>
-    <li><strong>De inhoud van uw plan</strong> — het adres van het gebouw, bouwjaar en oppervlaktes (opgehaald uit de BAG/3D BAG), de elementen en hun conditie, offertes die u zelf toevoegt, en het reservefonds/de bijdrage die u invult.</li>
-  </ul>
-  <p>We vragen nooit om uw naam, telefoonnummer of betaalgegevens — die worden nergens in de app opgeslagen.</p>
+  <h2>Wie is verantwoordelijk voor je gegevens</h2>
+  <div class="pv-todo">
+    <strong>Nog in te vullen vóór publicatie:</strong> naam (of bedrijfsnaam) en een contact-e-mailadres voor privacyvragen van de verwerkingsverantwoordelijke van MJOP Live.
+  </div>
 
-  <h2>Waarvoor gebruiken we deze gegevens</h2>
-  <p>Uitsluitend om de dienst te leveren: u laten inloggen zonder wachtwoord, en uw plan bewaren zodat u het later kunt terugvinden en bijwerken. We gebruiken uw gegevens niet voor marketing, verkopen ze niet door, en delen ze niet met adverteerders.</p>
+  <h2>Welke gegevens we verzamelen</h2>
+  <p>MJOP Live verzamelt zo min mogelijk: precies wat nodig is om je in te laten loggen, je plan te bewaren en een abonnement af te handelen.</p>
+  <div class="pv-scroll">
+    <table class="pv-table">
+      <tr><th>Gegeven</th><th>Wat we bewaren</th></tr>
+      <tr><td>Account</td><td>Je e-mailadres, voor de eenmalige inloglink en om je plannen aan je account te koppelen.</td></tr>
+      <tr><td>Je plan</td><td>Het adres van het gebouw, bouwjaar en oppervlaktes (uit de BAG en 3D BAG), de onderhoudsposten en hun staat, offertes die je zelf toevoegt, en het reservefonds en de bijdrage die je invult.</td></tr>
+      <tr><td>Profiel</td><td>Alleen als je het invult: je voor- en achternaam, telefoonnummer, rol, de naam van je VvE of bedrijf, KvK-nummer, factuuradres en btw-nummer.</td></tr>
+      <tr><td>Abonnement</td><td>De status en einddatum van je abonnement en een klantnummer bij Stripe. Je kaart- of iDEAL-gegevens verwerkt Stripe zelf; die krijgen wij niet te zien.</td></tr>
+    </table>
+  </div>
+  <p>Zonder account stuurt de app alleen het adres dat je typt naar PDOK om bouwgegevens op te zoeken. Je plan blijft dan in je browser en verdwijnt zodra je het tabblad sluit.</p>
 
-  <h2>Grondslag</h2>
-  <p>We verwerken uw gegevens omdat dat nodig is om de dienst te kunnen leveren die u zelf aanvraagt (uitvoering van de overeenkomst) — het aanmaken van een account en het opslaan van een plan gebeurt alleen op uw eigen initiatief.</p>
+  <h2>Waarvoor we je gegevens gebruiken</h2>
+  <p>Alleen om de dienst te leveren: je zonder wachtwoord laten inloggen, je plan bewaren zodat je het later kunt terugvinden en bijwerken, en je abonnement en facturen afhandelen. Je organisatienaam staat alleen op je rapport als jij dat aanzet. We gebruiken je gegevens niet voor marketing, verkopen ze niet door en delen ze niet met adverteerders.</p>
 
-  <h2>Met wie delen we gegevens</h2>
-  <p>MJOP Live is een kleine, zelfstandige applicatie. We schakelen alleen de volgende partijen in om de dienst technisch te laten werken:</p>
-  <table class="pv-table">
-    <tr><th>Partij</th><th>Waarvoor</th><th>Waar</th></tr>
-    <tr><td>Supabase</td><td>Inloggen en het opslaan van uw plan (database)</td><td>EU (Europese projectregio)</td></tr>
-    <tr><td>Resend</td><td>Het versturen van de inloglink per e-mail</td><td>Verenigde Staten</td></tr>
-    <tr><td>GitHub Pages</td><td>Het hosten van deze website</td><td>Kan buiten de EU zijn (afhankelijk van de contentserver)</td></tr>
-    <tr><td>PDOK / Kadaster (BAG), 3D BAG (TU Delft)</td><td>Opzoeken van bouwjaar, oppervlaktes en hoogte bij een adres</td><td>Nederland — er wordt geen accountgegeven meegestuurd, alleen het door u ingetypte adres</td></tr>
-  </table>
-  <p>Voor Resend geldt dat gegevens (uw e-mailadres, om de inloglink te versturen) buiten de EU verwerkt worden. Wij vragen Resend te werken volgens de daarvoor geldende Europese waarborgen (zoals modelcontractbepalingen); vraag de actuele afspraken op bij de verantwoordelijke hierboven als u dit precies wilt weten.</p>
+  <h2>Op welke grondslag</h2>
+  <p>We verwerken je gegevens omdat dat nodig is om de dienst te leveren die je zelf aanvraagt (uitvoering van de overeenkomst). Een account aanmaken, een plan opslaan en een abonnement afsluiten gebeurt alleen op je eigen initiatief.</p>
+
+  <h2>Met wie we gegevens delen</h2>
+  <p>MJOP Live is een kleine, zelfstandige applicatie. We schakelen alleen deze partijen in om de dienst technisch te laten werken:</p>
+  <div class="pv-scroll">
+    <table class="pv-table">
+      <tr><th>Partij</th><th>Waarvoor</th><th>Waar</th></tr>
+      <tr><td>Supabase</td><td>Inloggen en het opslaan van je plan en profiel (database)</td><td>EU (Europese projectregio)</td></tr>
+      <tr><td>Stripe</td><td>Betalingen en abonnementen; Stripe ontvangt je e-mailadres en de betaalgegevens die je op hun pagina invult</td><td>Kan buiten de EU zijn; zie de privacyverklaring van Stripe</td></tr>
+      <tr><td>Resend</td><td>Het versturen van de inloglink per e-mail</td><td>Verenigde Staten</td></tr>
+      <tr><td>GitHub Pages</td><td>Het hosten van deze website</td><td>Kan buiten de EU zijn (afhankelijk van de contentserver)</td></tr>
+      <tr><td>PDOK, Kadaster (BAG) en 3D BAG (TU Delft)</td><td>Opzoeken van bouwjaar, oppervlaktes en hoogte bij een adres</td><td>Nederland. Er gaat geen accountgegeven mee, alleen het adres dat je typt.</td></tr>
+    </table>
+  </div>
+  <p>Voor Resend (je e-mailadres, om de inloglink te versturen) en mogelijk voor Stripe worden gegevens buiten de EU verwerkt. We vragen deze partijen te werken volgens de Europese waarborgen daarvoor, zoals modelcontractbepalingen. Wil je precies weten welke afspraken er gelden? Vraag het aan de verantwoordelijke hierboven.</p>
+  <div class="pv-todo">
+    <strong>Controleer vóór publicatie:</strong>
+    <ul>
+      <li>of Resend nog de e-mailprovider is voor de inloglink;</li>
+      <li>de locatie en de afspraken met Stripe (verwerkersovereenkomst);</li>
+      <li>de bewaartermijn van betalings- en factuurgegevens (zie hieronder).</li>
+    </ul>
+  </div>
 
   <h2>Cookies en volgen</h2>
-  <p>MJOP Live gebruikt geen advertentie- of trackingcookies, en geen analytics (zoals Google Analytics). Uw sessie (dat u ingelogd blijft) wordt lokaal in uw browser onthouden door Supabase, niet via een cookie die aan derden wordt doorgegeven.</p>
+  <p>MJOP Live gebruikt geen advertentie- of trackingcookies en geen analytics (zoals Google Analytics). Dat je ingelogd blijft, onthoudt je browser lokaal via Supabase, niet via een cookie voor derden. Op de betaalpagina van Stripe gelden de cookies van Stripe.</p>
 
   <h2>Hoe lang we gegevens bewaren</h2>
-  <p>Uw account en opgeslagen plannen blijven bestaan tot u ze zelf verwijdert, of tot u vraagt om uw account te laten verwijderen (zie hieronder). Er is op dit moment geen automatische verwijdering na een bepaalde periode van inactiviteit.</p>
+  <p>Je account, profiel en opgeslagen plannen blijven bestaan tot je ze zelf verwijdert. Er is op dit moment geen automatische verwijdering na een periode van inactiviteit.</p>
+  <p>Verwijder je je account, dan zeggen we een lopend abonnement op en verwijderen we je profiel, je plannen en je abonnementsgegevens uit onze database. Gegevens die Stripe of wij volgens de wet voor de administratie moeten bewaren, zoals facturen, kunnen langer bewaard blijven.</p>
 
   <h2>Beveiliging</h2>
-  <p>Inloggen gaat zonder wachtwoord via een eenmalige, tijdelijk geldige link per e-mail. Uw opgeslagen plannen zijn in de database afgeschermd zodat alleen uzelf, ingelogd met uw eigen account, ze kan inzien of wijzigen — ook wij hebben daar zonder uw account geen toegang toe via de applicatie.</p>
+  <p>Inloggen gaat zonder wachtwoord, met een eenmalige en tijdelijk geldige link per e-mail. Je opgeslagen plannen, je profiel en je abonnementsgegevens zijn in de database afgeschermd: alleen jij kunt ze inzien, ingelogd met je eigen account. Ook wij hebben via de applicatie geen toegang tot je plannen zonder jouw account.</p>
 
-  <h2>Uw rechten</h2>
-  <p>U heeft het recht om:</p>
+  <h2>Je rechten</h2>
+  <p>Je hebt het recht om:</p>
   <ul>
-    <li>inzage te vragen in de gegevens die we van u hebben;</li>
+    <li>inzage te vragen in de gegevens die we van je hebben;</li>
     <li>onjuiste gegevens te laten corrigeren;</li>
-    <li>uw gegevens (en account) te laten verwijderen;</li>
-    <li>uw gegevens in een overdraagbaar formaat te ontvangen;</li>
-    <li>bezwaar te maken tegen de verwerking van uw gegevens.</li>
+    <li>je gegevens en je account te laten verwijderen;</li>
+    <li>je gegevens in een overdraagbaar formaat te ontvangen;</li>
+    <li>bezwaar te maken tegen de verwerking van je gegevens.</li>
   </ul>
-  <p>Voor al deze verzoeken kunt u contact opnemen via het e-mailadres hierboven. Bent u het niet eens met hoe we met uw verzoek omgaan, dan kunt u een klacht indienen bij de <a href="https://www.autoriteitpersoonsgegevens.nl" target="_blank" rel="noopener">Autoriteit Persoonsgegevens</a>.</p>
+  <p>Veel hiervan kun je zelf doen. Onder <strong>Account, Mijn profiel</strong> kun je je gegevens (profiel, abonnement en al je plannen) downloaden als bestand en je account verwijderen. Je profiel kun je daar ook zelf aanpassen. Voor andere verzoeken neem je contact op via het e-mailadres hierboven. Ben je het niet eens met hoe we met je verzoek omgaan? Dan kun je een klacht indienen bij de <a href="https://www.autoriteitpersoonsgegevens.nl" target="_blank" rel="noopener">Autoriteit Persoonsgegevens</a>.</p>
 
   <h2>Wijzigingen</h2>
-  <p>Deze verklaring kan worden aangepast als de app verandert (bijvoorbeeld als er nieuwe functies of dienstverleners bijkomen). De datum bovenaan deze pagina laat zien wanneer dat voor het laatst is gebeurd.</p>
+  <p>Deze verklaring kan veranderen als de app verandert, bijvoorbeeld bij nieuwe functies of dienstverleners. De datum bovenaan laat zien wanneer dat voor het laatst is gebeurd.</p>
 </div>
 </body>
 </html>
