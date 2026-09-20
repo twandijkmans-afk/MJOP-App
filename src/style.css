@@ -171,31 +171,6 @@ input[type=range]::-moz-range-thumb {
 }
 .section-sub { font: 400 11.5px/1.3 var(--sans); color: var(--ink-50); padding: 4px 4px 0; }
 
-.field {
-  background: var(--card);
-  border: 1.5px solid var(--ink-14);
-  border-radius: 8px;
-  padding: 13px 15px;
-}
-.field:focus-within { border-color: var(--blue); }
-.field input {
-  width: 100%; box-sizing: border-box; border: none; outline: none;
-  background: transparent; padding: 8px 0 2px;
-  font: 500 16px var(--sans); color: var(--ink);
-}
-
-.suggest-list {
-  margin-top: 9px; background: var(--card); border: 1px solid var(--ink-10);
-  border-radius: 8px; overflow: hidden;
-}
-.suggest-row {
-  padding: 13px 15px; cursor: pointer;
-  font: 400 13.5px/1.35 var(--sans);
-  border-top: 1px solid var(--ink-08);
-}
-.suggest-row:first-child { border-top: none; }
-.suggest-row:hover { background: var(--panel); }
-
 .notice { margin-top: 14px; padding: 15px 16px; border-radius: 8px; background: var(--page); font: 400 12.5px/1.5 var(--sans); color: var(--ink-60); }
 .notice.error { background: var(--bad-bg); color: var(--bad-fg); font-size: 12.5px; line-height: 1.55; }
 
@@ -804,56 +779,6 @@ input[type=range]::-moz-range-thumb {
 .mkt-footer-links a { color: rgba(255,255,255,.75); font: 500 13px/1 var(--sans); text-decoration: none; cursor: pointer; }
 .mkt-footer-links a:hover { color: #fff; }
 
-/* ------------------------------------------------------------------
-   "Keuzescherm"-patroon: herbruikbaar voor een scherm waarop iemand uit
-   een paar paden kiest (adres opzoeken, inloggen). Los van .app-shell/
-   .hero/.shell-body (die blijven voor de mjop-upload-wizard) en los van
-   .mkt-* (de aparte marketing-homepage). Gebruikt door renderOnboarding
-   en renderLoginScreen.
-   ------------------------------------------------------------------ */
-.choice-screen { min-height: 100vh; background: var(--page); display: flex; flex-direction: column; align-items: center; }
-
-.choice-status { width: 100%; background: var(--panel); border-bottom: .5px solid var(--ink-08); padding: 12px 20px; box-sizing: border-box; display: flex; justify-content: center; }
-.choice-status-row { width: 100%; max-width: 460px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
-.choice-status-row .txt { font: 400 12.5px/1.4 var(--sans); color: var(--ink-60); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.choice-status-row .txt strong { color: var(--ink); font-weight: 500; }
-.choice-status-row .links { flex: none; font: 500 12.5px/1 var(--sans); white-space: nowrap; }
-.choice-status-row .links [data-act] { color: var(--blue); cursor: pointer; }
-
-.choice-inner { width: 100%; max-width: 460px; padding: 0 20px 40px; box-sizing: border-box; display: flex; flex-direction: column; align-items: center; }
-.choice-logo { display: flex; align-items: center; gap: 8px; margin-top: 32px; cursor: pointer; }
-.choice-logo .mark { width: 22px; height: 22px; border-radius: 5px; background: var(--blue); color: #fff; display: flex; align-items: center; justify-content: center; font: 700 11px/1 var(--heading); flex: none; }
-.choice-logo .word { font: 500 13.5px/1 var(--sans); color: var(--blue); }
-
-.choice-eyebrow { font: 600 11px/1 var(--sans); letter-spacing: .05em; text-transform: uppercase; color: var(--ink-45); margin-top: 26px; text-align: center; }
-.choice-h1 { font: 500 26px/1.3 var(--heading); color: var(--ink); margin: 8px 0 0; text-align: center; }
-.choice-sub { font: 400 14.5px/1.55 var(--sans); color: var(--ink-60); margin: 10px 0 0; text-align: center; max-width: 380px; }
-
-.choice-context { display: flex; align-items: center; justify-content: center; gap: 7px; margin-top: 18px; font: 400 11.5px/1 var(--sans); color: var(--ink-45); flex-wrap: wrap; }
-.choice-context .item { display: inline-flex; align-items: center; gap: 5px; }
-.choice-context .sep { color: var(--ink-28); }
-
-.choice-body { width: 100%; margin-top: 30px; }
-.choice-primary { background: var(--blue-tint); border-radius: 10px; padding: 18px 20px; box-sizing: border-box; text-align: left; }
-.choice-primary-title { font: 500 14px/1.35 var(--sans); color: var(--ink); }
-.choice-primary-sub { font: 400 12px/1.55 var(--sans); color: var(--ink-60); margin-top: 6px; }
-
-.choice-btn { display: block; width: 100%; box-sizing: border-box; text-align: center; height: 38px; border-radius: 6px; background: var(--blue); color: #fff; font: 600 13.5px var(--sans); line-height: 38px; cursor: pointer; margin-top: 14px; }
-.choice-btn:hover { background: var(--blue-dark); }
-.choice-btn-outline { background: var(--card); border: 1.5px solid var(--blue); color: var(--blue); }
-.choice-btn-outline:hover { background: var(--blue-tint); }
-
-.choice-or { display: flex; align-items: center; gap: 12px; margin: 22px 0; color: var(--ink-45); font: 400 11.5px/1 var(--sans); }
-.choice-or::before, .choice-or::after { content: ''; flex: 1; height: 1px; background: var(--ink-14); }
-
-.choice-outline-row { display: flex; gap: 10px; align-items: center; }
-.choice-outline-row .field { flex: 1; min-width: 0; }
-.choice-outline-row .choice-btn { flex: none; width: auto; padding: 0 20px; margin-top: 0; }
-
-.choice-link { display: block; text-align: center; margin-top: 18px; font: 500 12.5px/1 var(--sans); color: var(--link); cursor: pointer; }
-.choice-link:hover { color: var(--link-dark); }
-
-/* Onder ~1100px is er te weinig ruimte voor de grafiek naast de tekst. */
 @media (max-width: 1100px) {
   .mkt-hero { grid-template-columns: minmax(0, 1fr); gap: 32px; padding: 48px 32px 56px; }
   .mkt-h1 { font-size: 40px; }
@@ -1150,4 +1075,60 @@ input[type=range].ov-slider::-moz-range-thumb { width: 20px; height: 20px; borde
 @media (min-width: 960px) {
   .ov .planning-layout { gap: 40px; }
   .ov .planning-side { flex: 0 0 320px; }
+}
+
+/* ------------------------------------------------------------------
+   Adres- en loginscherm (renderOnboarding, renderLoginScreen): links de
+   kop met uitleg, rechts een kaart — dezelfde opzet als de hero van de
+   homepage. Op een telefoon staat de kaart onder de tekst.
+   ------------------------------------------------------------------ */
+.entry-screen { min-height: 100vh; display: flex; flex-direction: column; background: var(--page); color: var(--ink); }
+.entry-status { padding: 12px 24px; background: var(--panel); border-bottom: 1px solid var(--ink-10); }
+.entry-status-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; max-width: 1080px; margin: 0 auto; font: 400 14px/1.4 var(--sans); color: var(--ink-60); }
+.entry-status-row strong { color: var(--ink); font-weight: 600; }
+.entry-status-links { display: flex; gap: 20px; flex: none; }
+.entry-status-links [data-act] { color: var(--blue); font-weight: 600; cursor: pointer; }
+.entry-top { width: 100%; max-width: 1080px; margin: 0 auto; padding: 28px 24px 0; box-sizing: border-box; }
+.entry-logo { display: inline-flex; align-items: center; gap: 10px; cursor: pointer; }
+.entry-logo .mark { width: 30px; height: 30px; border-radius: 6px; background: var(--blue); color: #fff; display: flex; align-items: center; justify-content: center; font: 700 15px/1 var(--heading); }
+.entry-logo .word { font: 700 16px/1 var(--heading); letter-spacing: -.01em; }
+.entry { flex: 1; display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); gap: 56px; align-items: start; width: 100%; max-width: 1080px; margin: 0 auto; padding: 56px 24px 40px; box-sizing: border-box; }
+.entry-h1 { margin: 0; font: 800 clamp(30px, 4vw, 44px)/1.08 var(--heading); letter-spacing: -.03em; text-wrap: balance; }
+.entry-lede { margin: 16px 0 0; max-width: 28em; font: 400 17px/1.55 var(--sans); color: var(--ink-60); }
+.entry-note { margin: 20px 0 0; max-width: 28em; font: 400 15px/1.5 var(--sans); color: var(--ink-60); }
+.entry-list { display: grid; gap: 10px; margin: 24px 0 0; padding: 0; list-style: none; font: 400 15px/1.45 var(--sans); color: var(--ink-60); }
+.entry-list li { display: flex; align-items: flex-start; gap: 10px; }
+.entry-list svg { flex: none; width: 14px; height: 14px; margin-top: 4px; color: var(--blue); }
+.entry-card { padding: 28px; box-shadow: 0 1px 2px rgba(30,36,43,.06), 0 12px 32px rgba(30,36,43,.08); }
+.entry-label { display: block; margin-bottom: 8px; font: 600 15px/1.3 var(--sans); }
+.entry-search { display: flex; gap: 10px; }
+.entry-input { flex: 1; min-width: 0; width: 100%; min-height: 48px; padding: 0 14px; box-sizing: border-box; border: 1.5px solid var(--ink-14); border-radius: 8px; background: var(--card); color: var(--ink); font: 500 16px var(--sans); outline: none; }
+.entry-input:focus { border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-tint); }
+.entry-search .ov-btn, .entry-submit { margin-top: 0; }
+.entry-submit { margin-top: 16px; width: 100%; }
+.entry-sent { margin: 10px 0 0; font: 400 15px/1.55 var(--sans); color: var(--ink-60); }
+.entry-card .notice { margin-top: 14px; }
+.suggest-list { margin-top: 10px; overflow: hidden; border: 1px solid var(--ink-10); border-radius: 8px; background: var(--card); }
+.suggest-row { min-height: 48px; padding: 14px 16px; box-sizing: border-box; border-top: 1px solid var(--ink-08); font: 400 15px/1.35 var(--sans); cursor: pointer; }
+.suggest-row:first-child { border-top: none; }
+.suggest-row:hover { background: var(--panel); }
+.entry-alt { display: flex; align-items: center; justify-content: space-between; gap: 20px; margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--ink-10); }
+.entry-alt-title { font: 600 15px/1.3 var(--sans); }
+.entry-alt-sub { max-width: 24em; margin-top: 4px; font: 400 14px/1.5 var(--sans); color: var(--ink-60); }
+.entry-alt .ov-btn { flex: none; margin-top: 0; }
+.entry-links { display: flex; gap: 20px; margin-top: 20px; }
+.entry-link { font: 600 15px/1.3 var(--sans); color: var(--blue); cursor: pointer; }
+.entry-link:hover { text-decoration: underline; }
+.entry-foot { max-width: 1080px; width: 100%; margin: 0 auto; padding: 0 24px 32px; box-sizing: border-box; font: 400 13px/1.6 var(--sans); color: var(--ink-60); }
+.ov-btn { display: inline-flex; align-items: center; justify-content: center; }
+
+@media (max-width: 900px) {
+  .entry-top { padding: 20px 16px 0; }
+  .entry { grid-template-columns: minmax(0, 1fr); gap: 28px; padding: 28px 16px 32px; }
+  .entry-card { padding: 20px; }
+  .entry-search { flex-direction: column; }
+  .entry-search .ov-btn { width: 100%; }
+  .entry-alt { flex-direction: column; align-items: stretch; }
+  .entry-alt .ov-btn { width: 100%; }
+  .entry-foot { padding: 0 16px 24px; }
 }

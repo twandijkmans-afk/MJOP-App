@@ -1368,8 +1368,8 @@
   }
 
   // ---------------------------------------------------------------------
-  // "Keuzescherm"-patroon (zie .choice-* in style.css) — gebruikt door
-  // renderOnboarding en renderLoginScreen. Eigen, kleiner logo-component
+  // Logo van het adres- en loginscherm (zie .entry-* in style.css). Eigen,
+  // kleiner logo-component
   // los van mktLogo()/.mkt-logo (die blijft ongewijzigd voor de
   // marketing-homepage, de tabbalk en deze functie zelf).
   // ---------------------------------------------------------------------
@@ -1378,7 +1378,7 @@
   };
 
   function choiceLogo() {
-    return '<div class="choice-logo" data-act="goto-marketing"><div class="mark">M</div><div class="word">MJOP Live</div></div>';
+    return '<div class="entry-logo" data-act="goto-marketing"><div class="mark">M</div><div class="word">MJOP Live</div></div>';
   }
 
   // Het voorbeeldgebouw start met een richtsaldo (€ 2.500 per appartement,
@@ -1533,32 +1533,39 @@
     return html;
   }
 
+  // Adres- en loginscherm delen één opzet (zie .entry-* in style.css): links
+  // de kop met uitleg, rechts een kaart met de eigenlijke handeling — net
+  // als de hero van de homepage.
+  function entryTop() {
+    return '<div class="entry-top">' + choiceLogo() + '</div>';
+  }
+
   function renderLoginScreen() {
     var a = state.auth;
-    var html = '<div class="choice-screen"><div class="choice-inner">';
-    html += choiceLogo();
-    html += '<div class="choice-eyebrow">MJOP Live · inloggen</div>';
-    html += '<div class="choice-h1">Log in met je e-mailadres</div>';
-    html += '<div class="choice-sub">Geen wachtwoord nodig — je ontvangt een eenmalige inloglink per e-mail.</div>';
+    var html = '<div class="entry-screen">' + entryTop() + '<div class="entry">';
+    html += '<div class="entry-copy">';
+    html += '<h1 class="entry-h1">Log in met je e-mailadres</h1>';
+    html += '<p class="entry-lede">Geen wachtwoord nodig. Je ontvangt een eenmalige inloglink per e-mail.</p>';
+    html += '<p class="entry-note">Inloggen heb je nodig om plannen op te slaan. Doorrekenen kan ook zonder account.</p>';
+    html += '</div>';
 
-    html += '<div class="choice-body"><div class="choice-primary">';
+    html += '<div class="ov-card entry-card">';
     if (!sb) {
       html += '<div class="notice error" style="margin-top:0">Inloggen is nog niet geconfigureerd. Vul de Supabase-projectgegevens (URL en anon-sleutel) in <code>src/config.js</code> in.</div>';
     } else if (a.stap === 'sent') {
-      html += '<div class="choice-primary-title">Inloglink verstuurd</div>';
-      html += '<div class="choice-primary-sub">Naar <strong>' + esc(a.email) + '</strong> — open de e-mail en klik op de link, je komt dan hier terug, automatisch ingelogd. Geen mail ontvangen? Controleer de spamfolder.</div>';
+      html += '<h2 class="ov-h2">Inloglink verstuurd</h2>';
+      html += '<p class="entry-sent">Naar <strong>' + esc(a.email) + '</strong>. Open de e-mail en klik op de link, dan kom je hier terug en ben je ingelogd. Geen mail ontvangen? Controleer de spamfolder.</p>';
       if (a.fout) html += '<div class="notice error" style="margin-top:12px">' + esc(a.fout) + '</div>';
+      html += '<div class="entry-links"><span class="entry-link" data-act="login-change-email">Ander e-mailadres of opnieuw versturen</span></div>';
     } else {
-      html += '<div class="field"><div class="eyebrow">E-mailadres</div><input id="auth-email" data-bind="auth-email" value="' + esc(a.email) + '" placeholder="naam@voorbeeld.nl" autocomplete="email" /></div>';
+      html += '<label class="entry-label" for="auth-email">E-mailadres</label>';
+      html += '<input id="auth-email" class="entry-input" data-bind="auth-email" type="email" value="' + esc(a.email) + '" placeholder="naam@voorbeeld.nl" autocomplete="email" />';
       if (a.fout) html += '<div class="notice error" style="margin-top:12px">' + esc(a.fout) + '</div>';
-      html += '<div class="choice-btn" data-act="login-request">' + (a.bezig ? 'Bezig…' : 'Verstuur inloglink') + '</div>';
+      html += '<button type="button" class="ov-btn entry-submit" data-act="login-request">' + (a.bezig ? 'Bezig…' : 'Verstuur inloglink') + '</button>';
     }
-    html += '</div></div>';
+    html += '<div class="entry-links"><span class="entry-link" data-act="goto-marketing">Terug</span></div>';
+    html += '</div>';
 
-    if (sb && a.stap === 'sent') {
-      html += '<div class="choice-link" data-act="login-change-email">Andere e-mail / opnieuw versturen</div>';
-    }
-    html += '<div class="choice-link" data-act="goto-marketing">← Terug</div>';
     html += '</div></div>';
     return html;
   }
@@ -1566,7 +1573,7 @@
   function renderOnboarding() {
     if (state.upload) return renderUploadWizard();
     var s = state.onboarding;
-    var html = '<div class="choice-screen">';
+    var html = '<div class="entry-screen">';
 
     // Zonder dit belandt een terugkerende ingelogde gebruiker bij elke
     // nieuwe sessie/herlaad hier op het adresscherm, ook met een al
@@ -1575,40 +1582,29 @@
     // dus [0] is het meest recente.
     if (state.session && state.savedPlans.length) {
       var meestRecent = state.savedPlans[0];
-      html += '<div class="choice-status"><div class="choice-status-row">';
-      html += '<div class="txt">Verdergaan met <strong>' + esc(meestRecent.label || 'je laatste plan') + '</strong></div>';
-      html += '<div class="links"><span data-act="open-plan" data-id="' + meestRecent.id + '">Openen →</span>';
-      if (state.savedPlans.length > 1) html += ' · <span data-act="goto-mijngebouwen">Mijn gebouwen</span>';
+      html += '<div class="entry-status"><div class="entry-status-row">';
+      html += '<div>Verdergaan met <strong>' + esc(meestRecent.label || 'je laatste plan') + '</strong></div>';
+      html += '<div class="entry-status-links"><span data-act="open-plan" data-id="' + meestRecent.id + '">Openen</span>';
+      if (state.savedPlans.length > 1) html += '<span data-act="goto-mijngebouwen">Mijn gebouwen</span>';
       html += '</div>';
       html += '</div></div>';
     }
 
-    html += '<div class="choice-inner">';
-    html += choiceLogo();
-    html += '<div class="choice-eyebrow">MJOP Live · echte BAG-data</div>';
-    html += '<div class="choice-h1">MJOP voor kleine VvE’s</div>';
-    html += '<div class="choice-sub">Typ een adres en de app haalt bouwjaar, dakoppervlak, gevelmaten en de hoogte automatisch op.</div>';
-
-    html += '<div class="choice-context">';
-    html += '<span class="item">' + CHOICE_ICONS.check + ' BAG</span><span class="sep">·</span>';
-    html += '<span class="item">' + CHOICE_ICONS.check + ' 3D BAG, TU Delft</span><span class="sep">·</span>';
-    html += '<span class="item">' + CHOICE_ICONS.check + ' Publieke data</span>';
+    html += entryTop() + '<div class="entry">';
+    html += '<div class="entry-copy">';
+    html += '<h1 class="entry-h1">Zoek je gebouw op</h1>';
+    html += '<p class="entry-lede">Typ het adres. MJOP Live haalt bouwjaar, dakoppervlak, gevelmaten en hoogte uit de BAG en 3D BAG.</p>';
+    html += '<ul class="entry-list">';
+    html += '<li>' + CHOICE_ICONS.check + '<span>Alleen publieke bronnen: BAG en 3D BAG van de TU Delft</span></li>';
+    html += '<li>' + CHOICE_ICONS.check + '<span>Doorrekenen kan zonder account</span></li>';
+    html += '</ul>';
     html += '</div>';
 
-    html += '<div class="choice-body">';
-    html += '<div class="choice-primary">';
-    html += '<div class="choice-primary-title">Upload een bestaand MJOP</div>';
-    html += '<div class="choice-primary-sub">Csv, Excel of pdf — de app haalt de regels eruit, jij controleert ze, en het plan hoeft dan alleen nog geactualiseerd te worden.</div>';
-    html += '<label class="choice-btn" for="mjop-file-input">Bestand kiezen</label>';
-    html += '<input id="mjop-file-input" type="file" accept=".csv,.xlsx,.xls,.pdf" style="display:none" />';
-    html += '</div>';
-
-    html += '<div class="choice-or">of</div>';
-
-    html += '<div class="choice-outline-row">';
-    html += '<div class="field"><div class="eyebrow">Adres</div>';
-    html += '<input id="addr-search" data-bind="addr-q" value="' + esc(s.q) + '" placeholder="bv. Kastanjelaan 12 Amersfoort" autocomplete="off" /></div>';
-    html += '<div class="choice-btn choice-btn-outline" data-act="zoek-adres">Zoeken</div>';
+    html += '<div class="ov-card entry-card">';
+    html += '<label class="entry-label" for="addr-search">Adres</label>';
+    html += '<div class="entry-search">';
+    html += '<input id="addr-search" class="entry-input" data-bind="addr-q" value="' + esc(s.q) + '" placeholder="bv. Kastanjelaan 12 Amersfoort" autocomplete="off" />';
+    html += '<button type="button" class="ov-btn" data-act="zoek-adres">Zoek adres</button>';
     html += '</div>';
 
     if (s.sug.length) {
@@ -1619,16 +1615,22 @@
       html += '</div>';
     }
     if (s.gezocht && !s.sug.length && !s.bezig && !s.fout) {
-      html += '<div class="notice">Geen adressen gevonden voor "' + esc(s.q) + '". Controleer de spelling, of probeer eerst een voorbeeldgebouw.</div>';
+      html += '<div class="notice">Geen adressen gevonden voor "' + esc(s.q) + '". Controleer de spelling, of bekijk eerst het voorbeeldgebouw.</div>';
     }
     if (s.bezig) html += '<div class="notice">' + esc(s.bezigTekst) + '</div>';
     if (s.fout) html += '<div class="notice error">' + esc(s.fout) + '</div>';
 
-    html += '<div class="choice-link" data-act="skip-onboarding">of probeer eerst een voorbeeldgebouw</div>';
+    html += '<div class="entry-alt">';
+    html += '<div><div class="entry-alt-title">Heb je al een MJOP?</div>';
+    html += '<div class="entry-alt-sub">Upload een csv-, Excel- of pdf-bestand. Jij controleert de regels voordat ze in het plan komen.</div></div>';
+    html += '<label class="ov-btn secondary" for="mjop-file-input">Bestand kiezen</label>';
+    html += '<input id="mjop-file-input" type="file" accept=".csv,.xlsx,.xls,.pdf" style="display:none" />';
     html += '</div>';
+    html += '<div class="entry-links"><span class="entry-link" data-act="skip-onboarding">Bekijk eerst het voorbeeldgebouw</span></div>';
     html += '</div>';
 
-    html += '<div class="footer-note">Kengetallen zijn indicatieve richtprijzen inclusief btw, geen offerte. Bronnen: PDOK Locatieserver en BAG (Public Domain Mark 1.0) en 3D BAG van de TU Delft (CC BY 4.0).</div>';
+    html += '</div>';
+    html += '<div class="entry-foot">Kengetallen zijn indicatieve richtprijzen inclusief btw, geen offerte. Bronnen: PDOK Locatieserver en BAG (Public Domain Mark 1.0) en 3D BAG van de TU Delft (CC BY 4.0).</div>';
     html += '</div>';
     return html;
   }
