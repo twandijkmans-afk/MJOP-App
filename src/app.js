@@ -1659,102 +1659,115 @@
     return html;
   }
 
+  // Upload-wizard voor een bestaand MJOP: zelfde opzet als het adres- en
+  // loginscherm (entry-screen), maar breder omdat er kolommen en regels
+  // gecontroleerd worden. Stappen: laden -> (mapping bij csv/Excel) -> regels.
   function renderUploadWizard() {
     var u = state.upload;
-    var html = '<div class="app-shell">';
-    html += '<div class="hero"><div class="eyebrow on-blue">Bestaand MJOP importeren</div>';
-    html += '<h1>' + esc(u.bestandsnaam || 'Bestand') + '</h1>';
-    html += '<p>Controleer wat de app herkend heeft — er gaat pas iets het plan in na jouw bevestiging.</p></div>';
+    var titels = {
+      laden: 'Bestand wordt gelezen',
+      fout: 'Dit bestand kon niet worden gelezen',
+      mapping: 'Welke kolom is wat?',
+      regels: 'Controleer de regels',
+    };
+    var subs = {
+      laden: '',
+      fout: '',
+      mapping: 'Kies bij elk gegeven de juiste kolom uit je bestand. Daarna controleer je de regels. Er gaat pas iets in het plan na jouw bevestiging.',
+      regels: 'Dit heeft de app in je bestand gevonden. Pas aan wat niet klopt; alleen aangevinkte regels komen in het plan.',
+    };
+    var html = '<div class="entry-screen">' + entryTop();
+    html += '<div class="ov wiz"><div class="pg-head"><h1 class="page-title">' + titels[u.stap] + '</h1>';
+    if (subs[u.stap]) html += '<p class="page-sub">' + subs[u.stap] + '</p>';
+    html += '<p class="wiz-bestand">Bestand: <strong>' + esc(u.bestandsnaam || 'onbekend') + '</strong></p></div>';
 
-    html += '<div class="shell-body">';
     if (u.stap === 'laden') {
       html += '<div class="section"><div class="notice">' + esc(u.bezigTekst || 'Bestand wordt gelezen…') + '</div></div>';
     } else if (u.stap === 'fout') {
       html += '<div class="section"><div class="notice error">' + esc(u.foutTekst) + '</div>';
-      html += '<div class="btn-row"><div class="ghost-btn" data-act="reset-upload">Terug</div></div></div>';
+      html += '<div class="wiz-actions"><div class="ghost-btn" data-act="reset-upload">Terug</div></div></div>';
     } else if (u.stap === 'mapping') {
       html += renderUploadMapping(u);
     } else if (u.stap === 'regels') {
       html += renderUploadRegels(u);
     }
-    html += '</div>';
-
-    html += '</div>';
+    html += '</div></div>';
     return html;
   }
 
   function renderUploadMapping(u) {
     var velden = [
-      ['naam', 'Omschrijving / element'], ['jaar', 'Jaar'], ['bedrag', 'Bedrag'],
-      ['sfb', 'NL-SfB code (optioneel)'], ['conditie', 'Conditie (optioneel)'],
+      ['naam', 'Omschrijving van de post'], ['jaar', 'Jaar'], ['bedrag', 'Bedrag'],
+      ['sfb', 'NL-SfB-code (mag leeg)'], ['conditie', 'Staat (mag leeg)'],
     ];
-    var html = '<div class="section"><div class="section-title">Welke kolom is wat?</div>';
-    html += '<div class="card pad" style="margin-top:11px">';
-    velden.forEach(function (v) {
-      html += '<div class="input-row" style="margin-top:11px"><div class="label">' + v[1] + '</div>';
-      html += '<select data-change="upload-map" data-veld="' + v[0] + '" style="flex:none;width:150px;padding:8px;border-radius:10px;border:1px solid var(--ink-14);background:#fff">';
-      html += '<option value="-1"' + (u.mapping[v[0]] === -1 ? ' selected' : '') + '>— geen —</option>';
-      u.headerRij.forEach(function (h, i) {
-        html += '<option value="' + i + '"' + (u.mapping[v[0]] === i ? ' selected' : '') + '>' + esc(String(h || 'kolom ' + (i + 1))) + '</option>';
+    var html = '<div class="section"><div class="card pad">';
+    velden.forEach(function (v, i) {
+      html += '<div class="input-row"' + (i === 0 ? ' style="margin-top:0"' : '') + '><label class="label" for="upload-map-' + v[0] + '">' + v[1] + '</label>';
+      html += '<select id="upload-map-' + v[0] + '" class="wiz-select" data-change="upload-map" data-veld="' + v[0] + '">';
+      html += '<option value="-1"' + (u.mapping[v[0]] === -1 ? ' selected' : '') + '>Geen</option>';
+      u.headerRij.forEach(function (h, hi) {
+        html += '<option value="' + hi + '"' + (u.mapping[v[0]] === hi ? ' selected' : '') + '>' + esc(String(h || 'kolom ' + (hi + 1))) + '</option>';
       });
       html += '</select></div>';
     });
     html += '</div></div>';
 
-    html += '<div class="section"><div class="section-title">Voorbeeld (eerste regels)</div>';
-    html += '<div class="card" style="margin-top:11px;overflow-x:auto">';
-    u.dataRijen.slice(0, 4).forEach(function (row, i) {
-      html += '<div class="row"' + (i === 0 ? ' style="border-top:none"' : '') + '><div class="grow meta" style="font-size:11.5px;white-space:nowrap">' + row.map(esc).join(' · ') + '</div></div>';
+    html += '<div class="section"><h2 class="section-title">Zo ziet je bestand eruit</h2>';
+    html += '<div class="card wiz-scroll" style="margin-top:12px"><table class="wiz-table"><thead><tr>';
+    u.headerRij.forEach(function (h, hi) { html += '<th>' + esc(String(h || 'kolom ' + (hi + 1))) + '</th>'; });
+    html += '</tr></thead><tbody>';
+    u.dataRijen.slice(0, 4).forEach(function (row) {
+      html += '<tr>' + row.map(function (c) { return '<td>' + esc(c) + '</td>'; }).join('') + '</tr>';
     });
-    html += '</div></div>';
+    html += '</tbody></table></div></div>';
 
-    html += '<div class="section"><div class="btn-row">';
+    html += '<div class="wiz-actions">';
     html += '<div class="primary-btn" data-act="upload-confirm-mapping">Volgende</div>';
     html += '<div class="ghost-btn" data-act="reset-upload">Annuleer</div>';
-    html += '</div></div>';
+    html += '</div>';
     return html;
   }
 
   function renderUploadRegels(u) {
     var basisjaar = num(u.basisjaar);
+    var indexPct = (cbsIndexatie ? cbsIndexatie.pct : Math.round(INDEXATIE_PCT * 1000) / 10);
     var html = '<div class="section"><div class="card pad">';
-    html += '<div style="font:500 13.5px/1.35 var(--sans)">Prijspeil van dit MJOP</div>';
-    html += '<div class="input-row" style="margin-top:11px"><div class="label">De bedragen hieronder zijn genoteerd op prijspeil</div><input id="upload-basisjaar" data-bind="upload-basisjaar" value="' + esc(u.basisjaar) + '" /></div>';
-    html += '<div class="hint">Bedragen worden automatisch met ' + (cbsIndexatie ? cbsIndexatie.pct : Math.round(INDEXATIE_PCT * 1000) / 10) + '% per jaar' + ((cbsIndexatie && state.settings.toonCbsBron) ? ' (CBS-bouwkostenindex ' + cbsIndexatie.periode + ')' : '') + ' geïndexeerd van dit jaar naar het jaar waarin de post daadwerkelijk gepland staat. Staat er al een actueel bedrag in het bestand? Zet het prijspeil dan gelijk aan het huidige jaar (' + CURRENT_YEAR + ') zodat er niet extra geïndexeerd wordt.</div>';
+    html += '<label class="ov-row" for="upload-basisjaar"><span>In welk jaar zijn de bedragen berekend?</span><span class="ov-eurinput"><input id="upload-basisjaar" data-bind="upload-basisjaar" inputmode="numeric" value="' + esc(u.basisjaar) + '" /></span></label>';
+    html += '<p class="hint">De app rekent de bedragen om naar het jaar waarin de post gepland staat, met ' + indexPct + '% per jaar' + ((cbsIndexatie && state.settings.toonCbsBron) ? ' (CBS-bouwkostenindex ' + cbsIndexatie.periode + ')' : '') + '. Staat er in het bestand al een actueel bedrag? Vul dan ' + CURRENT_YEAR + ' in, dan wordt er niet extra opgeteld.</p>';
     html += '</div></div>';
 
-    html += '<div class="section"><div class="section-title">' + u.regels.length + ' regels gevonden</div>';
-    html += '<div class="card" style="margin-top:11px">';
+    html += '<div class="section"><h2 class="section-title">' + u.regels.length + ' ' + meervoud(u.regels.length, 'regel', 'regels') + ' gevonden</h2>';
+    html += '<div class="card" style="margin-top:12px">';
     if (!u.regels.length) {
-      html += '<div class="row" style="border-top:none"><div class="grow meta" style="font-size:12.5px">Geen regels herkend. Voeg ze hieronder handmatig toe, of gebruik de ruwe tekst hieronder om ze zelf over te nemen.</div></div>';
+      html += '<div class="row" style="border-top:none"><div class="grow meta">Geen regels herkend. Voeg ze hieronder zelf toe, of gebruik de ruwe tekst om ze over te nemen.</div></div>';
     }
     u.regels.forEach(function (r, i) {
       var geindexeerd = indexeerBedrag(num(r.bedrag), basisjaar, num(r.jaar));
-      html += '<div style="padding:14px 16px' + (i === 0 ? ';border-top:none' : ';border-top:1px solid var(--ink-08)') + '">';
-      html += '<div style="display:flex;align-items:center;gap:10px">';
-      html += '<input type="checkbox" data-act="upload-toggle-regel" data-i="' + i + '"' + (r.include ? ' checked' : '') + ' />';
-      html += '<input id="upload-regel-naam-' + i + '" data-bind="upload-regel-naam" data-i="' + i + '" value="' + esc(r.naam) + '" placeholder="element" style="flex:1;min-width:0;border:1px solid var(--ink-14);border-radius:8px;padding:7px 9px;font:500 13.5px var(--sans)" />';
-      html += '<button data-act="upload-del-regel" data-i="' + i + '" style="border:none;background:none;color:var(--ink-45);cursor:pointer;flex:none;font-size:16px">×</button>';
+      html += '<div class="wiz-regel">';
+      html += '<div class="wiz-regel-kop">';
+      html += '<input type="checkbox" data-act="upload-toggle-regel" data-i="' + i + '"' + (r.include ? ' checked' : '') + ' aria-label="Regel opnemen in het plan" />';
+      html += '<input id="upload-regel-naam-' + i + '" class="wiz-naam" data-bind="upload-regel-naam" data-i="' + i + '" value="' + esc(r.naam) + '" placeholder="Naam van de post" aria-label="Naam van de post" />';
+      html += '<button type="button" class="wiz-del" data-act="upload-del-regel" data-i="' + i + '" aria-label="Verwijder deze regel">×</button>';
       html += '</div>';
-      html += '<div style="display:flex;align-items:center;gap:14px;margin-top:9px;padding-left:26px;flex-wrap:wrap">';
-      html += '<div style="display:flex;align-items:center;gap:6px"><span class="eyebrow" style="font-size:9.5px">Jaar</span><input id="upload-regel-jaar-' + i + '" data-bind="upload-regel-jaar" data-i="' + i + '" value="' + esc(r.jaar) + '" style="width:52px;border:1px solid var(--ink-14);border-radius:7px;padding:5px 6px;text-align:center;font:500 12px var(--sans)" /></div>';
-      html += '<div style="display:flex;align-items:center;gap:6px"><span class="eyebrow" style="font-size:9.5px">Prijspeil ' + basisjaar + '</span><input id="upload-regel-bedrag-' + i + '" data-bind="upload-regel-bedrag" data-i="' + i + '" value="' + esc(r.bedrag) + '" style="width:72px;border:1px solid var(--ink-14);border-radius:7px;padding:5px 6px;text-align:right;font:500 12px var(--sans)" /></div>';
-      html += '<div style="display:flex;align-items:center;gap:6px"><span class="eyebrow" style="font-size:9.5px">Cyclus (jaar, 0 = eenmalig)</span><input id="upload-regel-cyclus-' + i + '" data-bind="upload-regel-cyclus" data-i="' + i + '" value="' + esc(r.cyclus || 0) + '" style="width:44px;border:1px solid var(--ink-14);border-radius:7px;padding:5px 6px;text-align:center;font:500 12px var(--sans)" /></div>';
+      html += '<div class="wiz-fields">';
+      html += '<label class="wiz-field"><span>Jaar</span><input id="upload-regel-jaar-' + i + '" data-bind="upload-regel-jaar" data-i="' + i + '" inputmode="numeric" value="' + esc(r.jaar) + '" /></label>';
+      html += '<label class="wiz-field"><span>Bedrag (prijspeil ' + basisjaar + ')</span><input id="upload-regel-bedrag-' + i + '" data-bind="upload-regel-bedrag" data-i="' + i + '" inputmode="numeric" value="' + esc(r.bedrag) + '" /></label>';
+      html += '<label class="wiz-field"><span>Herhaling in jaren (0 = eenmalig)</span><input id="upload-regel-cyclus-' + i + '" data-bind="upload-regel-cyclus" data-i="' + i + '" inputmode="numeric" value="' + esc(r.cyclus || 0) + '" /></label>';
       html += '</div>';
-      html += '<div style="margin-top:9px;padding-left:26px;font:500 15px/1 var(--sans);color:var(--blue)">→ ' + eur(geindexeerd) + ' <span style="font:400 11px/1 var(--sans);color:var(--ink-50)">in ' + esc(r.jaar) + '</span></div>';
+      html += '<div class="wiz-result">In het plan: ' + eur(geindexeerd) + ' <span>in ' + esc(r.jaar) + '</span></div>';
       html += '</div>';
     });
-    html += '<div class="row" style="cursor:pointer" data-act="upload-add-regel"><div class="grow" style="font:500 13px var(--sans);color:var(--blue)">+ Regel toevoegen</div></div>';
+    html += '<div class="row" style="cursor:pointer" data-act="upload-add-regel"><div class="grow" style="font:600 15px var(--sans);color:var(--blue)">+ Regel toevoegen</div></div>';
     html += '</div></div>';
 
     if (u.ruweTekst) {
-      html += '<div class="section"><details><summary style="cursor:pointer;font:500 12.5px var(--sans);color:var(--blue)">Ruwe tekst uit de pdf bekijken</summary>';
-      html += '<div class="card pad" style="margin-top:9px"><div class="hint" style="margin-bottom:8px">Heeft de app een regel gemist? Gebruik deze tekst om hem hierboven handmatig toe te voegen.</div>';
-      html += '<pre style="white-space:pre-wrap;font:400 10.5px/1.5 var(--sans);color:var(--ink-60);max-height:220px;overflow:auto;margin:0">' + esc(u.ruweTekst) + '</pre></div></details></div>';
+      html += '<div class="section"><details class="ov-details"><summary>Ruwe tekst uit de pdf bekijken</summary>';
+      html += '<div class="card pad" style="margin-top:10px"><div class="hint" style="margin:0 0 10px">Heeft de app een regel gemist? Neem hem met deze tekst zelf over hierboven.</div>';
+      html += '<pre class="wiz-ruw">' + esc(u.ruweTekst) + '</pre></div></details></div>';
     }
 
-    html += '<div class="section"><div class="hint">Elke regel wordt een post in het plan op het opgegeven jaar. Je kunt hierna nog het adres koppelen voor de echte gebouwgegevens — de geïmporteerde regels blijven dan staan.</div>';
-    html += '<div class="btn-row">';
+    html += '<div class="section"><p class="hint" style="margin:0">Elke aangevinkte regel wordt een post in het plan, in het opgegeven jaar. Daarna kun je nog het adres koppelen voor de echte gebouwgegevens; de geïmporteerde regels blijven dan staan.</p>';
+    html += '<div class="wiz-actions">';
     html += '<div class="primary-btn" data-act="mjop-import-confirm">Importeren en doorgaan</div>';
     html += '<div class="ghost-btn" data-act="reset-upload">Annuleer</div>';
     html += '</div></div>';
