@@ -1463,6 +1463,22 @@
     html += '</div>';
     html += '</div>';
 
+    var voorbeeldB = defaultBuilding();
+    html += '<div class="mkt-section" id="mkt-gebouw"><div class="mkt-section-title">Je gebouw, onderdeel voor onderdeel</div>';
+    html += '<div class="mkt-section-sub">MJOP Live rekent per onderdeel wanneer onderhoud nodig is en wat het kost. Dat zijn de posten in je plan.</div>';
+    html += '<div class="mkt-gebouw"><div class="ov-card mkt-gebouw-fig">' + gebouwSvg({ id: 'mkt', units: voorbeeldB.units, hoogte: voorbeeldB.werkhoogte }) + '</div>';
+    html += '<dl class="mkt-onderdelen">';
+    [
+      ['Dak', 'Dakbedekking, dakgoten en de jaarlijkse dakinspectie.'],
+      ['Gevel en kozijnen', 'Metselwerk en voegwerk, schilderwerk, kozijnen en de steiger die daarbij nodig is.'],
+      ['Installaties', 'Cv-ketel, ventilatie, brandveiligheid, verlichting, riolering en lift.'],
+      ['Binnen', 'Trappenhuis, entree en vloeren van de gemeenschappelijke ruimten.'],
+      ['Terrein', 'Bestrating, fietsenstalling en bergingen.'],
+    ].forEach(function (o) {
+      html += '<div class="mkt-onderdeel"><dt>' + o[0] + '</dt><dd>' + o[1] + '</dd></div>';
+    });
+    html += '</dl></div></div>';
+
     html += '<div class="mkt-section shaded" id="mkt-features"><div class="mkt-section-inner">';
     html += '<div class="mkt-section-title">Alles wat een bestuur nodig heeft</div>';
     html += '<div class="mkt-section-sub">Geen los rekenblad meer: bouwdata, conditie en kosten staan bij elkaar.</div>';
@@ -2551,6 +2567,96 @@
     return b.isVoorbeeld ? { label: 'Voorbeeld', cls: 'voorbeeld' } : { label: 'BAG', cls: 'bag' };
   }
 
+  // ---------------------------------------------------------------------
+  // Schematisch gebouw: een vooraanzicht op basis van de echte gegevens
+  // (werkhoogte -> aantal verdiepingen, appartementen -> aantal ramen per
+  // laag). Vijf aanklikbare onderdelen die overeenkomen met de categorieën
+  // van de posten. opties: id (uniek per pagina), units, hoogte, status
+  // (categorie -> conditiescore of null), actief (gekozen categorie),
+  // aanwezig (categorie -> bool), klikbaar.
+  // ---------------------------------------------------------------------
+  function statusKlasse(score) {
+    if (score == null) return '';
+    return score <= 2 ? ' st-good' : score === 3 ? ' st-warn' : ' st-bad';
+  }
+
+  function gebouwSvg(o) {
+    var verd = clamp(Math.round((o.hoogte || 9) / 3), 2, 5);
+    var vh = verd <= 3 ? 58 : verd === 4 ? 48 : 40;
+    var body = verd * vh;
+    var roofTop = 268 - body - 16;
+    var wallTop = roofTop + 16;
+    var cx = 180;
+    var kolommen = Math.max(1, o.units) / verd > 3 ? 5 : 3;
+    var centers = kolommen === 5 ? [78, 129, 180, 231, 282] : [95, 180, 265];
+    var ww = kolommen === 5 ? 28 : 34;
+    var st = o.status || {};
+    var aanw = o.aanwezig || {};
+    function deel(cat, naam) {
+      var leeg = o.aanwezig && !aanw[cat];
+      return '<g class="gb-part gb-' + naam + statusKlasse(st[cat]) + (o.actief === cat ? ' actief' : '') + (leeg ? ' leeg' : '') + '"' +
+        (o.klikbaar && !leeg ? ' data-gb-filter="' + cat + '"' : '') + '>';
+    }
+    var s = '<svg class="gb-svg' + (o.klikbaar ? ' klikbaar' : '') + (o.actief && o.actief !== 'Alles' ? ' heeft-actief' : '') + '" viewBox="0 0 360 300" role="img" aria-label="Schematische tekening van het gebouw met de onderdelen dak, gevel, installaties, binnen en terrein">';
+    s += '<defs><pattern id="' + o.id + '-brick" width="18" height="10" patternUnits="userSpaceOnUse"><path d="M0 .5H18M0 5.5H18M9 .5V5.5M0 5.5V10.5" style="stroke:var(--copper);stroke-opacity:.3;fill:none;stroke-width:1"/></pattern></defs>';
+
+    // Terrein
+    s += deel('Terrein', 'terrein');
+    s += '<rect class="gb-shape" x="0" y="268" width="360" height="32"/>';
+    s += '<path class="gb-pad" d="M' + (cx - 12) + ' 268h24l12 32h-48z"/>';
+    s += '<circle class="gb-groen" cx="22" cy="266" r="15"/><circle class="gb-groen" cx="340" cy="264" r="17"/>';
+    s += '</g>';
+
+    // Gevel: muur + ramen
+    s += deel('Gevel', 'gevel');
+    s += '<rect class="gb-shape gb-wall" x="50" y="' + wallTop + '" width="260" height="' + body + '"/>';
+    s += '<rect x="50" y="' + wallTop + '" width="260" height="' + body + '" fill="url(#' + o.id + '-brick)" style="pointer-events:none"/>';
+    for (var f = 0; f < verd; f++) {
+      var wy = wallTop + f * vh + (vh - 28) / 2;
+      centers.forEach(function (c, ci) {
+        if (c === cx) return;
+        s += '<rect class="gb-window" x="' + (c - ww / 2) + '" y="' + wy + '" width="' + ww + '" height="28" rx="1.5"/>';
+        s += '<path class="gb-mullion" d="M' + c + ' ' + wy + 'v28M' + (c - ww / 2) + ' ' + (wy + 14) + 'h' + ww + '"/>';
+      });
+    }
+    s += '</g>';
+
+    // Binnen: entree en trappenhuis
+    s += deel('Binnen', 'binnen');
+    s += '<rect class="gb-shape gb-trap" x="' + (cx - 10) + '" y="' + (wallTop + 10) + '" width="20" height="' + Math.max(20, (verd - 1) * vh - 12) + '" rx="1.5"/>';
+    for (var t = 1; t < verd - 1; t++) s += '<path class="gb-mullion" d="M' + (cx - 10) + ' ' + (wallTop + 10 + t * vh - 6) + 'h20"/>';
+    s += '<rect class="gb-shape gb-deur" x="' + (cx - 16) + '" y="224" width="32" height="44" rx="1.5"/>';
+    s += '<rect class="gb-luifel" x="' + (cx - 26) + '" y="216" width="52" height="5" rx="1"/>';
+    s += '</g>';
+
+    // Dak
+    s += deel('Dak', 'dak');
+    s += '<rect class="gb-shape gb-plaat" x="44" y="' + roofTop + '" width="272" height="16" rx="2"/>';
+    s += '</g>';
+
+    // Installaties op het dak
+    s += deel('Installaties', 'inst');
+    s += '<rect class="gb-shape" x="214" y="' + (roofTop - 24) + '" width="38" height="24" rx="2"/>';
+    s += '<rect class="gb-shape" x="224" y="' + (roofTop - 42) + '" width="7" height="18"/>';
+    s += '<rect class="gb-shape" x="266" y="' + (roofTop - 14) + '" width="24" height="14" rx="2"/>';
+    s += '</g>';
+
+    s += '</svg>';
+    return s;
+  }
+
+  // Slechtste (hoogste) conditiescore per categorie; null zolang er in die
+  // categorie niets beoordeeld is.
+  function statusPerCategorie() {
+    var st = {};
+    state.elements.forEach(function (el) {
+      var sc = conditionScore(el);
+      if (sc == null) return;
+      st[el.categorie] = Math.max(st[el.categorie] || 0, sc);
+    });
+    return st;
+  }
+
   function renderGebouw() {
     if (state.activeElementId) return renderElementDetail(state.activeElementId);
     var b = state.building;
@@ -2578,6 +2684,12 @@
     html += '<p class="pg-intro">Dit zijn de onderdelen van het gebouw waar onderhoud voor nodig is. Open een post om de staat te beoordelen of de kosten aan te passen.</p>';
     html += '</div>';
 
+    var tekening = gebouwSvg({
+      id: 'gb', units: b.units, hoogte: b.werkhoogte, status: statusPerCategorie(), actief: state.filter,
+      aanwezig: aanwezigeCats, klikbaar: true,
+    });
+    html += '<div class="gb-layout"><aside class="ov-card gb-aside" aria-label="Onderdelen van het gebouw">' + tekening;
+    html += '<p class="gb-caption">Klik op een onderdeel om alleen die posten te zien. De kleur laat de staat zien: groen is goed, geel redelijk, rood matig of slecht. Onbeoordeelde onderdelen blijven neutraal.</p></aside><div class="gb-main">';
     html += '<div class="section"><div class="chip-row">';
     cats.forEach(function (c) {
       html += '<div class="chip' + (state.filter === c ? ' active' : '') + '" data-act="set-filter" data-filter="' + c + '">' + c + '</div>';
@@ -2605,6 +2717,7 @@
 
     if (state.addForm) html += renderAddElementForm();
 
+    html += '</div></div>';
     html += PG_CLOSE;
     return html;
   }
@@ -3926,6 +4039,12 @@
       resizeTimer = setTimeout(render, 150);
     });
     root.addEventListener('click', function (e) {
+      var gp = e.target.closest('[data-gb-filter]');
+      if (gp && !e.target.closest('[data-act]')) {
+        state.filter = gp.dataset.gbFilter === state.filter ? 'Alles' : gp.dataset.gbFilter;
+        render();
+        return;
+      }
       var t = e.target.closest('[data-act]');
       if (!t) return;
       var handler = ACTIONS[t.dataset.act];

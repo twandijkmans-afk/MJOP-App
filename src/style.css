@@ -24,6 +24,10 @@
      primaire knoppen gebruiken --blue. */
   --accent: #C8391B;
   --accent-dark: #A42D14;
+  /* Koper: warme tweede kleur voor de tekening en accenten — bewust niet
+     voor data of status (dat blijven blauw, groen en rood). */
+  --copper: #B0673A;
+  --copper-tint: #F3E7DC;
   --orange: var(--accent);
   --good-bg: #E1EFE9;
   --good-fg: #23694F;
@@ -63,6 +67,8 @@
   --link-dark: #9FC5F7;
   --accent: #EF6B4C;
   --accent-dark: #F58B70;
+  --copper: #D69563;
+  --copper-tint: rgba(214, 149, 99, .16);
   --orange: var(--accent);
   --good-bg: rgba(63, 107, 70, .3);
   --good-fg: #86CDB0;
@@ -746,7 +752,7 @@ input[type=range]::-moz-range-thumb {
 
 .mkt-feature-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px; margin-top: 44px; }
 .mkt-feature-card { background: var(--card); border: 1px solid var(--ink-08); border-radius: 10px; padding: 26px; }
-.mkt-feature-icon { width: 40px; height: 40px; border-radius: 8px; background: var(--blue-tint); color: var(--blue); display: flex; align-items: center; justify-content: center; }
+.mkt-feature-icon { width: 40px; height: 40px; border-radius: 8px; background: var(--copper-tint); color: var(--copper); display: flex; align-items: center; justify-content: center; }
 .mkt-feature-title { font: 600 16px/1.3 var(--sans); margin-top: 16px; color: var(--ink); }
 .mkt-feature-body { font: 400 13.5px/1.6 var(--sans); color: var(--ink-60); margin-top: 8px; }
 
@@ -767,7 +773,7 @@ input[type=range]::-moz-range-thumb {
 
 .mkt-steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 32px; margin-top: 44px; }
 .mkt-step { text-align: center; }
-.mkt-step-num { width: 34px; height: 34px; border-radius: 8px; background: var(--blue); color: #fff; display: flex; align-items: center; justify-content: center; font: 700 14px/1 var(--heading); margin: 0 auto; }
+.mkt-step-num { width: 34px; height: 34px; border-radius: 8px; background: var(--copper); color: var(--card); display: flex; align-items: center; justify-content: center; font: 700 14px/1 var(--heading); margin: 0 auto; }
 .mkt-step-title { font: 600 15px/1.3 var(--sans); margin-top: 14px; color: var(--ink); }
 .mkt-step-body { font: 400 13px/1.55 var(--sans); color: var(--ink-60); margin-top: 6px; max-width: 260px; margin-left: auto; margin-right: auto; }
 
@@ -1160,3 +1166,56 @@ input[type=range].ov-slider::-moz-range-thumb { width: 20px; height: 20px; borde
 .ov-details { margin-top: 14px; font: 400 14px/1.5 var(--sans); color: var(--ink-60); }
 .ov-details summary { cursor: pointer; font-weight: 600; }
 .ov-details p { margin: 8px 0 0; }
+
+/* ------------------------------------------------------------------
+   Getekend gebouw (gebouwSvg in app.js): vooraanzicht met vijf
+   onderdelen. Kleur laat de staat zien (groen/geel/rood), neutraal
+   betekent nog niet beoordeeld. Op het Gebouw-scherm klikbaar.
+   ------------------------------------------------------------------ */
+.gb-svg { display: block; width: 100%; height: auto; }
+.gb-svg .gb-shape { stroke-width: 1.5; stroke-linejoin: round; }
+.gb-svg .gb-part { transition: opacity .15s ease; }
+.gb-svg .gb-part.leeg { opacity: .35; }
+.gb-svg.klikbaar .gb-part[data-gb-filter] { cursor: pointer; }
+.gb-svg.klikbaar .gb-part[data-gb-filter]:hover .gb-shape { stroke-width: 3; }
+.gb-svg .gb-part.actief .gb-shape { stroke-width: 3; }
+.gb-svg.heeft-actief .gb-part:not(.actief) { opacity: .4; }
+
+.gb-svg .gb-terrein .gb-shape { fill: var(--good-bg); stroke: none; }
+.gb-svg .gb-pad { fill: var(--panel); }
+.gb-svg .gb-groen { fill: var(--good-fg); opacity: .35; }
+.gb-svg .gb-wall { fill: var(--copper-tint); stroke: var(--copper); }
+.gb-svg .gb-window { fill: var(--blue-tint); stroke: var(--blue); stroke-width: 1.5; }
+.gb-svg .gb-mullion { fill: none; stroke: var(--blue); stroke-width: 1.2; opacity: .7; }
+.gb-svg .gb-trap { fill: var(--blue-tint); stroke: var(--blue); }
+.gb-svg .gb-deur { fill: var(--card); stroke: var(--ink-60); stroke-width: 2; }
+.gb-svg .gb-luifel { fill: var(--blue); }
+.gb-svg .gb-plaat { fill: var(--blue-tint); stroke: var(--blue); stroke-width: 2; }
+.gb-svg .gb-inst .gb-shape { fill: var(--panel); stroke: var(--ink-60); }
+.gb-svg .st-good .gb-shape { fill: var(--good-bg); stroke: var(--good-fg); }
+.gb-svg .st-warn .gb-shape { fill: var(--warn-bg); stroke: var(--warn-fg); }
+.gb-svg .st-bad .gb-shape { fill: var(--bad-bg); stroke: var(--bad-fg); }
+
+.gb-layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; margin-top: 20px; }
+.gb-aside { align-self: start; padding: 16px; }
+.gb-aside .gb-svg { max-height: 220px; }
+.gb-caption { margin: 12px 0 0; font: 400 13px/1.5 var(--sans); color: var(--ink-60); }
+.gb-main { min-width: 0; }
+.gb-main > .section:first-child { padding-top: 0; }
+.ov .gb-main .chip-row { padding-top: 0; }
+
+.mkt-gebouw { display: grid; grid-template-columns: minmax(0, 420px) minmax(0, 1fr); gap: 56px; align-items: center; margin-top: 44px; }
+.mkt-gebouw-fig { padding: 24px; }
+.mkt-onderdelen { display: grid; gap: 22px; margin: 0; }
+.mkt-onderdeel { padding-left: 16px; border-left: 3px solid var(--copper); }
+.mkt-onderdeel dt { font: 700 17px/1.3 var(--heading); }
+.mkt-onderdeel dd { margin: 4px 0 0; font: 400 15px/1.5 var(--sans); color: var(--ink-60); }
+
+@media (min-width: 960px) {
+  .gb-layout { grid-template-columns: 300px minmax(0, 1fr); gap: 32px; }
+  .gb-aside { position: sticky; top: 24px; padding: 20px; }
+  .gb-aside .gb-svg { max-height: none; }
+}
+@media (max-width: 900px) {
+  .mkt-gebouw { grid-template-columns: minmax(0, 1fr); gap: 28px; }
+}
