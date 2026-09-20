@@ -1449,6 +1449,28 @@
     else heroFrames[0].addEventListener('load', updateHeroScrollFrame, { once: true });
   }
 
+  // Het voorbeeldgebouw start met een richtsaldo (€ 2.500 per appartement,
+  // zie README) i.p.v. € 0, zodat de homepage en het geopende voorbeeld
+  // dezelfde, herkenbare cijfers tonen.
+  var VOORBEELD_FONDS_PER_APP = 2500;
+
+  // Een losstaand plan van het voorbeeldgebouw, voor de weergave op de
+  // homepage. Raakt `state` niet aan: overzichtModel() rekent op wat het
+  // meekrijgt.
+  function voorbeeldPlan() {
+    var b = defaultBuilding();
+    return {
+      building: b, elements: buildDefaultElements(b), fonds: b.units * VOORBEELD_FONDS_PER_APP,
+      bijdrage: 55, offertes: {}, bijvullen: {}, settings: state.settings
+    };
+  }
+
+  // Wie al een eigen gebouw open heeft staan, krijgt geen "voorbeeldplan"-
+  // link: die zou het geopende plan in het geheugen vervangen.
+  function heeftEigenPlan() {
+    return !!(state.building && !state.building.isVoorbeeld);
+  }
+
   function renderMarketingHeader() {
     var html = '<div class="mkt-header">';
     html += mktLogo();
@@ -1456,7 +1478,7 @@
     html += '<a href="#mkt-features">Functies</a>';
     html += '<a href="#mkt-how">Hoe het werkt</a>';
     html += '<a href="#mkt-pricing">Prijzen</a>';
-    html += '<a data-act="goto-onboarding">Voorbeeldplan</a>';
+    if (!heeftEigenPlan()) html += '<a data-act="open-voorbeeld">Voorbeeldplan</a>';
     html += '<a href="mailto:info@mjoplive.nl">Contact</a>';
     html += '</div>';
     html += state.session
@@ -1467,6 +1489,7 @@
   }
 
   function renderMarketing() {
+    var eigen = heeftEigenPlan();
     var html = '<div class="mkt">';
     html += renderMarketingHeader();
 
@@ -1479,90 +1502,54 @@
     html += '<div class="mkt-hero-scrim"></div>';
     html += '<div class="mkt-hero-inner">';
     html += '<div class="mkt-hero-copy">';
-    html += '<div class="mkt-eyebrow">MJOP Live</div>';
-    html += '<h1 class="mkt-h1">Een onderhoudsplan voor uw VvE, gebaseerd op echte bouwdata</h1>';
-    html += '<p class="mkt-sub">MJOP Live haalt bouwjaar, dakoppervlak en gevelmaten automatisch op uit de BAG en 3D BAG. Log in om uw eigen plan te maken en te bewaren.</p>';
+    html += '<h1 class="mkt-h1">Spaart jullie VvE genoeg voor het onderhoud?</h1>';
+    html += '<p class="mkt-sub">Zoek je adres op. MJOP Live haalt bouwjaar, dakoppervlak en gevelmaten uit de BAG en 3D BAG en rekent uit welke bijdrage per maand nodig is.</p>';
     html += '<div class="mkt-cta-row">';
     html += state.session
-      ? '<div class="mkt-cta-primary" data-act="goto-app">Naar mijn plan →</div>'
-      : '<div class="mkt-cta-primary" data-act="goto-login">Inloggen en MJOP starten →</div>';
-    html += '<div class="mkt-cta-secondary" data-act="goto-onboarding">Bekijk een voorbeeldplan</div>';
+      ? '<div class="mkt-cta-primary" data-act="goto-app">Naar mijn plan</div>'
+      : '<div class="mkt-cta-primary" data-act="goto-onboarding">Reken je eigen gebouw door</div>';
+    if (!eigen) html += '<div class="mkt-cta-secondary" data-act="open-voorbeeld">Bekijk het voorbeeldplan</div>';
     html += '</div>';
-    html += state.session ? '' : '<div class="mkt-fineprint">Geen wachtwoord nodig — u ontvangt een eenmalige inloglink per e-mail.</div>';
+    html += state.session ? '' : '<div class="mkt-fineprint">Gratis, zonder account. Inloggen hoef je pas om je plan op te slaan.</div>';
     html += '</div>';
     html += '</div>'; // .mkt-hero-inner
     html += '</div></div>'; // .mkt-hero, .mkt-hero-pin-wrap
 
-    // Device-mockup (met slotje) staat los van de hero, in zijn eigen
-    // sectie eronder — daar concurreert 'ie niet meer met het scroll-
-    // achtergrondbeeld om aandacht.
-    html += '<div class="mkt-section" id="mkt-preview"><div class="mkt-section-title">Zo ziet uw plan eruit</div>';
-    html += '<div class="mkt-preview-app"><div class="mkt-hero-visual">';
-    html += '<div class="mkt-browserframe"><div class="mkt-browserframe-bar"><span></span><span></span><span></span></div>';
-    html += '<div class="mkt-browserframe-body">';
-    html += '<div class="eyebrow" style="color:var(--ink-42)">VOORBEELDGEBOUW — PORTIEKFLAT</div>';
-    html += '<div style="font:700 20px/1.3 ' + "'Rubik'" + ',sans-serif;margin-top:6px">Sparen we genoeg?</div>';
-    html += '<div style="margin-top:14px;background:var(--blue);border-radius:10px;padding:16px;color:#fff">';
-    html += '<div style="display:flex;justify-content:space-between;font:500 12px/1 var(--sans)"><span>Bijdrage per appartement</span><span>€ 55</span></div>';
-    html += '<div style="display:flex;align-items:flex-end;gap:3px;height:40px;margin-top:12px">' +
-      [18, 26, 14, 10, 16, 22, 12, 24].map(function (h) { return '<div style="flex:1;height:' + h + 'px;background:rgba(255,255,255,.85);border-radius:2px 2px 0 0"></div>'; }).join('') +
-      '</div></div>';
-    html += '<div style="display:flex;gap:10px;margin-top:14px">';
-    html += '<div style="flex:1;border:1px solid var(--ink-08);border-radius:8px;padding:10px"><div style="font:400 10.5px/1 var(--sans);color:var(--ink-50)">Reservefonds nu</div><div style="font:600 15px/1 var(--sans);margin-top:5px">€ 20.000</div></div>';
-    html += '<div style="flex:1;border:1px solid var(--ink-08);border-radius:8px;padding:10px"><div style="font:400 10.5px/1 var(--sans);color:var(--ink-50)">Kosten t/m 2035</div><div style="font:600 15px/1 var(--sans);margin-top:5px">€ 55.148</div></div>';
+    // Het echte Overzicht van het voorbeeldplan (zelfde functies als de
+    // app), i.p.v. een nagebouwde, vervaagde mockup.
+    var demo = overzichtModel(voorbeeldPlan());
+    html += '<div class="mkt-section" id="mkt-preview"><div class="mkt-section-title">Zo ziet je plan eruit</div>';
+    html += '<div class="mkt-section-sub">Een portiekflat uit 1978 met 8 appartementen, een bijdrage van ' + eur(demo.bijdrage) + ' per maand en ' + eur(demo.fonds) + ' in het reservefonds.</div>';
+    html += '<div class="mkt-demo">';
+    html += '<div class="mkt-demo-text">' + ovVerdictHtml(demo, true);
+    if (!eigen) html += '<button type="button" class="ov-btn" data-act="open-voorbeeld">Open het voorbeeldplan</button>';
     html += '</div>';
+    html += '<div class="ov-card"><h2 class="ov-h2">Saldo van het reservefonds</h2>';
+    html += '<p class="ov-sub">Aan het einde van elk jaar</p>';
+    html += '<div class="ov-chart">' + ovChartHtml(demo) + '</div></div>';
     html += '</div></div>';
-    html += '<div class="mkt-lock-overlay">';
-    html += '<div class="mkt-lock-icon">' + MKT_ICONS.lockBig + '</div>';
-    html += '<div class="mkt-lock-title">Log in om uw plan te bekijken en te bewerken</div>';
-    html += '<div class="mkt-lock-sub">Adres opzoeken en het voorbeeldplan bekijken kan zonder account</div>';
-    html += '</div>';
-    html += '</div></div></div>'; // .mkt-hero-visual, .mkt-preview-app, #mkt-preview
 
     html += '<div class="mkt-section shaded" id="mkt-features"><div class="mkt-section-inner">';
     html += '<div class="mkt-section-title">Alles wat een bestuur nodig heeft</div>';
-    html += '<div class="mkt-section-sub">Geen los rekenblad meer bijhouden — MJOP Live combineert bouwdata, conditie en kosten in één navigatie.</div>';
-    html += '<div class="mkt-preview">';
-
-    // Niet-klikbare miniatuur van de echte app-navigatie (zie .tab-bar/
-    // renderTabBar op desktop) — bewust dezelfde vormtaal als het
-    // werkelijke product, in plaats van een losstaand decoratief element.
-    html += '<div class="mkt-preview-sidebar">';
-    html += '<div class="mkt-preview-brand"><div class="mark">M</div><span>MJOP Live</span></div>';
+    html += '<div class="mkt-section-sub">Geen los rekenblad meer: bouwdata, conditie en kosten staan bij elkaar.</div>';
+    html += '<div class="mkt-feature-grid">';
     [
-      [NAV_ICONS.overzicht, 'Overzicht', true],
-      [NAV_ICONS.gebouw, 'Gebouw', false],
-      [NAV_ICONS.planning, 'Planning', false],
-      [NAV_ICONS.rapport, 'Rapport', false],
-    ].forEach(function (r) {
-      html += '<div class="mkt-preview-item' + (r[2] ? ' active' : '') + '"><span class="tab-icon">' + r[0] + '</span><span>' + r[1] + '</span></div>';
-    });
-    html += '<div class="mkt-preview-bottom">';
-    html += '<div class="mkt-preview-item"><span class="tab-icon">' + NAV_ICONS.instellingen + '</span><span>Account</span></div>';
-    html += '<div class="mkt-preview-account"><span class="tab-account-avatar">B</span><div class="tab-account-info"><div class="tab-account-name">bestuur@vve-voorbeeld.nl</div><div class="tab-account-sub">Ingelogd</div></div></div>';
-    html += '</div>';
-    html += '</div>';
-
-    html += '<div class="mkt-preview-features">';
-    [
-      [MKT_ICONS.pin, 'Echte bouwdata', 'Bouwjaar, dakoppervlak en gevelmaten komen automatisch uit de BAG en 3D BAG — geen handmatig opmeten nodig.'],
-      [MKT_ICONS.clipboard, 'NEN 2767 conditiescore', 'Leg gebreken vast per element; de conditiescore bepaalt zelf wanneer een post echt aan de beurt is.'],
-      [MKT_ICONS.trend, 'Realistisch fondsadvies', 'Een 10-jaars kasstroomprojectie laat zien of de huidige bijdrage genoeg is, en wat er nodig is als dat niet zo is.'],
+      [MKT_ICONS.pin, 'Echte bouwdata', 'Bouwjaar, dakoppervlak en gevelmaten komen uit de BAG en 3D BAG. Je hoeft niets op te meten.'],
+      [MKT_ICONS.clipboard, 'NEN 2767 conditiescore', 'Leg gebreken vast per post. De conditie bepaalt wanneer een post echt aan de beurt is.'],
+      [MKT_ICONS.trend, 'Fondsadvies voor 10 jaar', 'De kasstroom laat zien of de huidige bijdrage genoeg is, en wat er nodig is als dat niet zo is.'],
     ].forEach(function (f) {
-      html += '<div class="mkt-preview-feature"><div class="mkt-feature-icon">' + f[0] + '</div>';
-      html += '<div><div class="mkt-feature-title">' + f[1] + '</div><div class="mkt-feature-body">' + f[2] + '</div></div></div>';
+      html += '<div class="mkt-feature-card"><div class="mkt-feature-icon">' + f[0] + '</div>';
+      html += '<div class="mkt-feature-title">' + f[1] + '</div><div class="mkt-feature-body">' + f[2] + '</div></div>';
     });
-    html += '</div>';
-
     html += '</div></div></div>';
 
     html += '<div class="mkt-section" id="mkt-how">';
     html += '<div class="mkt-section-title">Hoe het werkt</div>';
     html += '<div class="mkt-steps">';
     [
-      ['Log in met uw e-mail', 'Geen wachtwoord — u ontvangt een eenmalige inloglink.'],
-      ['Zoek uw adres op', 'De app haalt bouwjaar, dakoppervlak en gevelmaten automatisch op.'],
-      ['Beoordeel en exporteer', 'Leg de conditie per element vast en exporteer het plan als pdf of csv.'],
+      ['Zoek je adres op', 'De app haalt bouwjaar, dakoppervlak en gevelmaten automatisch op.'],
+      ['Loop de posten na', 'Leg per post de gebreken vast. Zonder beoordeling rekent de app met de standaardcyclus.'],
+      ['Bekijk of je genoeg spaart', 'Zie welke bijdrage per maand nodig is en print het voorstel voor de vergadering.'],
     ].forEach(function (s, i) {
       html += '<div class="mkt-step"><div class="mkt-step-num">' + (i + 1) + '</div>';
       html += '<div class="mkt-step-title">' + s[0] + '</div><div class="mkt-step-body">' + s[1] + '</div></div>';
@@ -1571,7 +1558,7 @@
 
     html += '<div class="mkt-section shaded" id="mkt-pricing"><div class="mkt-section-inner">';
     html += '<div class="mkt-section-title">Prijzen</div>';
-    html += '<div class="mkt-section-sub">Een adres opzoeken en het voorbeeldgebouw bekijken kan altijd gratis. Voor het opslaan en beheren van uw eigen gebouw geldt één vast maandtarief, zonder verrassingen.</div>';
+    html += '<div class="mkt-section-sub">Uitproberen is gratis en kan zonder account. Een abonnement heb je alleen nodig om je plan op te slaan.</div>';
     html += '<div class="mkt-pricing-grid">';
 
     html += '<div class="mkt-pricing-plan">';
@@ -1579,33 +1566,33 @@
     html += '<div class="mkt-pricing-price">€ 0</div>';
     html += '<div class="mkt-pricing-list">';
     [
-      'Adres opzoeken met echte BAG-data',
-      'Het voorbeeldgebouw volledig bekijken',
-      'Rapport en cijfers van het voorbeeldgebouw inzien',
+      'Je eigen adres opzoeken met BAG-gegevens',
+      'Het plan doorrekenen en aanpassen',
+      'Rapport printen of als csv exporteren',
     ].forEach(function (t) {
       html += '<div class="mkt-pricing-item">' + CHOICE_ICONS.check + '<span>' + t + '</span></div>';
     });
     html += '</div>';
-    html += '<div class="mkt-pricing-cta" data-act="goto-onboarding">Bekijk het voorbeeldplan →</div>';
+    html += '<div class="mkt-pricing-cta" data-act="goto-onboarding">Reken je gebouw door</div>';
     html += '</div>';
 
     html += '<div class="mkt-pricing-plan featured">';
-    html += '<div class="mkt-pricing-badge">Voor uw eigen gebouw</div>';
+    html += '<div class="mkt-pricing-badge">Voor je eigen gebouw</div>';
     html += '<div class="mkt-pricing-name">Abonnement</div>';
     html += '<div class="mkt-pricing-price">€ 19<span>/maand</span></div>';
     html += '<div class="mkt-pricing-list">';
     [
       'Alles uit Gratis',
-      'Uw eigen gebouw opzoeken en opslaan',
-      'Wijzigingen bewaren en later verder werken',
-      'Op elk moment weer opzegbaar',
+      'Plannen opslaan en later verder werken',
+      'Wijzigingen worden automatisch bewaard',
+      'Maandelijks opzegbaar',
     ].forEach(function (t) {
       html += '<div class="mkt-pricing-item">' + CHOICE_ICONS.check + '<span>' + t + '</span></div>';
     });
     html += '</div>';
     html += state.session
-      ? '<div class="mkt-pricing-cta" data-act="goto-app">Naar mijn plan →</div>'
-      : '<div class="mkt-pricing-cta" data-act="goto-login">Gratis account maken →</div>';
+      ? '<div class="mkt-pricing-cta" data-act="goto-app">Naar mijn plan</div>'
+      : '<div class="mkt-pricing-cta" data-act="goto-login">Gratis account maken</div>';
     html += '</div>';
 
     html += '</div></div></div>';
@@ -1662,7 +1649,7 @@
     if (state.session && state.savedPlans.length) {
       var meestRecent = state.savedPlans[0];
       html += '<div class="choice-status"><div class="choice-status-row">';
-      html += '<div class="txt">Verdergaan met <strong>' + esc(meestRecent.label || 'uw laatste plan') + '</strong></div>';
+      html += '<div class="txt">Verdergaan met <strong>' + esc(meestRecent.label || 'je laatste plan') + '</strong></div>';
       html += '<div class="links"><span data-act="open-plan" data-id="' + meestRecent.id + '">Openen →</span>';
       if (state.savedPlans.length > 1) html += ' · <span data-act="goto-mijngebouwen">Mijn gebouwen</span>';
       html += '</div>';
@@ -2321,17 +2308,20 @@
   // vervangen (zie updateOverzichtLive()); de slider zelf blijft staan,
   // anders raakt de browser de sleepbeweging kwijt.
   // ---------------------------------------------------------------------
-  function overzichtModel() {
-    var rows = kasstroom(state);
+  function overzichtModel(st) {
+    st = st || state;
+    var rows = kasstroom(st);
     var eind = CURRENT_YEAR + HORIZON - 1;
     var laagsteRij = rows.reduce(function (min, r) { return r.saldo < min.saldo ? r : min; }, rows[0]);
     return {
       rows: rows,
-      plan: fullPlan(state).filter(function (p) { return p.jaar >= CURRENT_YEAR && p.jaar <= eind; }),
+      plan: fullPlan(st).filter(function (p) { return p.jaar >= CURRENT_YEAR && p.jaar <= eind; }),
       eerste: rows.filter(function (r) { return r.saldo < 0; })[0],
       laagste: laagsteRij,
       totaal: rows.reduce(function (a, r) { return a + r.kosten; }, 0),
-      nodig: benodigdeBijdrage(state),
+      nodig: benodigdeBijdrage(st),
+      bijdrage: st.bijdrage,
+      fonds: st.fonds,
       eind: eind
     };
   }
@@ -2369,8 +2359,8 @@
     return g.top.naam + (g.aantal > 1 ? ' en ' + (g.aantal - 1) + ' andere' : '');
   }
 
-  function ovVerdictHtml(m) {
-    var b = state.bijdrage;
+  function ovVerdictHtml(m, zonderKnop) {
+    var b = m.bijdrage;
     var html = '<h1 class="ov-head">' + (m.eerste
       ? 'Bij ' + eur(b) + ' per maand is het fonds in ' + m.eerste.jaar + ' leeg.'
       : 'Bij ' + eur(b) + ' per maand blijft het fonds de komende ' + HORIZON + ' jaar op peil.') + '</h1>';
@@ -2378,7 +2368,7 @@
       ? 'Je hebt ' + eur(m.nodig) + ' per appartement per maand nodig om alle posten tot en met ' + m.eind + ' te betalen' +
         (b < m.nodig ? ', ' + eur(m.nodig - b) + ' meer dan nu.' : '.')
       : 'Het laagste saldo in deze periode is ' + eurSigned(m.laagste.saldo) + ' (' + m.laagste.jaar + ').') + '</p>';
-    if (b < m.nodig) {
+    if (b < m.nodig && !zonderKnop) {
       html += '<button type="button" class="ov-btn" data-act="zet-advies" data-nodig="' + m.nodig + '">Zet bijdrage op ' + eur(m.nodig) + '</button>';
     }
     return html;
@@ -3224,7 +3214,14 @@
   var factuurZoekTimer = null;
 
   var ACTIONS = {
-    'skip-onboarding': function () { applyBuilding(defaultBuilding()); render(); },
+    // Opent het voorbeeldgebouw; vanuit de homepage en vanuit het adresscherm.
+    'open-voorbeeld': function () {
+      var vers = !state.elements.length;
+      applyBuilding(defaultBuilding());
+      if (vers && !state.fonds) state.fonds = state.building.units * VOORBEELD_FONDS_PER_APP;
+      render();
+    },
+    'skip-onboarding': function () { ACTIONS['open-voorbeeld'](); },
     'wijzig-adres': function () {
       state.buildingSwitcherOpen = false;
       state.screen = 'onboarding'; state.onboarding = { q: '', sug: [], bezig: false, bezigTekst: '', fout: '', gezocht: false };
