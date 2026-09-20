@@ -60,7 +60,7 @@ async function laagsteSaldoBlijftPositief(page, bedrag) {
     el.dispatchEvent(new Event('change', { bubbles: true }));
   }, bedrag);
   await page.waitForTimeout(120);
-  var tekst = await page.$eval('.advice', function (el) { return el.textContent.trim(); });
+  var tekst = await page.$eval('#ov-verdict .ov-head', function (el) { return el.textContent.trim(); });
   return tekst.indexOf('leeg') === -1;
 }
 
@@ -88,7 +88,7 @@ async function main() {
   await page.click('[data-act=set-tab][data-tab=home]');
   await page.waitForTimeout(150);
 
-  var totaalTekst = await page.$eval('.stat-card:has-text("Kosten") .amount', function (el) { return el.textContent.trim(); });
+  var totaalTekst = await page.$eval('.ov-kv:has-text("Kosten") b', function (el) { return el.textContent.trim(); });
   var totaal = Number(totaalTekst.replace(/[^0-9]/g, ''));
   var voorstel = Number(await page.$eval('[data-act=zet-advies]', function (el) { return el.dataset.nodig; }));
 

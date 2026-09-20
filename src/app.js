@@ -855,7 +855,6 @@
     building: null,
     fonds: 0,
     bijdrage: 55,
-    idxBalk: true,
     elements: [],
     tab: 'home',
     activeElementId: null,
@@ -1504,13 +1503,13 @@
     html += '<div class="eyebrow" style="color:var(--ink-42)">VOORBEELDGEBOUW — PORTIEKFLAT</div>';
     html += '<div style="font:700 20px/1.3 ' + "'Rubik'" + ',sans-serif;margin-top:6px">Sparen we genoeg?</div>';
     html += '<div style="margin-top:14px;background:var(--blue);border-radius:10px;padding:16px;color:#fff">';
-    html += '<div style="display:flex;justify-content:space-between;font:500 12px/1 Inter,sans-serif"><span>Bijdrage per appartement</span><span>€ 55</span></div>';
+    html += '<div style="display:flex;justify-content:space-between;font:500 12px/1 var(--sans)"><span>Bijdrage per appartement</span><span>€ 55</span></div>';
     html += '<div style="display:flex;align-items:flex-end;gap:3px;height:40px;margin-top:12px">' +
       [18, 26, 14, 10, 16, 22, 12, 24].map(function (h) { return '<div style="flex:1;height:' + h + 'px;background:rgba(255,255,255,.85);border-radius:2px 2px 0 0"></div>'; }).join('') +
       '</div></div>';
     html += '<div style="display:flex;gap:10px;margin-top:14px">';
-    html += '<div style="flex:1;border:1px solid var(--ink-08);border-radius:8px;padding:10px"><div style="font:400 10.5px/1 Inter,sans-serif;color:var(--ink-50)">Reservefonds nu</div><div style="font:600 15px/1 Inter,sans-serif;margin-top:5px">€ 20.000</div></div>';
-    html += '<div style="flex:1;border:1px solid var(--ink-08);border-radius:8px;padding:10px"><div style="font:400 10.5px/1 Inter,sans-serif;color:var(--ink-50)">Kosten t/m 2035</div><div style="font:600 15px/1 Inter,sans-serif;margin-top:5px">€ 55.148</div></div>';
+    html += '<div style="flex:1;border:1px solid var(--ink-08);border-radius:8px;padding:10px"><div style="font:400 10.5px/1 var(--sans);color:var(--ink-50)">Reservefonds nu</div><div style="font:600 15px/1 var(--sans);margin-top:5px">€ 20.000</div></div>';
+    html += '<div style="flex:1;border:1px solid var(--ink-08);border-radius:8px;padding:10px"><div style="font:400 10.5px/1 var(--sans);color:var(--ink-50)">Kosten t/m 2035</div><div style="font:600 15px/1 var(--sans);margin-top:5px">€ 55.148</div></div>';
     html += '</div>';
     html += '</div></div>';
     html += '<div class="mkt-lock-overlay">';
@@ -1779,7 +1778,7 @@
   function renderUploadRegels(u) {
     var basisjaar = num(u.basisjaar);
     var html = '<div class="section"><div class="card pad">';
-    html += '<div style="font:500 13.5px/1.35 Inter,system-ui,sans-serif">Prijspeil van dit MJOP</div>';
+    html += '<div style="font:500 13.5px/1.35 var(--sans)">Prijspeil van dit MJOP</div>';
     html += '<div class="input-row" style="margin-top:11px"><div class="label">De bedragen hieronder zijn genoteerd op prijspeil</div><input id="upload-basisjaar" data-bind="upload-basisjaar" value="' + esc(u.basisjaar) + '" /></div>';
     html += '<div class="hint">Bedragen worden automatisch met ' + (cbsIndexatie ? cbsIndexatie.pct : Math.round(INDEXATIE_PCT * 1000) / 10) + '% per jaar' + ((cbsIndexatie && state.settings.toonCbsBron) ? ' (CBS-bouwkostenindex ' + cbsIndexatie.periode + ')' : '') + ' geïndexeerd van dit jaar naar het jaar waarin de post daadwerkelijk gepland staat. Staat er al een actueel bedrag in het bestand? Zet het prijspeil dan gelijk aan het huidige jaar (' + CURRENT_YEAR + ') zodat er niet extra geïndexeerd wordt.</div>';
     html += '</div></div>';
@@ -1794,24 +1793,24 @@
       html += '<div style="padding:14px 16px' + (i === 0 ? ';border-top:none' : ';border-top:1px solid var(--ink-08)') + '">';
       html += '<div style="display:flex;align-items:center;gap:10px">';
       html += '<input type="checkbox" data-act="upload-toggle-regel" data-i="' + i + '"' + (r.include ? ' checked' : '') + ' />';
-      html += '<input id="upload-regel-naam-' + i + '" data-bind="upload-regel-naam" data-i="' + i + '" value="' + esc(r.naam) + '" placeholder="element" style="flex:1;min-width:0;border:1px solid var(--ink-14);border-radius:8px;padding:7px 9px;font:500 13.5px Inter,system-ui,sans-serif" />';
+      html += '<input id="upload-regel-naam-' + i + '" data-bind="upload-regel-naam" data-i="' + i + '" value="' + esc(r.naam) + '" placeholder="element" style="flex:1;min-width:0;border:1px solid var(--ink-14);border-radius:8px;padding:7px 9px;font:500 13.5px var(--sans)" />';
       html += '<button data-act="upload-del-regel" data-i="' + i + '" style="border:none;background:none;color:var(--ink-45);cursor:pointer;flex:none;font-size:16px">×</button>';
       html += '</div>';
       html += '<div style="display:flex;align-items:center;gap:14px;margin-top:9px;padding-left:26px;flex-wrap:wrap">';
-      html += '<div style="display:flex;align-items:center;gap:6px"><span class="eyebrow" style="font-size:9.5px">Jaar</span><input id="upload-regel-jaar-' + i + '" data-bind="upload-regel-jaar" data-i="' + i + '" value="' + esc(r.jaar) + '" style="width:52px;border:1px solid var(--ink-14);border-radius:7px;padding:5px 6px;text-align:center;font:500 12px Inter,system-ui,sans-serif" /></div>';
-      html += '<div style="display:flex;align-items:center;gap:6px"><span class="eyebrow" style="font-size:9.5px">Prijspeil ' + basisjaar + '</span><input id="upload-regel-bedrag-' + i + '" data-bind="upload-regel-bedrag" data-i="' + i + '" value="' + esc(r.bedrag) + '" style="width:72px;border:1px solid var(--ink-14);border-radius:7px;padding:5px 6px;text-align:right;font:500 12px Inter,system-ui,sans-serif" /></div>';
-      html += '<div style="display:flex;align-items:center;gap:6px"><span class="eyebrow" style="font-size:9.5px">Cyclus (jaar, 0 = eenmalig)</span><input id="upload-regel-cyclus-' + i + '" data-bind="upload-regel-cyclus" data-i="' + i + '" value="' + esc(r.cyclus || 0) + '" style="width:44px;border:1px solid var(--ink-14);border-radius:7px;padding:5px 6px;text-align:center;font:500 12px Inter,system-ui,sans-serif" /></div>';
+      html += '<div style="display:flex;align-items:center;gap:6px"><span class="eyebrow" style="font-size:9.5px">Jaar</span><input id="upload-regel-jaar-' + i + '" data-bind="upload-regel-jaar" data-i="' + i + '" value="' + esc(r.jaar) + '" style="width:52px;border:1px solid var(--ink-14);border-radius:7px;padding:5px 6px;text-align:center;font:500 12px var(--sans)" /></div>';
+      html += '<div style="display:flex;align-items:center;gap:6px"><span class="eyebrow" style="font-size:9.5px">Prijspeil ' + basisjaar + '</span><input id="upload-regel-bedrag-' + i + '" data-bind="upload-regel-bedrag" data-i="' + i + '" value="' + esc(r.bedrag) + '" style="width:72px;border:1px solid var(--ink-14);border-radius:7px;padding:5px 6px;text-align:right;font:500 12px var(--sans)" /></div>';
+      html += '<div style="display:flex;align-items:center;gap:6px"><span class="eyebrow" style="font-size:9.5px">Cyclus (jaar, 0 = eenmalig)</span><input id="upload-regel-cyclus-' + i + '" data-bind="upload-regel-cyclus" data-i="' + i + '" value="' + esc(r.cyclus || 0) + '" style="width:44px;border:1px solid var(--ink-14);border-radius:7px;padding:5px 6px;text-align:center;font:500 12px var(--sans)" /></div>';
       html += '</div>';
-      html += '<div style="margin-top:9px;padding-left:26px;font:500 15px/1 Inter,system-ui,sans-serif;color:var(--blue)">→ ' + eur(geindexeerd) + ' <span style="font:400 11px/1 Inter,system-ui,sans-serif;color:var(--ink-50)">in ' + esc(r.jaar) + '</span></div>';
+      html += '<div style="margin-top:9px;padding-left:26px;font:500 15px/1 var(--sans);color:var(--blue)">→ ' + eur(geindexeerd) + ' <span style="font:400 11px/1 var(--sans);color:var(--ink-50)">in ' + esc(r.jaar) + '</span></div>';
       html += '</div>';
     });
-    html += '<div class="row" style="cursor:pointer" data-act="upload-add-regel"><div class="grow" style="font:500 13px Inter,system-ui,sans-serif;color:var(--blue)">+ Regel toevoegen</div></div>';
+    html += '<div class="row" style="cursor:pointer" data-act="upload-add-regel"><div class="grow" style="font:500 13px var(--sans);color:var(--blue)">+ Regel toevoegen</div></div>';
     html += '</div></div>';
 
     if (u.ruweTekst) {
-      html += '<div class="section"><details><summary style="cursor:pointer;font:500 12.5px Inter,system-ui,sans-serif;color:var(--blue)">Ruwe tekst uit de pdf bekijken</summary>';
+      html += '<div class="section"><details><summary style="cursor:pointer;font:500 12.5px var(--sans);color:var(--blue)">Ruwe tekst uit de pdf bekijken</summary>';
       html += '<div class="card pad" style="margin-top:9px"><div class="hint" style="margin-bottom:8px">Heeft de app een regel gemist? Gebruik deze tekst om hem hierboven handmatig toe te voegen.</div>';
-      html += '<pre style="white-space:pre-wrap;font:400 10.5px/1.5 Inter,system-ui,sans-serif;color:var(--ink-60);max-height:220px;overflow:auto;margin:0">' + esc(u.ruweTekst) + '</pre></div></details></div>';
+      html += '<pre style="white-space:pre-wrap;font:400 10.5px/1.5 var(--sans);color:var(--ink-60);max-height:220px;overflow:auto;margin:0">' + esc(u.ruweTekst) + '</pre></div></details></div>';
     }
 
     html += '<div class="section"><div class="hint">Elke regel wordt een post in het plan op het opgegeven jaar. Je kunt hierna nog het adres koppelen voor de echte gebouwgegevens — de geïmporteerde regels blijven dan staan.</div>';
@@ -2033,12 +2032,12 @@
     if (!state.session) {
       var html = '<div class="card pad">';
       if (a.stap === 'sent') {
-        html += '<div style="font:500 13.5px/1.35 Inter,system-ui,sans-serif">Inloglink verstuurd naar ' + esc(a.email) + '</div>';
+        html += '<div style="font:500 13.5px/1.35 var(--sans)">Inloglink verstuurd naar ' + esc(a.email) + '</div>';
         html += '<div class="hint" style="margin-top:6px">Open de e-mail en klik op de link — je komt dan hier terug, automatisch ingelogd. De link is eenmalig geldig; kom je op een foutmelding uit, vraag dan hieronder een nieuwe aan.</div>';
         if (a.fout) html += '<div class="notice error" style="margin-top:10px">' + esc(a.fout) + '</div>';
         html += '<div class="btn-row"><div class="ghost-btn" data-act="login-change-email">Andere e-mail / opnieuw versturen</div></div>';
       } else {
-        html += '<div style="font:500 13.5px/1.35 Inter,system-ui,sans-serif">Inloggen met e-mail</div>';
+        html += '<div style="font:500 13.5px/1.35 var(--sans)">Inloggen met e-mail</div>';
         html += '<div class="hint" style="margin-top:6px">Je krijgt een eenmalige inloglink per e-mail toegestuurd.</div>';
         html += '<div class="input-row" style="margin-top:14px"><div class="label">E-mailadres</div><input id="auth-email" data-bind="auth-email" value="' + esc(a.email) + '" class="wide" placeholder="naam@voorbeeld.nl" style="width:200px;text-align:left" autocomplete="email" /></div>';
         if (a.fout) html += '<div class="notice error" style="margin-top:10px">' + esc(a.fout) + '</div>';
@@ -2102,7 +2101,7 @@
     html += '</div>';
 
     html += '<div class="card pad" style="margin-top:14px">';
-    html += '<div style="font:500 13.5px/1.3 Inter,system-ui,sans-serif">Mijn gebouwen</div>';
+    html += '<div style="font:500 13.5px/1.3 var(--sans)">Mijn gebouwen</div>';
     if (state.savedPlans.length === 0) {
       html += '<div class="hint" style="margin-top:6px">Nog geen opgeslagen plannen — sla het huidige plan op via "Opslaan" in de tabbalk, het verschijnt dan hier.</div>';
     } else {
@@ -2126,7 +2125,7 @@
   function renderGegevensPrivacy() {
     var v = state.accountVerwijderen, pu = state.privacyUi;
     var html = '<div class="card pad" style="margin-top:14px">';
-    html += '<div style="font:500 13.5px/1.3 Inter,system-ui,sans-serif">Gegevens en privacy</div>';
+    html += '<div style="font:500 13.5px/1.3 var(--sans)">Gegevens en privacy</div>';
 
     html += '<div class="row" style="border-top:none;margin-top:11px;padding:0 0 11px">';
     html += '<div class="grow"><div class="name">Download mijn gegevens</div><div class="meta">Je profiel, organisatie- en factuurgegevens en al je opgeslagen plannen, als JSON-bestand</div></div>';
@@ -2210,7 +2209,7 @@
     } else {
       html += '<div class="kv"><div class="label">Status</div><div class="amount" style="font-size:15px">Geen abonnement</div></div>';
       html += '<div class="hint">Een eigen gebouw opzoeken en opslaan is onderdeel van het abonnement (€ 19 per maand). Het voorbeeldgebouw blijft altijd gratis te bekijken.</div>';
-      html += '<div class="btn-row"><div class="primary-btn accent" data-act="upgrade-abonnement">' + (state.subscriptionUi.bezig ? 'Bezig…' : 'Abonneren — € 19/maand') + '</div></div>';
+      html += '<div class="btn-row"><div class="primary-btn" data-act="upgrade-abonnement">' + (state.subscriptionUi.bezig ? 'Bezig…' : 'Abonneren — € 19/maand') + '</div></div>';
     }
     if (state.subscriptionUi.fout) html += '<div class="notice error" style="margin-top:12px">' + esc(state.subscriptionUi.fout) + '</div>';
     html += '</div>';
@@ -2229,7 +2228,7 @@
     var p = state.profile, ui = state.facturatieUi, z = state.facturatieZoek;
     var dirty = state.facturatieSnapshot !== JSON.stringify(facturatieVelden(p));
     var html = '<div class="card pad" style="margin-top:14px">';
-    html += '<div style="font:500 13.5px/1.3 Inter,system-ui,sans-serif">Factuurgegevens</div>';
+    html += '<div style="font:500 13.5px/1.3 var(--sans)">Factuurgegevens</div>';
     html += '<div class="hint" style="margin-top:4px">Alleen nodig zodra je een betaald abonnement afsluit — bij het aanmaken van je account hoeft dit nog niet.</div>';
 
     html += '<div class="input-row" style="margin-top:14px"><div class="label">Postcode</div><input id="fact-postcode" data-bind="fact-postcode" value="' + esc(p.factuurPostcode) + '" class="wide" placeholder="1234 AB" style="width:90px;text-align:left" /></div>';
@@ -2301,7 +2300,7 @@
     var isOpen = state.currentPlanId === p.id;
     var html = '<div class="row">';
     html += '<div class="grow">';
-    html += '<input id="plan-label-' + p.id + '" data-bind="plan-label" data-change="plan-label" data-id="' + p.id + '" value="' + esc(p.label || '') + '" class="name" style="border:none;background:transparent;width:100%;padding:2px 0;font:400 13px/1.3 Inter,system-ui,sans-serif;color:var(--ink)" />';
+    html += '<input id="plan-label-' + p.id + '" data-bind="plan-label" data-change="plan-label" data-id="' + p.id + '" value="' + esc(p.label || '') + '" class="name" style="border:none;background:transparent;width:100%;padding:2px 0;font:400 13px/1.3 var(--sans);color:var(--ink)" />';
     html += '<div class="meta">' + (p.adres ? esc(p.adres) + ' · ' : '') + (isOpen ? 'Nu geopend · ' : '') + 'bijgewerkt ' + esc(new Date(p.updated_at).toLocaleDateString('nl-NL')) + '</div>';
     html += '</div>';
     if (confirming) {
@@ -2315,114 +2314,218 @@
     return html;
   }
 
-  function projectionBars(rows) {
-    var maxAbs = Math.max(1, Math.max.apply(null, rows.map(function (r) { return Math.abs(r.saldo); })));
-    var html = '<div class="chart-title">Saldo reservefonds per jaar</div>';
-    html += '<div class="bars">';
-    // Eén doorlopende, van de kolommen losstaande nullijn i.p.v. een
-    // los streepje per kolom — zo blijft "€ 0" ook zichtbaar wanneer
-    // alle jaren negatief zijn (dan raakt een per-kolom lijntje uit
-    // beeld bovenaan de rode staven).
-    html += '<div class="zero-line"><span>€ 0</span></div>';
-    rows.forEach(function (r) {
-      var posH = r.saldo > 0 ? Math.max(3, r.saldo / maxAbs * 40) : 0;
-      var negH = r.saldo < 0 ? Math.max(3, -r.saldo / maxAbs * 40) : 0;
-      // title-attribuut geeft het bedrag op hover; de staven zelf lopen
-      // altijd door tot de nullijn, dus positie boven/onder is al een
-      // teken-onafhankelijke aanwijzing — het streeppatroon hieronder
-      // (zie .bar-neg > div in style.css) is de extra, niet-op-kleur-
-      // gebaseerde aanwijzing voor een negatief jaar.
-      html += '<div class="bar-col" title="' + esc(r.jaar + ': ' + (r.saldo < 0 ? eurSigned(r.saldo) : eur(r.saldo))) + '">';
-      html += '<div class="bar-pos"><div style="height:' + posH + 'px"></div></div>';
-      html += '<div class="bar-neg"><div style="height:' + negH + 'px"></div></div>';
-      html += '<div class="bar-label">' + r.jaar + '</div>';
-      html += '</div>';
+  // ---------------------------------------------------------------------
+  // Overzicht — beantwoordt "sparen we genoeg?" met één grote saldografiek.
+  // Verdict, grafiek en laagste saldo zitten in #ov-verdict/#ov-chart/
+  // #ov-low en worden tijdens het slepen van de bijdrage-slider los
+  // vervangen (zie updateOverzichtLive()); de slider zelf blijft staan,
+  // anders raakt de browser de sleepbeweging kwijt.
+  // ---------------------------------------------------------------------
+  function overzichtModel() {
+    var rows = kasstroom(state);
+    var eind = CURRENT_YEAR + HORIZON - 1;
+    var laagsteRij = rows.reduce(function (min, r) { return r.saldo < min.saldo ? r : min; }, rows[0]);
+    return {
+      rows: rows,
+      plan: fullPlan(state).filter(function (p) { return p.jaar >= CURRENT_YEAR && p.jaar <= eind; }),
+      eerste: rows.filter(function (r) { return r.saldo < 0; })[0],
+      laagste: laagsteRij,
+      totaal: rows.reduce(function (a, r) { return a + r.kosten; }, 0),
+      nodig: benodigdeBijdrage(state),
+      eind: eind
+    };
+  }
+
+  // Ronde stap voor de eurogaas (1, 2, 5 × 10^n) zodat de as geen
+  // rare tussenwaarden toont.
+  function niceStep(range, targetTicks) {
+    var raw = range / targetTicks;
+    var mag = Math.pow(10, Math.floor(Math.log(raw) / Math.LN10));
+    var norm = raw / mag;
+    return (norm <= 1 ? 1 : norm <= 2 ? 2 : norm <= 5 ? 5 : 10) * mag;
+  }
+
+  // De (max. 3) grootste uitgavenjaren, met de zwaarste post van dat jaar
+  // als naam — die worden in de grafiek zelf benoemd, zodat te zien is
+  // waaróm het saldo daar zakt.
+  function overzichtCallouts(plan) {
+    var perJaar = {};
+    plan.forEach(function (p) {
+      var g = perJaar[p.jaar];
+      if (!g) g = perJaar[p.jaar] = { jaar: p.jaar, totaal: 0, aantal: 0, top: p };
+      g.totaal += p.bedrag;
+      g.aantal++;
+      if (p.bedrag > g.top.bedrag) g.top = p;
     });
-    html += '</div>';
+    var lijst = Object.keys(perJaar).map(function (k) { return perJaar[k]; })
+      .sort(function (a, b) { return b.totaal - a.totaal; });
+    if (!lijst.length) return [];
+    var drempel = lijst[0].totaal * 0.25;
+    return lijst.slice(0, 3).filter(function (g) { return g.totaal >= drempel; })
+      .sort(function (a, b) { return a.jaar - b.jaar; });
+  }
+
+  function overzichtCalloutNaam(g) {
+    return g.top.naam + (g.aantal > 1 ? ' en ' + (g.aantal - 1) + ' andere' : '');
+  }
+
+  function ovVerdictHtml(m) {
+    var b = state.bijdrage;
+    var html = '<h1 class="ov-head">' + (m.eerste
+      ? 'Bij ' + eur(b) + ' per maand is het fonds in ' + m.eerste.jaar + ' leeg.'
+      : 'Bij ' + eur(b) + ' per maand blijft het fonds de komende ' + HORIZON + ' jaar op peil.') + '</h1>';
+    html += '<p class="ov-lede">' + (m.eerste
+      ? 'Je hebt ' + eur(m.nodig) + ' per appartement per maand nodig om alle posten tot en met ' + m.eind + ' te betalen' +
+        (b < m.nodig ? ', ' + eur(m.nodig - b) + ' meer dan nu.' : '.')
+      : 'Het laagste saldo in deze periode is ' + eurSigned(m.laagste.saldo) + ' (' + m.laagste.jaar + ').') + '</p>';
+    if (b < m.nodig) {
+      html += '<button type="button" class="ov-btn" data-act="zet-advies" data-nodig="' + m.nodig + '">Zet bijdrage op ' + eur(m.nodig) + '</button>';
+    }
     return html;
   }
 
+  function ovLowHtml(m) {
+    var neg = m.laagste.saldo < 0;
+    return '<span>Laagste saldo (' + m.laagste.jaar + ')</span><b class="' + (neg ? 'ov-neg' : '') + '">' + eurSigned(m.laagste.saldo) + '</b>';
+  }
+
+  function ovChartHtml(m) {
+    var rows = m.rows;
+    var saldi = rows.map(function (r) { return r.saldo; });
+    var hi = Math.max.apply(null, saldi.concat(0));
+    var lo = Math.min.apply(null, saldi.concat(0));
+    if (hi - lo < 1000) hi = lo + 1000;
+    var stap = niceStep(hi - lo, 4);
+    // Een derde stap marge voorbij de uitersten, voor het waardelabel bij
+    // het laagste jaar.
+    var top = hi > 0 ? Math.ceil((hi + stap / 3) / stap) * stap : 0;
+    var bottom = lo < 0 ? Math.floor((lo - stap / 3) / stap) * stap : 0;
+    var range = top - bottom;
+    function pct(v) { return ((top - v) / range * 100).toFixed(2); }
+
+    var callouts = overzichtCallouts(m.plan);
+    // Elk benoemd jaar krijgt een eigen regel (vroegste bovenaan); de
+    // verticale lijn naar de kolom loopt onder de tekst van lagere regels
+    // door (die hebben een achtergrond), dus er kruist niets leesbaars.
+    var band = '';
+    callouts.forEach(function (g, row) {
+      var idx = g.jaar - CURRENT_YEAR;
+      var x = (idx + 0.5) / HORIZON * 100;
+      var right = idx >= HORIZON - 3;
+      band += '<div class="ov-call' + (right ? ' right' : '') + '" style="' + (right ? 'right:' + (100 - x).toFixed(2) : 'left:' + x.toFixed(2)) + '%;top:' + (row * 24) + 'px;z-index:' + (row + 1) + ';max-width:' + (right ? x : 100 - x).toFixed(2) + '%">' +
+        '<span class="ov-call-t"><span class="ov-call-n">' + esc(overzichtCalloutNaam(g)) + '</span> <b>' + eur(g.totaal) + '</b></span></div>';
+    });
+
+    var grid = '';
+    var n = Math.round(range / stap);
+    for (var i = 0; i <= n; i++) {
+      var v = bottom + i * stap;
+      grid += '<div class="ov-grid' + (v === 0 ? ' zero' : '') + '" style="top:' + pct(v) + '%"><span class="ov-tick">' + eurSigned(v) + '</span></div>';
+    }
+
+    var minIdx = rows.indexOf(m.laagste);
+    var cols = '';
+    var years = '';
+    rows.forEach(function (r, i) {
+      var neg = r.saldo < 0;
+      var t = neg ? pct(0) : pct(r.saldo);
+      var h = (Math.abs(r.saldo) / range * 100).toFixed(2);
+      cols += '<div class="ov-col" title="' + esc(r.jaar + ': ' + eurSigned(r.saldo)) + '">' +
+        '<div class="ov-bar ' + (neg ? 'neg' : 'pos') + '" style="top:' + t + '%;height:' + h + '%"></div>' +
+        (i === minIdx ? '<span class="ov-val ' + (neg ? 'below' : 'above') + '" style="top:' + pct(r.saldo) + '%">' + eurSigned(r.saldo) + '</span>' : '') +
+        '</div>';
+      years += '<span><i class="y-full">' + r.jaar + '</i><i class="y-short">’' + String(r.jaar).slice(2) + '</i></span>';
+    });
+
+    var html = '<div class="ov-band">' + band + '</div>';
+    html += '<div class="ov-plot">' + grid + '<div class="ov-cols">' + cols + '</div></div>';
+    html += '<div class="ov-years">' + years + '</div>';
+    // Op een telefoon is er geen ruimte voor de benoemde jaren in de
+    // grafiek zelf — daar staan ze als lijst eronder.
+    if (callouts.length) {
+      html += '<ul class="ov-bigs">' + callouts.map(function (g) {
+        return '<li><span class="ov-bigs-y">' + g.jaar + '</span><span class="ov-bigs-n">' + esc(overzichtCalloutNaam(g)) + '</span><b>' + eur(g.totaal) + '</b></li>';
+      }).join('') + '</ul>';
+    }
+    // Volledige waarden voor schermlezers; de grafiek zelf is een plaatje.
+    html += '<table class="sr-only"><caption>Saldo van het reservefonds per jaar</caption><thead><tr><th>Jaar</th><th>Kosten</th><th>Saldo aan het einde van het jaar</th></tr></thead><tbody>' +
+      rows.map(function (r) { return '<tr><td>' + r.jaar + '</td><td>' + eur(r.kosten) + '</td><td>' + eurSigned(r.saldo) + '</td></tr>'; }).join('') +
+      '</tbody></table>';
+    return html;
+  }
+
+  function updateOverzichtLive() {
+    var verdict = document.getElementById('ov-verdict');
+    var chart = document.getElementById('ov-chart');
+    var low = document.getElementById('ov-low');
+    if (!verdict || !chart || !low) return;
+    var m = overzichtModel();
+    verdict.innerHTML = ovVerdictHtml(m);
+    chart.innerHTML = ovChartHtml(m);
+    low.innerHTML = ovLowHtml(m);
+  }
+
   function renderHome() {
-    var b = state.building;
-    var rows = kasstroom(state);
-    var laagste = Math.min.apply(null, rows.map(function (r) { return r.saldo; }));
-    var eerste = rows.filter(function (r) { return r.saldo < 0; })[0];
-    var totaal = rows.reduce(function (a, r) { return a + r.kosten; }, 0);
-    var nodig = benodigdeBijdrage(state);
+    var m = overzichtModel();
     var aandacht = state.elements.filter(needsAssessment);
     var totalAssessable = state.elements.filter(function (el) { return el.type !== 'custom'; }).length;
     var beoordeeld = totalAssessable - aandacht.length;
-    var eerstvolgende = fullPlan(state).filter(function (p) { return p.jaar <= CURRENT_YEAR + 1; }).slice(0, 3);
+    var volgende = m.plan.slice(0, 5);
 
-    var html = '<div style="padding:24px 0 8px">';
-    // Alleen tonen als er ook echt iets concreets te melden is (een
-    // niet-beoordeeld element) — een generieke "bijgewerkt"-mededeling
-    // zonder link voegde niets toe. De pill legt uit wat het jaartal
-    // betekent (het prijspeil van de kengetallen), i.p.v. een kaal jaartal.
-    if (state.idxBalk && aandacht.length) {
-      html += '<div class="idx-bar" data-act="open-element" data-id="' + aandacht[0].id + '">';
-      html += '<span class="pill">Prijspeil ' + CURRENT_YEAR + '</span>';
-      html += '<span class="text">' + esc(aandacht[0].naam) + ' is nog niet beoordeeld — dit bepaalt het jaar van vervanging</span>';
-      html += '<button class="close" data-act="dismiss-idx">×</button></div>';
+    var html = '<div class="ov-page"><div class="ov">';
+    html += '<div class="ov-grid-main">';
+
+    html += '<div class="ov-area-verdict" id="ov-verdict">' + ovVerdictHtml(m) + '</div>';
+
+    html += '<section class="ov-card ov-area-chart" aria-labelledby="ov-chart-title">';
+    html += '<div class="ov-card-head"><div><h2 class="ov-h2" id="ov-chart-title">Saldo van het reservefonds</h2>';
+    html += '<p class="ov-sub">Aan het einde van elk jaar, bij de ingestelde bijdrage</p></div>';
+    html += '<div class="ov-key"><span class="k-pos"></span>Saldo positief<span class="k-neg"></span>Fonds is leeg</div></div>';
+    html += '<div class="ov-chart" id="ov-chart">' + ovChartHtml(m) + '</div>';
+    html += '</section>';
+
+    html += '<section class="ov-card ov-area-controls" aria-label="Bijdrage en reservefonds">';
+    html += '<label class="ov-row" for="bijdrage-num"><span>Bijdrage per appartement per maand</span>';
+    html += '<span class="ov-eurinput">€<input id="bijdrage-num" type="text" inputmode="numeric" data-change="bijdrage-bedrag" value="' + state.bijdrage + '" /></span></label>';
+    html += '<input id="bijdrage-slider" class="ov-slider" type="range" min="10" max="400" step="5" value="' + state.bijdrage + '" data-change="bijdrage" aria-label="Bijdrage per appartement per maand" />';
+    html += '<div class="ov-range"><span>€ 10</span><span>€ 400</span></div>';
+    html += '<div class="ov-rule"></div>';
+    html += '<label class="ov-row" for="fonds-bedrag"><span>Reservefonds nu</span>';
+    html += '<span class="ov-eurinput">€<input id="fonds-bedrag" data-bind="fonds-bedrag" inputmode="numeric" placeholder="0" value="' + (state.fonds === 0 ? '' : state.fonds) + '" /></span></label>';
+    html += '<p class="ov-hint">' + (state.fonds === 0 ? 'Nog niet ingevuld. Vul het saldo uit de VvE-administratie in.' : 'Saldo uit de VvE-administratie.') + '</p>';
+    html += '<div class="ov-rule"></div>';
+    html += '<div class="ov-kv"><span>Kosten t/m ' + m.eind + '</span><b>' + eur(m.totaal) + '</b></div>';
+    html += '<div class="ov-kv" id="ov-low">' + ovLowHtml(m) + '</div>';
+    html += '</section>';
+
+    html += '</div>';
+
+    html += '<div class="ov-lower">';
+    html += '<section class="ov-card"><h2 class="ov-h2">Eerstvolgende posten</h2>';
+    if (volgende.length) {
+      html += '<div class="ov-posts">' + volgende.map(function (p) {
+        return '<div class="ov-post" data-act="open-element" data-id="' + p.elId + '"><span class="ov-post-y">' + p.jaar + '</span><span class="ov-post-n">' + esc(p.naam) + '</span><b>' + eur(p.bedrag) + '</b></div>';
+      }).join('') + '</div>';
+      html += '<p class="ov-more"><span class="linkish" data-act="set-tab" data-tab="planning">Alle jaren bekijken</span></p>';
+    } else {
+      html += '<p class="ov-hint">Er staan de komende ' + HORIZON + ' jaar geen posten gepland. Voeg een post toe via Gebouw.</p>';
     }
-    html += '<div style="padding:0 22px">';
-    html += '<div class="eyebrow">' + esc(b.adres) + '</div>';
-    html += '<div class="page-title" style="margin-top:9px">Sparen we genoeg?</div>';
-    html += '<div class="verdict ' + (eerste ? 'bad' : 'good') + '">' + (eerste
-      ? 'Nee — bij ' + eur(state.bijdrage) + ' per maand is het fonds naar verwachting leeg in ' + eerste.jaar + '.'
-      : 'Ja — bij ' + eur(state.bijdrage) + ' per maand blijft het fonds de komende ' + HORIZON + ' jaar positief.') + '</div>';
-    html += '</div>';
+    html += '</section>';
 
-    html += '<div class="section"><div class="section-title">Vraagt nu aandacht</div>';
-    html += '<div class="section-sub">' + beoordeeld + ' van ' + totalAssessable + ' elementen beoordeeld</div>';
-    html += '<div class="card" style="margin-top:11px">';
-    var rowsHtml = [];
-    aandacht.forEach(function (el) {
-      rowsHtml.push('<div class="attn-row" data-act="open-element" data-id="' + el.id + '">' +
-        '<div class="attn-icon" style="background:var(--bad-bg);color:var(--bad-fg)">?</div>' +
-        '<div class="grow"><div class="title">' + esc(el.naam) + ' nog niet beoordeeld</div>' +
-        '<div class="sub">Beoordeel de conditie — dit bepaalt het jaar van vervanging</div></div>' +
-        '<div class="chev">›</div></div>');
-    });
-    eerstvolgende.forEach(function (p) {
-      rowsHtml.push('<div class="attn-row" data-act="open-element" data-id="' + p.elId + '">' +
-        '<div class="attn-icon" style="background:var(--warn2-bg);color:var(--warn2-fg)">' + p.jaar + '</div>' +
-        '<div class="grow"><div class="title">' + esc(p.naam) + '</div>' +
-        '<div class="sub">Gepland in ' + p.jaar + ' · ' + eur(p.bedrag) + '</div></div>' +
-        '<div class="chev">›</div></div>');
-    });
-    if (!rowsHtml.length) rowsHtml.push('<div class="attn-row"><div class="grow"><div class="title">Niets dat nu aandacht vraagt</div><div class="sub">Alle elementen zijn beoordeeld</div></div></div>');
-    html += rowsHtml.join('');
-    html += '</div></div>';
-
-    html += '<div class="section"><div class="contrib-box">';
-    html += '<div class="contrib-top"><div class="label">Bijdrage per appartement</div>';
-    html += '<div class="contrib-amount"><span class="cur">€</span><input type="text" inputmode="numeric" data-change="bijdrage-bedrag" value="' + state.bijdrage + '" class="contrib-amount-input" /><span class="per">/ maand</span></div></div>';
-    html += '<input type="range" min="10" max="400" step="5" value="' + state.bijdrage + '" data-change="bijdrage" />';
-    html += '<div class="range-minmax"><span>€ 10</span><span>€ 400</span></div>';
-    html += projectionBars(rows);
-    html += '<div class="advice">' + (eerste
-      ? 'Er is ' + eur(nodig) + ' per appartement per maand nodig om alle posten de komende ' + HORIZON + ' jaar te dekken.'
-      : 'Het laagste punt in deze periode is ' + eur(laagste) + '.') + '</div>';
-    // Alleen tonen als de huidige bijdrage het voorstel nog niet haalt —
-    // staat 'ie al op of boven het voorstel, dan voegt de knop niets toe.
-    if (state.bijdrage < nodig) {
-      html += '<div class="advice-btn" data-act="zet-advies" data-nodig="' + nodig + '">Zet op het benodigde bedrag (' + eur(nodig) + ')</div>';
+    html += '<section class="ov-card"><h2 class="ov-h2">Conditie van de posten</h2>';
+    html += '<p class="ov-sub">' + beoordeeld + ' van ' + totalAssessable + ' ' + meervoud(totalAssessable, 'post', 'posten') + ' beoordeeld</p>';
+    html += '<div class="pct-bar"><div style="width:' + (totalAssessable ? Math.round(beoordeeld / totalAssessable * 100) : 0) + '%;background:var(--blue)"></div></div>';
+    if (aandacht.length) {
+      html += '<p class="ov-hint">De conditie bepaalt wanneer een post echt aan de beurt is. Zonder beoordeling rekent de app met de standaardcyclus.</p>';
+      html += '<button type="button" class="ov-btn secondary" data-act="open-element" data-id="' + aandacht[0].id + '">Begin met beoordelen</button>';
+    } else {
+      html += '<p class="ov-hint">Alle posten zijn beoordeeld.</p>';
     }
+    html += '</section>';
+    html += '</div>';
+
+    html += '<p class="ov-foot">Kengetallen zijn indicatieve richtprijzen inclusief btw op prijspeil ' + CURRENT_YEAR + ', geen offerte. Cycli zijn gebaseerd op het bouwjaar uit de BAG; een echte conditiemeting kan posten naar voren of naar achteren schuiven. Kosten na ' + m.eind + ' vallen buiten deze toets.</p>';
     html += '</div></div>';
-
-    html += '<div class="stat-pair">';
-    html += '<div class="stat-card"><div class="label">Reservefonds nu' + (state.fonds === 0 ? ' <span class="tag-default">standaard</span>' : '') + '</div>';
-    html += '<div style="display:flex;align-items:center;gap:6px;margin-top:7px">';
-    html += '<span style="font:500 15px/1 Inter,system-ui,sans-serif;color:var(--ink-60)">€</span>';
-    html += '<input id="fonds-bedrag" data-bind="fonds-bedrag" value="' + state.fonds + '" class="fonds-input" /></div>';
-    html += '<div class="hint" style="margin-top:5px">' + (state.fonds === 0 ? 'Nog niet ingevuld — vul het actuele saldo in' : 'Huidig saldo, zelf in te vullen') + '</div>';
-    html += '</div>';
-    html += '<div class="stat-card"><div class="label">Kosten t/m ' + (CURRENT_YEAR + HORIZON - 1) + '</div><div class="amount">' + eur(totaal) + '</div></div>';
-    html += '</div>';
-
-    html += '<div class="footer-note">Kengetallen zijn indicatieve richtprijzen inclusief btw, geen offerte. Cycli zijn gebaseerd op het bouwjaar uit de BAG; een echte conditiemeting kan posten naar voren of naar achteren schuiven. Kosten na ' + (CURRENT_YEAR + HORIZON - 1) + ' vallen buiten deze toets.</div>';
-    html += '</div>';
     return html;
   }
 
@@ -2569,7 +2672,7 @@
     html += '</div></div>';
 
     html += '<div class="section"><div class="card pad">';
-    html += '<div style="font:500 13.5px/1.35 Inter,system-ui,sans-serif">Of leg een eigen post vast</div>';
+    html += '<div style="font:500 13.5px/1.35 var(--sans)">Of leg een eigen post vast</div>';
     html += '<div class="input-row" style="margin-top:11px"><div class="label">Naam</div><input id="add-el-naam" data-bind="add-el-naam" value="' + esc(f.naam) + '" style="width:170px;text-align:left" /></div>';
     html += '<div class="input-row"><div class="label">Jaar</div><input id="add-el-jaar" data-bind="add-el-jaar" value="' + f.jaar + '" /></div>';
     html += '<div class="input-row"><div class="label">Bedrag</div><input id="add-el-bedrag" data-bind="add-el-bedrag" value="' + f.bedrag + '" class="wide" /></div>';
@@ -2654,10 +2757,10 @@
     el.gebreken.forEach(function (g, gi) {
       html += '<div class="row" style="align-items:flex-start' + (gi === 0 ? ';border-top:none' : '') + '">';
       html += '<div class="grow">';
-      html += '<input id="gb-naam-' + el.id + '-' + gi + '" data-bind="gb-naam" data-id="' + el.id + '" data-gi="' + gi + '" value="' + esc(g.omschrijving) + '" list="gb-sug-' + el.id + '" style="width:100%;box-sizing:border-box;border:1px solid var(--ink-14);border-radius:8px;padding:6px 8px;font:500 12.5px Inter,system-ui,sans-serif" placeholder="omschrijving gebrek" />';
+      html += '<input id="gb-naam-' + el.id + '-' + gi + '" data-bind="gb-naam" data-id="' + el.id + '" data-gi="' + gi + '" value="' + esc(g.omschrijving) + '" list="gb-sug-' + el.id + '" style="width:100%;box-sizing:border-box;border:1px solid var(--ink-14);border-radius:8px;padding:6px 8px;font:500 12.5px var(--sans)" placeholder="omschrijving gebrek" />';
       ['ernst', 'omvang', 'intensiteit'].forEach(function (dim) {
         html += '<div style="display:flex;align-items:center;gap:8px;margin-top:8px">';
-        html += '<div style="width:64px;font:400 11px/1.3 Inter,system-ui,sans-serif;color:var(--ink-50);text-transform:capitalize">' + dim + '</div>';
+        html += '<div style="width:64px;font:400 11px/1.3 var(--sans);color:var(--ink-50);text-transform:capitalize">' + dim + '</div>';
         html += '<div class="seg" style="margin-top:0;flex:1">';
         [1, 2, 3].forEach(function (v) {
           html += '<div class="seg-opt' + (g[dim] === v ? ' active' : '') + '" style="padding:7px 0" data-act="gb-set" data-id="' + el.id + '" data-gi="' + gi + '" data-dim="' + dim + '" data-val="' + v + '">' + v + '</div>';
@@ -2669,7 +2772,7 @@
       html += '</div>';
     });
     html += '<datalist id="gb-sug-' + el.id + '">' + suggesties.map(function (s) { return '<option value="' + esc(s) + '">'; }).join('') + '</datalist>';
-    html += '<div class="row" style="cursor:pointer" data-act="gb-add" data-id="' + el.id + '"><div class="grow" style="font:500 13px Inter,system-ui,sans-serif;color:var(--blue)">+ Gebrek toevoegen</div></div>';
+    html += '<div class="row" style="cursor:pointer" data-act="gb-add" data-id="' + el.id + '"><div class="grow" style="font:500 13px var(--sans);color:var(--blue)">+ Gebrek toevoegen</div></div>';
     html += '</div>';
 
     html += '<div class="result-box' + (score >= 4 ? ' bad' : ' good') + '">';
@@ -2754,14 +2857,14 @@
       html += '<div class="name" style="font-weight:500">' + esc(o.naam) + '</div>';
       o.regels.forEach(function (r, ri) {
         html += '<div style="display:flex;gap:8px;margin-top:6px">';
-        html += '<input id="of-' + o.id + '-naam-' + ri + '" data-bind="of-regel-naam" data-oid="' + o.id + '" data-ri="' + ri + '" value="' + esc(r.naam) + '" style="flex:1;border:1px solid var(--ink-14);border-radius:8px;padding:5px 7px;font:400 11.5px Inter,system-ui,sans-serif" placeholder="regel" />';
-        html += '<input id="of-' + o.id + '-bedrag-' + ri + '" data-bind="of-regel-bedrag" data-oid="' + o.id + '" data-ri="' + ri + '" value="' + esc(r.bedrag) + '" style="width:80px;border:1px solid var(--ink-14);border-radius:8px;padding:5px 7px;text-align:right;font:500 11.5px Inter,system-ui,sans-serif" placeholder="€" />';
+        html += '<input id="of-' + o.id + '-naam-' + ri + '" data-bind="of-regel-naam" data-oid="' + o.id + '" data-ri="' + ri + '" value="' + esc(r.naam) + '" style="flex:1;border:1px solid var(--ink-14);border-radius:8px;padding:5px 7px;font:400 11.5px var(--sans)" placeholder="regel" />';
+        html += '<input id="of-' + o.id + '-bedrag-' + ri + '" data-bind="of-regel-bedrag" data-oid="' + o.id + '" data-ri="' + ri + '" value="' + esc(r.bedrag) + '" style="width:80px;border:1px solid var(--ink-14);border-radius:8px;padding:5px 7px;text-align:right;font:500 11.5px var(--sans)" placeholder="€" />';
         html += '<button data-act="of-del-regel" data-oid="' + o.id + '" data-ri="' + ri + '" style="border:none;background:none;color:var(--ink-45);cursor:pointer">×</button>';
         html += '</div>';
       });
       html += '<div style="margin-top:8px" class="linkish" data-act="of-add-regel" data-oid="' + o.id + '">+ regel toevoegen</div>';
       html += '<div class="toggle-row" style="margin-top:9px" data-act="of-toggle-btw" data-oid="' + o.id + '">';
-      html += '<div class="grow" style="font:400 11.5px Inter,system-ui,sans-serif">' + (o.btw ? 'inclusief 21% btw' : 'exclusief btw') + '</div>';
+      html += '<div class="grow" style="font:400 11.5px var(--sans)">' + (o.btw ? 'inclusief 21% btw' : 'exclusief btw') + '</div>';
       html += '<div class="toggle' + (o.btw ? ' on' : '') + '"><div class="knob"></div></div></div>';
       html += '</div>';
       html += '<div style="text-align:right"><div class="value" style="font-size:14px">' + eur(totaal) + '</div>';
@@ -2769,7 +2872,7 @@
       html += '</div>';
     });
     html += '<div class="row" style="cursor:pointer" data-act="of-add">';
-    html += '<div class="grow" style="font:500 13px Inter,system-ui,sans-serif;color:var(--blue)">+ Offerte toevoegen</div></div>';
+    html += '<div class="grow" style="font:500 13px var(--sans);color:var(--blue)">+ Offerte toevoegen</div></div>';
     html += '</div>';
 
     if (offs.length >= 2) html += renderOfferteVergelijk(el, offs, bijvul);
@@ -2833,7 +2936,7 @@
     html += '</div></div>';
 
     html += '<div class="toggle-row" style="margin-top:12px;background:#fff;border:1px solid var(--ink-10);border-radius:18px;padding:15px 16px" data-act="toggle-bijvullen" data-id="' + el.id + '">';
-    html += '<div class="grow" style="font:400 12.5px/1.45 Inter,system-ui,sans-serif">' + (bijvul ? 'Ontbrekende regels bijgevuld met het gemiddelde van de andere offertes' : 'Alleen wat de aannemers hebben opgeschreven') + '</div>';
+    html += '<div class="grow" style="font:400 12.5px/1.45 var(--sans)">' + (bijvul ? 'Ontbrekende regels bijgevuld met het gemiddelde van de andere offertes' : 'Alleen wat de aannemers hebben opgeschreven') + '</div>';
     html += '<div class="toggle' + (bijvul ? ' on' : '') + '"><div class="knob"></div></div></div>';
     html += '</div>';
     return html;
@@ -2937,7 +3040,7 @@
     html += '<div class="page-sub">' + esc(b.adres) + ' · ' + beoordeeld + ' van ' + state.elements.length + ' elementen beoordeeld</div></div>';
 
     html += '<div class="section"><div class="card pad">';
-    html += '<div style="font:500 14.5px/1.3 Inter,system-ui,sans-serif">MJOP ' + CURRENT_YEAR + '–' + (CURRENT_YEAR + HORIZON - 1) + '</div>';
+    html += '<div style="font:500 14.5px/1.3 var(--sans)">MJOP ' + CURRENT_YEAR + '–' + (CURRENT_YEAR + HORIZON - 1) + '</div>';
     html += '<div class="hint" style="margin-top:5px">Conditie per element, kostenopbouw en het voorstel voor de maandbijdrage.</div>';
     var opsteller = opstellerNaam();
     if (opsteller) html += '<div class="hint" style="margin-top:2px">Opgesteld door: ' + esc(opsteller) + '</div>';
@@ -2949,10 +3052,10 @@
     }
 
     html += '<div class="section"><div class="card pad">';
-    html += '<div style="font:500 13.5px/1.3 Inter,system-ui,sans-serif">Voorstel voor de vergadering</div>';
+    html += '<div style="font:500 13.5px/1.3 var(--sans)">Voorstel voor de vergadering</div>';
     html += '<div style="display:flex;align-items:baseline;gap:9px;margin-top:10px">';
-    html += '<div style="font:500 26px/1 Inter,system-ui,sans-serif;color:var(--blue)">' + eur(eerste ? nodig : state.bijdrage) + '</div>';
-    html += '<div style="font:400 12px/1.3 Inter,system-ui,sans-serif;color:var(--ink-60)">per appartement per maand</div></div>';
+    html += '<div style="font:500 26px/1 var(--sans);color:var(--blue)">' + eur(eerste ? nodig : state.bijdrage) + '</div>';
+    html += '<div style="font:400 12px/1.3 var(--sans);color:var(--ink-60)">per appartement per maand</div></div>';
     html += '<div class="hint">' + (eerste
       ? 'Bij de huidige bijdrage van ' + eur(state.bijdrage) + ' raakt het fonds in ' + eerste.jaar + ' leeg.'
       : 'Bij ' + eur(state.bijdrage) + ' per maand blijft het fonds ' + HORIZON + ' jaar positief, met ' + eur(laagste) + ' als laagste stand.') + '</div>';
@@ -3230,7 +3333,6 @@
         render();
       });
     },
-    'dismiss-idx': function () { state.idxBalk = false; render(); },
     'set-tab': function (d) {
       state.tab = d.tab; state.activeElementId = null; state.confirmDeleteId = null;
       state.accountMenuOpen = false; state.buildingSwitcherOpen = false;
@@ -3833,6 +3935,15 @@
       t.click();
     });
     root.addEventListener('input', function (e) {
+      // Slider op Overzicht: alleen verdict/grafiek vervangen, niet de hele
+      // pagina — een volledige render() haalt de slider weg tijdens het slepen.
+      if (e.target && e.target.id === 'bijdrage-slider') {
+        state.bijdrage = clamp(+e.target.value, 10, 400);
+        var numEl = document.getElementById('bijdrage-num');
+        if (numEl) numEl.value = state.bijdrage;
+        updateOverzichtLive();
+        return;
+      }
       var t = e.target.closest('[data-bind]');
       if (!t) return;
       var handler = BINDS[t.dataset.bind];
