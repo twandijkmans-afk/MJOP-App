@@ -1116,6 +1116,19 @@
     return !!(state.subscription && (state.subscription.status === 'active' || state.subscription.status === 'trialing'));
   }
 
+  // Downloaden van het rapport (afdrukken/pdf en csv) hoort bij het
+  // abonnement, net als opslaan. Zonder abonnement gaat de bezoeker naar
+  // Account: ingelogd naar Abonnement, anders naar de inlogkant van Mijn
+  // profiel. (De eigen "Download mijn gegevens" onder Privacy blijft voor
+  // iedereen, dat is een recht en geen functie.)
+  function heeftAbonnementVoorDownload() {
+    if (isSubscribed()) return true;
+    state.tab = state.session ? 'instellingen' : 'account';
+    state.accountSubTab = state.session ? 'abonnement' : 'profiel';
+    render();
+    return false;
+  }
+
   // ---------------------------------------------------------------------
   // Profielgegevens — één rij in de "profiles"-tabel (zie
   // supabase/migrations/20260919000000_create_profiles.sql), met drie
@@ -1426,7 +1439,7 @@
       : '<div class="mkt-cta-primary" data-act="goto-onboarding">Reken je eigen gebouw door</div>';
     if (!eigen) html += '<div class="mkt-cta-secondary" data-act="open-voorbeeld">Bekijk het voorbeeldplan</div>';
     html += '</div>';
-    html += state.session ? '' : '<div class="mkt-fineprint">Gratis, zonder account. Inloggen hoef je pas om je plan op te slaan.</div>';
+    html += state.session ? '' : '<div class="mkt-fineprint">Gratis doorrekenen, zonder account. Een abonnement heb je nodig om op te slaan en te downloaden.</div>';
     html += '</div>';
 
     // Het echte Overzicht van het voorbeeldplan (zelfde functies als de
@@ -1462,7 +1475,7 @@
     [
       ['Zoek je adres op', 'De app haalt bouwjaar, dakoppervlak en gevelmaten automatisch op.'],
       ['Loop de posten na', 'Leg per post de gebreken vast. Zonder beoordeling rekent de app met de standaardcyclus.'],
-      ['Bekijk of je genoeg spaart', 'Zie welke bijdrage per maand nodig is en print het voorstel voor de vergadering.'],
+      ['Bekijk of je genoeg spaart', 'Zie welke bijdrage per maand nodig is. Met een abonnement print je het voorstel voor de vergadering.'],
     ].forEach(function (s, i) {
       html += '<div class="mkt-step"><div class="mkt-step-num">' + (i + 1) + '</div>';
       html += '<div class="mkt-step-title">' + s[0] + '</div><div class="mkt-step-body">' + s[1] + '</div></div>';
@@ -1471,7 +1484,7 @@
 
     html += '<div class="mkt-section shaded" id="mkt-pricing"><div class="mkt-section-inner">';
     html += '<div class="mkt-section-title">Prijzen</div>';
-    html += '<div class="mkt-section-sub">Uitproberen is gratis en kan zonder account. Een abonnement heb je alleen nodig om je plan op te slaan.</div>';
+    html += '<div class="mkt-section-sub">Uitproberen is gratis en kan zonder account. Een abonnement heb je nodig om je plan op te slaan en het rapport te downloaden.</div>';
     html += '<div class="mkt-pricing-grid">';
 
     html += '<div class="mkt-pricing-plan">';
@@ -1481,7 +1494,7 @@
     [
       'Je eigen adres opzoeken met BAG-gegevens',
       'Het plan doorrekenen en aanpassen',
-      'Rapport printen of als csv exporteren',
+      'Het voorbeeldgebouw volledig bekijken',
     ].forEach(function (t) {
       html += '<div class="mkt-pricing-item">' + CHOICE_ICONS.check + '<span>' + t + '</span></div>';
     });
@@ -1497,6 +1510,7 @@
     [
       'Alles uit Gratis',
       'Plannen opslaan en later verder werken',
+      'Rapport printen en exporteren als csv',
       'Wijzigingen worden automatisch bewaard',
       'Maandelijks opzegbaar',
     ].forEach(function (t) {
@@ -2108,7 +2122,7 @@
       html += '<div class="btn-row"><div class="ghost-btn" data-act="manage-abonnement">' + (state.subscriptionUi.bezig ? 'Bezig…' : 'Beheer abonnement') + '</div></div>';
     } else {
       html += '<div class="kv"><div class="label">Status</div><div class="amount" style="font-size:15px">Geen abonnement</div></div>';
-      html += '<div class="hint">Een eigen gebouw opzoeken en opslaan is onderdeel van het abonnement (€ 19 per maand). Het voorbeeldgebouw blijft altijd gratis te bekijken.</div>';
+      html += '<div class="hint">Met een abonnement (€ 19 per maand) sla je plannen op en druk je het rapport af of exporteer je het als csv. Doorrekenen en aanpassen blijft gratis.</div>';
       html += '<div class="btn-row"><div class="primary-btn" data-act="upgrade-abonnement">' + (state.subscriptionUi.bezig ? 'Bezig…' : 'Abonneren — € 19/maand') + '</div></div>';
     }
     if (state.subscriptionUi.fout) html += '<div class="notice error" style="margin-top:12px">' + esc(state.subscriptionUi.fout) + '</div>';
@@ -2951,6 +2965,9 @@
     var opsteller = opstellerNaam();
     if (opsteller) html += '<div class="hint" style="margin-top:2px">Opgesteld door: ' + esc(opsteller) + '</div>';
     html += '<div class="btn-row"><div class="primary-btn" data-act="print-rapport">Afdrukken / PDF</div><div class="ghost-btn" data-act="export-csv">Exporteer CSV</div></div>';
+    if (!isSubscribed()) {
+      html += '<div class="hint">Afdrukken en exporteren zit in het abonnement (€ 19 per maand). <span class="linkish" data-act="naar-abonnement">' + (state.session ? 'Bekijk het abonnement' : 'Log in om te abonneren') + '</span></div>';
+    }
     html += '</div></div>';
 
     if (beoordeeld < state.elements.length) {
@@ -3525,8 +3542,9 @@
         render();
       });
     },
-    'print-rapport': function () { window.print(); },
-    'export-csv': function () { exportCsv(); },
+    'print-rapport': function () { if (heeftAbonnementVoorDownload()) window.print(); },
+    'export-csv': function () { if (heeftAbonnementVoorDownload()) exportCsv(); },
+    'naar-abonnement': function () { heeftAbonnementVoorDownload(); },
     'reset-upload': function () { state.upload = null; render(); },
     'upload-confirm-mapping': function () {
       var u = state.upload, m = u.mapping;

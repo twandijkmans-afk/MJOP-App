@@ -156,7 +156,11 @@ sessiestate.
    offertes voor die regel.
 8. **Rapport** — samenvatting met voorstel voor de vergadering, CSV-export
    van alle elementen (inclusief NL-SfB-code en conditiescore) en een
-   print-/PDF-knop (`window.print()` met een printstylesheet).
+   print-/PDF-knop (`window.print()` met een printstylesheet). Afdrukken
+   en CSV-export horen bij het abonnement (net als opslaan): zonder
+   actief abonnement verwijzen beide knoppen naar Account
+   (`heeftAbonnementVoorDownload()`). Het rapport op het scherm bekijken
+   blijft gratis.
 
 9. **Verschillend per schermformaat** — op een telefoon een app met een
    onderste tabbalk, op een tablet dezelfde kaart maar breder, en op een
