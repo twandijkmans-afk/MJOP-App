@@ -1331,6 +1331,7 @@
       if (!el.hasAttribute('tabindex')) el.setAttribute('tabindex', '0');
       if (!el.hasAttribute('role')) el.setAttribute('role', 'button');
     });
+    if (screen === 'marketing') initMktHeroScroll();
     if (focusInfo) {
       var el = document.getElementById(focusInfo.id);
       if (el) {
@@ -1414,12 +1415,102 @@
     return !!(state.building && !state.building.isVoorbeeld);
   }
 
+  // ---------------------------------------------------------------------
+  // Sfeerbeeld in de hero (marketing-homepage): geen <video>, maar een
+  // reeks van 40 losse jpg-beeldjes (assets/hero-scroll/frame-01..40.jpg)
+  // die op een <canvas> getekend worden, telkens één stap verder terwijl
+  // de bezoeker door de hero scrollt. Alleen op desktopbreedte (zie
+  // isDesktopWidth(), dezelfde grens als de marketing-gating) — op een
+  // smallere weergave staat er gewoon een losse posterfoto (zie
+  // renderMarketing()), geen canvas/JS-overhead.
+  // ---------------------------------------------------------------------
+  var HERO_FRAME_COUNT = 40;
+  var heroFrames = null;
+
+  function loadHeroFrames() {
+    if (heroFrames) return;
+    heroFrames = [];
+    for (var i = 1; i <= HERO_FRAME_COUNT; i++) {
+      var img = new Image();
+      img.src = 'assets/hero-scroll/frame-' + (i < 10 ? '0' + i : i) + '.jpg';
+      heroFrames.push(img);
+    }
+  }
+
+  function drawHeroFrame(canvas, img) {
+    if (!img || !img.complete || !img.naturalWidth) return;
+    var dpr = window.devicePixelRatio || 1;
+    var displayW = canvas.clientWidth, displayH = canvas.clientHeight;
+    if (!displayW || !displayH) return;
+    var targetW = Math.round(displayW * dpr), targetH = Math.round(displayH * dpr);
+    if (canvas.width !== targetW || canvas.height !== targetH) {
+      canvas.width = targetW;
+      canvas.height = targetH;
+    }
+    var ctx = canvas.getContext('2d');
+    // "cover"-gedrag: uitvullen zonder de beeldverhouding te vervormen,
+    // overschot valt buiten het canvas (zelfde als CSS object-fit:cover).
+    var scale = Math.max(targetW / img.naturalWidth, targetH / img.naturalHeight);
+    var drawW = img.naturalWidth * scale, drawH = img.naturalHeight * scale;
+    var dx = (targetW - drawW) / 2, dy = (targetH - drawH) / 2;
+    ctx.clearRect(0, 0, targetW, targetH);
+    ctx.drawImage(img, dx, dy, drawW, drawH);
+  }
+
+  var heroScrollTicking = false;
+  function updateHeroScrollFrame() {
+    heroScrollTicking = false;
+    var canvas = document.querySelector('.mkt-hero-canvas');
+    // .mkt-hero-pin-wrap is hoger dan het scherm (200vh) en .mkt-hero
+    // blijft daarbinnen "vastgeplakt" (position:sticky) — de voortgang
+    // wordt dus afgemeten aan hoever de wrapper zelf al gescrold is
+    // (i.p.v. aan .mkt-hero, die zolang 'ie vastzit altijd top:71px
+    // blijft tonen en dus geen bruikbare voortgang zou geven).
+    var wrap = document.querySelector('.mkt-hero-pin-wrap');
+    if (!canvas || !wrap || !heroFrames) return;
+    var rect = wrap.getBoundingClientRect();
+    var scrollable = rect.height - window.innerHeight;
+    var progress = scrollable > 0 ? clamp(-rect.top / scrollable, 0, 1) : 0;
+    var idx = Math.min(HERO_FRAME_COUNT - 1, Math.floor(progress * HERO_FRAME_COUNT));
+    drawHeroFrame(canvas, heroFrames[idx]);
+  }
+
+  function onHeroScroll() {
+    if (heroScrollTicking) return;
+    heroScrollTicking = true;
+    requestAnimationFrame(updateHeroScrollFrame);
+  }
+
+  // Na elke render() opnieuw aanroepen (zie render()) — root.innerHTML
+  // vervangt de hele DOM, dus het <canvas>-element van hiervoor bestaat
+  // niet meer en moet z'n eerste frame opnieuw getekend krijgen. De
+  // geladen Image()-objecten (heroFrames) blijven wel gewoon in het
+  // geheugen staan tussen renders, dus geen dubbel laden.
+  function initMktHeroScroll() {
+    var canvas = document.querySelector('.mkt-hero-canvas');
+    if (!canvas) return; // posterfoto i.p.v. canvas (smalle weergave)
+    if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    loadHeroFrames();
+    if (heroFrames[0].complete) updateHeroScrollFrame();
+    else heroFrames[0].addEventListener('load', updateHeroScrollFrame, { once: true });
+  }
+
+  // De route door de app in vijf stappen: de homepage toont hem als preview,
+  // het Overzicht als voortgang (zie stappenModel()).
+  var ROUTE = [
+    { titel: 'Zoek je adres', kort: 'Bouwjaar en maten komen uit de BAG.' },
+    { titel: 'Vul het saldo in', kort: 'Wat staat er op de reservekas?' },
+    { titel: 'Vul de bijdrage in', kort: 'Wat betaalt elk appartement nu?' },
+    { titel: 'Beoordeel de staat', kort: 'Dak, gevel, kozijnen, installaties.' },
+    { titel: 'Print je voorstel', kort: 'Klaar voor de vergadering.' },
+  ];
+
   function renderMarketingHeader() {
     var html = '<div class="mkt-header">';
     html += mktLogo();
     html += '<div class="mkt-nav">';
     html += '<a href="#mkt-features">Functies</a>';
-    html += '<a href="#mkt-how">Hoe het werkt</a>';
+    html += '<a href="#mkt-stappen">Zo werkt het</a>';
     html += '<a href="#mkt-pricing">Prijzen</a>';
     if (!heeftEigenPlan()) html += '<a data-act="open-voorbeeld">Voorbeeldplan</a>';
     html += '<a href="mailto:info@mjoplive.nl">Contact</a>';
@@ -1437,31 +1528,72 @@
     html += renderMarketingHeader();
 
     var demo = overzichtModel(voorbeeldPlan());
-    html += '<div class="mkt-hero">';
+
+    // Hero: de straat als achtergrond (frames wisselen mee met scrollen), de
+    // vraag links en onderin de route in vijf stappen.
+    html += '<div class="mkt-hero-pin-wrap"><div class="mkt-hero">';
+    html += '<div class="mkt-hero-bg">' + (isDesktopWidth()
+      ? '<canvas class="mkt-hero-canvas"></canvas>'
+      : '<img src="assets/hero-scroll/poster-mobile.jpg" alt="" />') + '</div>';
+    html += '<div class="mkt-hero-scrim"></div>';
+    html += '<div class="mkt-hero-inner">';
     html += '<div class="mkt-hero-copy">';
     html += '<h1 class="mkt-h1">Spaart jullie VvE genoeg voor het onderhoud?</h1>';
-    html += '<p class="mkt-sub">Een meerjarenonderhoudsplan (MJOP) laat zien welk onderhoud je VvE de komende jaren verwacht en hoeveel je daarvoor moet sparen. Zoek je adres op: MJOP Live haalt bouwjaar, dakoppervlak en gevelmaten uit de BAG en 3D BAG en rekent de bijdrage voor je uit.</p>';
+    html += '<p class="mkt-sub">Geen rekenblad en geen adviseur nodig. In vijf stappen weet je wat er per maand nodig is, en heb je een voorstel voor de ledenvergadering.</p>';
     html += '<div class="mkt-cta-row">';
     html += state.session
       ? '<div class="mkt-cta-primary" data-act="goto-app">Naar mijn plan</div>'
-      : '<div class="mkt-cta-primary" data-act="goto-onboarding">Reken je eigen gebouw door</div>';
+      : '<div class="mkt-cta-primary" data-act="goto-onboarding">Begin met je adres</div>';
     if (!eigen) html += '<div class="mkt-cta-secondary" data-act="open-voorbeeld">Bekijk het voorbeeldplan</div>';
     html += '</div>';
     html += state.session ? '' : '<div class="mkt-fineprint">Gratis doorrekenen, zonder account. Een abonnement heb je nodig om op te slaan en te downloaden.</div>';
     html += '</div>';
+    html += '<div class="mkt-route"><div class="mkt-route-head"><strong>Jouw plan in vijf stappen</strong><span>Begin met je adres</span></div><ol class="mkt-route-steps">';
+    ROUTE.forEach(function (s, i) {
+      html += '<li' + (i === 0 ? ' class="now"' : '') + '><span class="d">' + (i + 1) + '</span><b>' + s.titel + '</b><span class="k">' + s.kort + '</span></li>';
+    });
+    html += '</ol></div>';
+    html += '</div></div></div>';
+
+    // De route uitgelegd, elke stap met een stukje van het echte scherm.
+    var stapUitleg = [
+      ['Typ het adres en MJOP Live haalt bouwjaar, dakoppervlak en gevelmaten voor je op. Je hoeft niets op te meten.',
+        '<span class="lab">Adres</span><b>Kastanjelaan 12, Amersfoort</b><span>Bouwjaar 1978 · 8 appartementen</span>'],
+      ['Het saldo vind je in de administratie van de VvE, of bij de beheerder of de bank. Pas dan kan de app zeggen of jullie genoeg sparen.',
+        '<span class="lab">Reservefonds nu</span><span class="eur">€ 20.000</span>'],
+      ['Dat is de maandelijkse bijdrage aan het reservefonds. Je vindt hem in de begroting van de VvE.',
+        '<span class="lab">Bijdrage per appartement per maand</span><span class="eur">€ 55</span>'],
+      ['Loop dak, gevel, kozijnen en installaties na en noteer wat je ziet, zoals lekkage of houtrot. Dat mag je ook later doen.',
+        '<span>Dakbedekking <span class="cond-pill" style="background:var(--bad-bg);color:var(--bad-fg)">Matig</span></span><span>Kozijnen <span class="cond-pill" style="background:var(--warn-bg);color:var(--warn-fg)">Redelijk</span></span><span>Trappenhuis <span class="cond-pill" style="background:var(--good-bg);color:var(--good-fg)">Goed</span></span>'],
+      ['Je krijgt in gewone taal de bijdrage die nodig is en de kosten per jaar, klaar voor de ledenvergadering. Afdrukken zit in het abonnement.',
+        '<span class="lab">Voorstel voor de vergadering</span><span class="eur">€ 70</span><span>per appartement per maand</span>'],
+    ];
+    html += '<div class="mkt-section" id="mkt-stappen"><div class="mkt-section-title">Van adres tot vergaderstuk</div>';
+    html += '<div class="mkt-section-sub">Een meerjarenonderhoudsplan (MJOP) laat zien welk onderhoud je VvE de komende jaren verwacht en hoeveel je daarvoor moet sparen. Zo loop je er in vijf stappen doorheen.</div>';
+    html += '<ol class="mkt-rijen">';
+    ROUTE.forEach(function (s, i) {
+      var titels = ['Zoek je adres', 'Vul in wat er op de reservekas staat', 'Vul in wat elk appartement nu betaalt', 'Beoordeel de staat van de posten', 'Print je voorstel voor de vergadering'];
+      html += '<li class="mkt-rij"><span class="n">' + (i + 1) + '</span><div><h3>' + titels[i] + '</h3><p>' + stapUitleg[i][0] + '</p></div><div class="mkt-mini">' + stapUitleg[i][1] + '</div></li>';
+    });
+    html += '</ol></div>';
 
     // Het echte Overzicht van het voorbeeldplan (zelfde functies als de
     // app), met een slider die verdict en grafiek live bijwerkt (zie de
     // input-listener onderaan).
+    html += '<div class="mkt-section shaded" id="mkt-try"><div class="mkt-section-inner"><div class="mkt-try">';
+    html += '<div><h2 class="mkt-try-title">Probeer het met een voorbeeld</h2>';
+    html += '<p class="mkt-try-text">Verschuif de bijdrage en zie meteen wat er met het reservefonds gebeurt. Dit is een portiekflat uit 1978 met 8 appartementen.</p>';
+    if (!eigen) html += '<button type="button" class="ov-btn" data-act="open-voorbeeld">Open het voorbeeldplan</button>';
+    html += '</div>';
     html += '<div class="ov-card mkt-hero-demo">';
-    html += '<p class="ov-sub">Voorbeeld: een portiekflat uit 1978 met 8 appartementen en ' + eur(demo.fonds) + ' in het reservefonds.</p>';
+    html += '<p class="ov-sub">Voorbeeld met ' + eur(demo.fonds) + ' in het reservefonds.</p>';
     html += '<div id="mkt-live-verdict">' + ovVerdictHtml(demo, true) + '</div>';
     html += '<div class="mkt-demo-slider"><label class="ov-row" for="mkt-slider"><span>Bijdrage per appartement per maand</span><output id="mkt-out" class="mkt-out">' + eur(demo.bijdrage) + '</output></label>';
     html += '<input id="mkt-slider" class="ov-slider" type="range" min="10" max="400" step="5" value="' + demo.bijdrage + '" />';
     html += '<div class="ov-range"><span>€ 10</span><span>€ 400</span></div></div>';
     html += '<div class="ov-chart" id="mkt-live-chart">' + ovChartHtml(demo) + '</div>';
     html += '</div>';
-    html += '</div>';
+    html += '</div></div></div>';
 
     var voorbeeldB = defaultBuilding();
     html += '<div class="mkt-section" id="mkt-gebouw"><div class="mkt-section-title">Je gebouw, onderdeel voor onderdeel</div>';
@@ -1492,19 +1624,6 @@
       html += '<div class="mkt-feature-title">' + f[1] + '</div><div class="mkt-feature-body">' + f[2] + '</div></div>';
     });
     html += '</div></div></div>';
-
-    html += '<div class="mkt-section" id="mkt-how">';
-    html += '<div class="mkt-section-title">Hoe het werkt</div>';
-    html += '<div class="mkt-steps">';
-    [
-      ['Zoek je adres op', 'De app haalt bouwjaar, dakoppervlak en gevelmaten automatisch op.'],
-      ['Loop de posten na', 'Leg per post de gebreken vast. Zonder beoordeling rekent de app met de standaardcyclus.'],
-      ['Bekijk of je genoeg spaart', 'Zie welke bijdrage per maand nodig is. Met een abonnement print je het voorstel voor de vergadering.'],
-    ].forEach(function (s, i) {
-      html += '<div class="mkt-step"><div class="mkt-step-num">' + (i + 1) + '</div>';
-      html += '<div class="mkt-step-title">' + s[0] + '</div><div class="mkt-step-body">' + s[1] + '</div></div>';
-    });
-    html += '</div></div>';
 
     html += '<div class="mkt-section shaded" id="mkt-pricing"><div class="mkt-section-inner">';
     html += '<div class="mkt-section-title">Prijzen</div>';
@@ -4000,6 +4119,10 @@
     // gewoon null en valt indexeerBedrag()/elementMeta() terug op de vaste
     // INDEXATIE_PCT-schatting.
     laadCbsIndexatie();
+    // Eén keer geregistreerd, niet per render() — render() vervangt de hele
+    // DOM, dus deze listener zoekt bij elke scroll opnieuw naar
+    // .mkt-hero-canvas i.p.v. een vaste referentie vast te houden.
+    window.addEventListener('scroll', onHeroScroll, { passive: true });
     // Enige plek die state.session/state.user zet: dit vuurt bij het
     // laden meteen met de bestaande sessie (of null), en daarna bij elke
     // in-/uitlog-actie — zo blijft een reload ingelogd (Supabase bewaart
