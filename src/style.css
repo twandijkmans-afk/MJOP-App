@@ -28,6 +28,9 @@
      voor data of status (dat blijven blauw, groen en rood). */
   --copper: #B0673A;
   --copper-tint: #F3E7DC;
+  /* Route-kaart: nachtblauw met warm licht in de ramen. */
+  --navy: #123B6D;
+  --amber: #F2B45A;
   --orange: var(--accent);
   --good-bg: #E1EFE9;
   --good-fg: #23694F;
@@ -974,8 +977,6 @@ input[type=range].ov-slider::-moz-range-thumb { width: 20px; height: 20px; borde
     column-gap: 48px; row-gap: 24px; align-items: start;
   }
   .ov-lower { grid-template-columns: minmax(320px, 400px) minmax(0, 1fr); column-gap: 48px; margin-top: 48px; }
-  .ov-lower > :nth-child(1) { order: 2; }
-  .ov-lower > :nth-child(2) { order: 1; }
 }
 
 /* ------------------------------------------------------------------
@@ -1133,20 +1134,6 @@ input[type=range].ov-slider::-moz-range-thumb { width: 20px; height: 20px; borde
 .mkt-hero-demo .ov-alt { font-size: 14px; }
 .ov-empty { display: flex; align-items: center; justify-content: center; min-height: 240px; padding: 24px; box-sizing: border-box; border: 1.5px dashed var(--ink-14); border-radius: 10px; text-align: center; font: 400 15px/1.55 var(--sans); color: var(--ink-60); }
 
-.ov-steps { display: grid; margin: 12px 0 0; padding: 0; list-style: none; }
-.ov-step { display: flex; gap: 14px; padding: 14px 0; border-top: 1px solid var(--ink-08); }
-.ov-step:first-child { border-top: 0; }
-.ov-step-mark { flex: none; display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; border: 1.5px solid var(--ink-28); border-radius: 50%; font: 700 13px/1 var(--sans); color: var(--ink-60); }
-.ov-step-mark svg { width: 14px; height: 14px; }
-.ov-step.done .ov-step-mark { border-color: var(--good-fg); background: var(--good-fg); color: var(--card); }
-.ov-step.next .ov-step-mark { border-color: var(--blue); background: var(--blue); color: var(--card); }
-.ov-step-body { min-width: 0; }
-.ov-step-title { font: 600 15px/1.35 var(--sans); }
-.ov-step.done .ov-step-title { font-weight: 500; color: var(--ink-60); }
-.ov-step-text { margin-top: 3px; font: 400 14px/1.5 var(--sans); color: var(--ink-60); }
-.ov-step .ov-btn { margin-top: 12px; }
-.ov-step .linkish { display: inline-block; margin-top: 6px; font: 600 14px/1.3 var(--sans); }
-
 .ov-details { margin-top: 14px; font: 400 14px/1.5 var(--sans); color: var(--ink-60); }
 .ov-details summary { cursor: pointer; font-weight: 600; }
 .ov-details p { margin: 8px 0 0; }
@@ -1238,4 +1225,55 @@ input[type=range].ov-slider::-moz-range-thumb { width: 20px; height: 20px; borde
 @media (max-width: 900px) {
   .wiz { padding: 24px 16px 40px; }
   .wiz-fields, .wiz-result { margin-left: 0; }
+}
+
+/* ------------------------------------------------------------------
+   Route in vijf stappen: hoofdmoment van het Overzicht (zie renderHome)
+   en slanke voortgangsbalk op de andere tabs (voortgangsbalkHtml).
+   Elk raam van het gebouw brandt als de bijbehorende stap klaar is.
+   ------------------------------------------------------------------ */
+.ov-route-kop { margin: 0; font: 800 clamp(28px, 3.6vw, 38px)/1.1 var(--heading); letter-spacing: -.03em; text-wrap: balance; }
+.ov-route-lede { margin: 8px 0 0; font: 400 16px/1.5 var(--sans); color: var(--ink-60); }
+.ov-route { position: relative; display: grid; grid-template-columns: minmax(0, 1fr); margin-top: 24px; border-radius: 18px; overflow: hidden; background: var(--navy); color: #fff; }
+.ov-route::before { content: ""; position: absolute; inset: 0; background: radial-gradient(600px 240px at 100% 100%, rgba(242,180,90,.2), transparent 70%); pointer-events: none; }
+.ov-route-main { position: relative; padding: 26px 24px 28px; }
+.ov-route-art { display: none; }
+.ov-route-prog { display: flex; align-items: baseline; gap: 12px; }
+.ov-route-prog b { font: 800 40px/1 var(--heading); letter-spacing: -.03em; }
+.ov-route-prog span { font: 500 16px/1.3 var(--sans); color: rgba(255,255,255,.78); }
+.ov-track { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); margin: 22px 0 0; padding: 0; list-style: none; }
+.ov-track li { position: relative; padding-right: 10px; }
+.ov-track li:not(:last-child)::after { content: ""; position: absolute; top: 16px; left: 42px; right: 6px; height: 2px; background: rgba(255,255,255,.25); }
+.ov-track li.done:not(:last-child)::after { background: var(--amber); }
+.ov-track .d { position: relative; z-index: 1; display: grid; place-items: center; width: 34px; height: 34px; border: 2px solid rgba(255,255,255,.45); border-radius: 50%; background: var(--navy); font: 700 14px/1 var(--sans); color: rgba(255,255,255,.8); }
+.ov-track .d svg { width: 15px; height: 15px; }
+.ov-track .done .d { border-color: var(--amber); background: var(--amber); color: var(--navy); }
+.ov-track .now .d { border-color: #fff; background: #fff; color: var(--navy); box-shadow: 0 0 0 6px rgba(255,255,255,.22); }
+.ov-track .lbl { display: block; margin-top: 10px; font: 600 14px/1.3 var(--sans); color: rgba(255,255,255,.75); }
+.ov-track .done .lbl, .ov-track .now .lbl { color: #fff; }
+.ov-now { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px 24px; margin-top: 24px; padding: 20px 22px; border-radius: 12px; background: var(--card); color: var(--ink); }
+.ov-now > div { min-width: 0; flex: 1 1 320px; }
+.ov-now-k { font: 600 13px/1 var(--sans); color: var(--copper); }
+.ov-now-h { margin: 8px 0 0; font: 700 22px/1.25 var(--heading); }
+.ov-now-p { max-width: 36em; margin: 6px 0 0; font: 400 15px/1.5 var(--sans); color: var(--ink-60); }
+.ov-now .ov-btn { flex: none; margin-top: 0; }
+.ov-route + .ov-grid-main { margin-top: 28px; }
+
+.ov-vg { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin: 0 0 20px; padding: 10px 14px; border: 1px solid var(--ink-10); border-radius: 10px; background: var(--card); font: 400 14px/1.4 var(--sans); color: var(--ink-60); }
+.ov-vg-dots { display: inline-flex; gap: 5px; }
+.ov-vg-dots i { width: 10px; height: 10px; border-radius: 50%; background: var(--ink-14); }
+.ov-vg-dots i.done { background: var(--amber); }
+.ov-vg-dots i.now { background: var(--blue); box-shadow: 0 0 0 3px var(--blue-tint); }
+.ov-vg-tekst b { color: var(--ink); font-weight: 600; }
+.ov-vg .linkish { margin-left: auto; font-weight: 600; }
+
+@media (min-width: 960px) {
+  .ov-route { grid-template-columns: minmax(0, 1fr) 320px; }
+  .ov-route-main { padding: 30px 34px 32px; }
+  .ov-route-art { position: relative; display: grid; place-items: end center; padding: 24px 20px 0; }
+  .ov-route-art svg { width: 100%; height: auto; max-width: 300px; }
+}
+@media (max-width: 639px) {
+  .ov-track .lbl { font-size: 12px; }
+  .ov-track li:not(:last-child)::after { left: 38px; }
 }

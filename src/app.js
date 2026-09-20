@@ -1897,7 +1897,7 @@
   // Mijn gebouwen, Account): dezelfde grijze pagina met kaarten als het
   // Overzicht (zie .ov-page/.ov in style.css). smal = leesbare kolombreedte
   // voor lijsten; Planning en Account gebruiken de volle breedte.
-  function pgOpen(smal) { return '<div class="ov-page"><div class="ov' + (smal ? ' ov-narrow' : '') + '">'; }
+  function pgOpen(smal, metVoortgang) { return '<div class="ov-page"><div class="ov' + (smal ? ' ov-narrow' : '') + '">' + (metVoortgang ? voortgangsbalkHtml() : ''); }
   var PG_CLOSE = '</div></div>';
 
   function renderApp() {
@@ -2455,13 +2455,12 @@
 
   // zonderKnop = de homepage-weergave: geen actieknop, en de kop is een h2
   // omdat de hero zelf al een h1 heeft.
-  function ovVerdictHtml(m, zonderKnop) {
+  function ovVerdictHtml(m, zonderKnop, kopNiveau) {
     var b = m.bijdrage;
-    var kop = zonderKnop ? 'h2' : 'h1';
+    var kop = kopNiveau || (zonderKnop ? 'h2' : 'h1');
     if (!m.saldoBekend) {
-      return '<' + kop + ' class="ov-head">Vul eerst in wat er op de reservekas staat.</' + kop + '>' +
-        '<p class="ov-lede">Daarna zie je of jullie genoeg sparen voor het onderhoud van de komende ' + HORIZON + ' jaar. Het saldo vind je in de administratie van de VvE, of bij de beheerder of de bank.</p>' +
-        '<button type="button" class="ov-btn" data-act="focus-fonds">Saldo invullen</button>';
+      // De route hierboven vraagt al om het saldo; hier alleen wat er komt.
+      return '<p class="ov-lede" style="margin-top:0">Zodra het saldo is ingevuld, zie je hier of jullie genoeg sparen.</p>';
     }
     var html = '<' + kop + ' class="ov-head">' + (m.eerste
       ? 'Bij ' + eur(b) + ' per maand is het fonds in ' + m.eerste.jaar + ' leeg.'
@@ -2548,9 +2547,9 @@
       }).join('') + '</ul>';
     }
     // Volledige waarden voor schermlezers; de grafiek zelf is een plaatje.
-    html += '<table class="sr-only"><caption>Saldo van het reservefonds per jaar</caption><thead><tr><th>Jaar</th><th>Kosten</th><th>Saldo aan het einde van het jaar</th></tr></thead><tbody>' +
+    html += '<div class="sr-only"><table><caption>Saldo van het reservefonds per jaar</caption><thead><tr><th>Jaar</th><th>Kosten</th><th>Saldo aan het einde van het jaar</th></tr></thead><tbody>' +
       rows.map(function (r) { return '<tr><td>' + r.jaar + '</td><td>' + eur(r.kosten) + '</td><td>' + eurSigned(r.saldo) + '</td></tr>'; }).join('') +
-      '</tbody></table>';
+      '</tbody></table></div>';
     return html;
   }
 
@@ -2560,23 +2559,111 @@
     var low = document.getElementById('ov-low');
     if (!verdict || !chart || !low) return;
     var m = overzichtModel();
-    verdict.innerHTML = ovVerdictHtml(m);
+    verdict.innerHTML = ovVerdictHtml(m, false, 'h2');
     chart.innerHTML = ovChartHtml(m);
     low.innerHTML = ovLowHtml(m);
   }
 
-  function renderHome() {
-    var b = state.building;
-    var m = overzichtModel();
+  // De route in vijf stappen: gedeeld door de route-kaart op het Overzicht
+  // en de voortgangsbalk op de andere tabs. Stap 5 (het voorstel) telt niet
+  // als "klaar": die is het doel, en de deur van het gebouw gaat pas aan
+  // als de eerste vier klaar zijn.
+  var ROUTE_KORT = ['Adres', 'Saldo', 'Bijdrage', 'Staat van de posten', 'Voorstel'];
+
+  function stappenModel() {
     var aandacht = state.elements.filter(needsAssessment);
-    var totalAssessable = state.elements.filter(function (el) { return el.type !== 'custom'; }).length;
-    var beoordeeld = totalAssessable - aandacht.length;
+    var totaal = state.elements.filter(function (el) { return el.type !== 'custom'; }).length;
+    var stappen = [
+      { klaar: true, vraag: 'Gebouw gevonden', tekst: state.building.adres },
+      { klaar: state.invul.fonds, vraag: 'Wat staat er nu op de reservekas?', tekst: 'Je vindt het saldo in de administratie van de VvE, of bij de beheerder of de bank.', actie: ['focus-fonds', 'Saldo invullen'] },
+      { klaar: state.invul.bijdrage, vraag: 'Wat betaalt elk appartement nu per maand?', tekst: 'Dit is de bijdrage aan het reservefonds. Je vindt hem in de begroting of op de maandelijkse nota van de VvE.', actie: ['focus-bijdrage', 'Bijdrage invullen'] },
+      { klaar: !aandacht.length, vraag: 'Hoe staat het ervoor met het onderhoud?', tekst: (totaal - aandacht.length) + ' van ' + totaal + ' ' + meervoud(totaal, 'post', 'posten') + ' beoordeeld. Noteer wat je ziet, zoals lekkage of houtrot. Zonder beoordeling rekent de app met de gebruikelijke levensduur.', actie: aandacht.length ? ['open-element', 'Begin met beoordelen', aandacht[0].id] : null },
+      { klaar: false, vraag: 'Je voorstel voor de vergadering', tekst: 'Bekijk en print het rapport met de bijdrage die nodig is.', actie: ['set-tab', 'Naar het rapport', 'rapport'] },
+    ];
+    var eersteOpen = 4;
+    for (var i = 0; i < 4; i++) { if (!stappen[i].klaar) { eersteOpen = i; break; } }
+    var klaarAantal = stappen.slice(0, 4).filter(function (s) { return s.klaar; }).length;
+    return { stappen: stappen, eersteOpen: eersteOpen, klaarAantal: klaarAantal, resterend: 4 - klaarAantal };
+  }
+
+  function stappenKop(sm) {
+    var woord = { 1: 'één', 2: 'twee', 3: 'drie' };
+    if (sm.resterend === 0) return 'Je voorstel staat klaar';
+    return 'Nog ' + woord[sm.resterend] + ' ' + meervoud(sm.resterend, 'stap', 'stappen') + ' tot je voorstel';
+  }
+
+  function actieAttrs(actie) {
+    if (!actie[2]) return ' data-act="' + actie[0] + '"';
+    return ' data-act="' + actie[0] + '"' + (actie[0] === 'set-tab' ? ' data-tab="' : ' data-id="') + actie[2] + '"';
+  }
+
+  // Het gebouw bij avond: elk raam brandt zodra de bijbehorende stap klaar is
+  // (vier ramen voor stap 1 t/m 4) en de voordeur zodra het voorstel klaar is.
+  function gebouwNachtSvg(sm) {
+    var lit = [0, 1, 2, 3].map(function (i) { return sm.stappen[i].klaar; });
+    var s = '<svg viewBox="0 0 300 250" width="300" height="250" focusable="false">';
+    s += '<rect x="30" y="66" width="240" height="176" rx="2" fill="#0E2F57"/><rect x="24" y="52" width="252" height="16" rx="2" fill="#0A2444"/>';
+    s += '<rect x="176" y="30" width="34" height="22" fill="#0A2444"/><rect x="184" y="14" width="7" height="18" fill="#0A2444"/>';
+    var xs = [54, 210], ys = [84, 140], i = 0;
+    ys.forEach(function (y) {
+      xs.forEach(function (x) {
+        var an = lit[i++];
+        if (an) s += '<rect x="' + (x - 6) + '" y="' + (y - 6) + '" width="52" height="46" rx="5" fill="#F2B45A" opacity=".25"/>';
+        s += '<rect x="' + x + '" y="' + y + '" width="40" height="34" rx="2" fill="' + (an ? '#F7CE8A' : '#1C4675') + '"/>';
+        if (an) s += '<path d="M' + (x + 20) + ' ' + y + 'v34M' + x + ' ' + (y + 17) + 'h40" stroke="#B87A2B" stroke-width="1.6"/>';
+      });
+    });
+    var deurAan = sm.resterend === 0;
+    s += '<rect x="140" y="84" width="20" height="94" fill="#173E6C"/>';
+    s += '<rect x="134" y="196" width="32" height="46" fill="' + (deurAan ? '#F2B45A' : '#1C4675') + '"/>';
+    s += '<rect x="54" y="196" width="40" height="34" rx="2" fill="#1C4675"/><rect x="210" y="196" width="40" height="34" rx="2" fill="#1C4675"/><rect x="0" y="242" width="300" height="8" fill="#0A2444"/></svg>';
+    return s;
+  }
+
+  // Slanke voortgangsbalk bovenaan de andere tabs: waar sta je in de route.
+  function voortgangsbalkHtml() {
+    var sm = stappenModel();
+    var volgende = sm.stappen[sm.eersteOpen];
+    var html = '<div class="ov-vg"><span class="ov-vg-dots" aria-hidden="true">';
+    for (var i = 0; i < 5; i++) html += '<i class="' + (sm.stappen[i].klaar ? 'done' : (i === sm.eersteOpen ? 'now' : '')) + '"></i>';
+    html += '</span><span class="ov-vg-tekst"><b>' + sm.klaarAantal + ' van 5 stappen klaar.</b> ';
+    html += sm.resterend === 0 ? 'Je voorstel staat klaar.' : 'Volgende: ' + esc(ROUTE[sm.eersteOpen].titel.toLowerCase()) + '.';
+    html += '</span>';
+    html += sm.resterend === 0
+      ? '<span class="linkish" data-act="set-tab" data-tab="rapport">Naar het rapport</span>'
+      : '<span class="linkish" data-act="set-tab" data-tab="home">Naar het Overzicht</span>';
+    return html + '</div>';
+  }
+
+  function renderHome() {
+    var m = overzichtModel();
+    var sm = stappenModel();
+    var nu = sm.stappen[sm.eersteOpen];
     var volgende = m.plan.slice(0, 5);
 
     var html = '<div class="ov-page"><div class="ov">';
+
+    // De route: het hoofdmoment van het Overzicht.
+    html += '<h1 class="ov-route-kop">' + stappenKop(sm) + '</h1>';
+    html += '<p class="ov-route-lede">' + (sm.resterend === 0
+      ? 'Alles is ingevuld. Bekijk het voorstel en neem het mee naar de vergadering.'
+      : 'Loop de stappen van links naar rechts. Wat klaar is blijft bewaard.') + '</p>';
+    html += '<section class="ov-route" aria-label="Jouw route naar het voorstel"><div class="ov-route-main">';
+    html += '<div class="ov-route-prog"><b>' + sm.klaarAantal + ' van 5</b><span>stappen klaar</span></div>';
+    html += '<ol class="ov-track">';
+    ROUTE_KORT.forEach(function (naam, i) {
+      var st = sm.stappen[i];
+      html += '<li class="' + (st.klaar ? 'done' : (i === sm.eersteOpen ? 'now' : '')) + '"><span class="d" aria-hidden="true">' + (st.klaar ? CHOICE_ICONS.check : (i + 1)) + '</span><span class="lbl">' + naam + (st.klaar ? '<span class="sr-only"> (klaar)</span>' : '') + '</span></li>';
+    });
+    html += '</ol>';
+    html += '<div class="ov-now"><div><div class="ov-now-k">Nu aan de beurt</div><h2 class="ov-now-h">' + esc(nu.vraag) + '</h2><p class="ov-now-p">' + esc(nu.tekst) + '</p></div>';
+    if (nu.actie) html += '<button type="button" class="ov-btn ov-now-btn"' + actieAttrs(nu.actie) + '>' + nu.actie[1] + '</button>';
+    html += '</div></div>';
+    html += '<div class="ov-route-art" aria-hidden="true">' + gebouwNachtSvg(sm) + '</div></section>';
+
     html += '<div class="ov-grid-main">';
 
-    html += '<div class="ov-area-verdict" id="ov-verdict">' + ovVerdictHtml(m) + '</div>';
+    html += '<div class="ov-area-verdict" id="ov-verdict">' + ovVerdictHtml(m, false, 'h2') + '</div>';
 
     html += '<section class="ov-card ov-area-chart" aria-labelledby="ov-chart-title">';
     html += '<div class="ov-card-head"><div><h2 class="ov-h2" id="ov-chart-title">Saldo van het reservefonds</h2>';
@@ -2613,38 +2700,6 @@
     } else {
       html += '<p class="ov-hint">Er staan de komende ' + HORIZON + ' jaar geen posten gepland. Voeg een post toe via Gebouw.</p>';
     }
-    html += '</section>';
-
-    // Stappenlijst: de route door de app in gewone volgorde, met wat al klaar is.
-    var stappen = [
-      { klaar: true, titel: 'Gebouw gevonden', tekst: b.adres },
-      { klaar: state.invul.fonds, titel: 'Saldo van het reservefonds invullen', tekst: 'Wat staat er nu op de reservekas?', actie: ['focus-fonds', 'Saldo invullen'] },
-      { klaar: state.invul.bijdrage, titel: 'Bijdrage van de eigenaren invullen', tekst: 'Wat betaalt elk appartement nu per maand?', actie: ['focus-bijdrage', 'Bijdrage invullen'] },
-      { klaar: !aandacht.length, titel: 'Staat van de posten beoordelen', tekst: beoordeeld + ' van ' + totalAssessable + ' ' + meervoud(totalAssessable, 'post', 'posten') + ' beoordeeld. Zonder beoordeling rekent de app met de gebruikelijke levensduur.', actie: aandacht.length ? ['open-element', 'Begin met beoordelen', aandacht[0].id] : null },
-      { klaar: false, titel: 'Voorstel voor de vergadering', tekst: 'Print het rapport met de bijdrage die nodig is.', actie: ['set-tab', 'Naar het rapport', 'rapport'] },
-    ];
-    var eersteOpen = -1;
-    stappen.forEach(function (s, i) { if (!s.klaar && eersteOpen < 0 && i < stappen.length - 1) eersteOpen = i; });
-    if (eersteOpen < 0) eersteOpen = stappen.length - 1;
-    var klaarAantal = stappen.filter(function (s) { return s.klaar; }).length;
-    html += '<section class="ov-card"><h2 class="ov-h2">Zo werk je verder</h2>';
-    html += '<p class="ov-sub">' + klaarAantal + ' van ' + stappen.length + ' stappen klaar</p>';
-    html += '<ol class="ov-steps">';
-    stappen.forEach(function (s, i) {
-      html += '<li class="ov-step' + (s.klaar ? ' done' : '') + (i === eersteOpen ? ' next' : '') + '">';
-      html += '<span class="ov-step-mark" aria-hidden="true">' + (s.klaar ? CHOICE_ICONS.check : (i + 1)) + '</span>';
-      html += '<div class="ov-step-body"><div class="ov-step-title">' + esc(s.titel) + (s.klaar ? '<span class="sr-only"> (klaar)</span>' : '') + '</div>';
-      if (s.tekst && (!s.klaar || i === 0)) html += '<div class="ov-step-text">' + esc(s.tekst) + '</div>';
-      if (s.actie && !s.klaar && i === eersteOpen) {
-        var dataId = s.actie[2] ? (s.actie[0] === 'set-tab' ? ' data-tab="' + s.actie[2] + '"' : ' data-id="' + s.actie[2] + '"') : '';
-        html += '<button type="button" class="ov-btn" data-act="' + s.actie[0] + '"' + dataId + '>' + s.actie[1] + '</button>';
-      } else if (s.actie && !s.klaar) {
-        var dataId2 = s.actie[2] ? (s.actie[0] === 'set-tab' ? ' data-tab="' + s.actie[2] + '"' : ' data-id="' + s.actie[2] + '"') : '';
-        html += '<span class="linkish" data-act="' + s.actie[0] + '"' + dataId2 + '>' + s.actie[1] + '</span>';
-      }
-      html += '</div></li>';
-    });
-    html += '</ol>';
     html += '</section>';
     html += '</div>';
 
@@ -2801,7 +2856,7 @@
     var metGebrekenCount = state.elements.filter(function (el) { return el.gebreken.length > 0; }).length;
     if (state.gebrekenFilter) els = els.filter(function (el) { return el.gebreken.length > 0; });
 
-    var html = pgOpen(true);
+    var html = pgOpen(true, true);
     html += '<div class="pg-head">';
     html += '<h1 class="page-title">Gebouw</h1>';
     // Aantal appartementen komt uit de BAG maar klopt niet altijd (bv. bij
@@ -2917,7 +2972,7 @@
     var score = conditionScore(el);
     var colors = scoreColors(score);
 
-    var html = pgOpen(true);
+    var html = pgOpen(true, true);
     html += '<div class="top-nav"><div class="back-link" data-act="close-element">‹ Gebouw</div></div>';
     html += '<div class="pg-head">';
     html += '<div class="eyebrow">' + esc(el.categorie) + (el.cyclus ? ' · elke ' + el.cyclus + ' jaar' : ' · eenmalig') + '</div>';
@@ -3196,7 +3251,7 @@
     var piekjaar = rows.reduce(function (best, r) { return (!best || r.kosten > best.kosten) ? r : best; }, null);
     var piekPosten = piekjaar ? plan.filter(function (p) { return p.jaar === piekjaar.jaar; }) : [];
 
-    var html = pgOpen(false);
+    var html = pgOpen(false, true);
     html += '<div class="pg-head"><h1 class="page-title">Planning</h1>';
     html += '<div class="page-sub">' + CURRENT_YEAR + ' – ' + (CURRENT_YEAR + HORIZON - 1) + ' · ' + eur(totaal) + ' totaal</div></div>';
 
@@ -3269,7 +3324,7 @@
     var eerste = rows.filter(function (r) { return r.saldo < 0; })[0];
     var nodig = benodigdeBijdrage(state);
 
-    var html = pgOpen(true);
+    var html = pgOpen(true, true);
     html += '<div class="pg-head"><h1 class="page-title">Rapport</h1>';
     html += '<div class="page-sub">' + esc(b.adres) + ' · ' + beoordeeld + ' van ' + state.elements.length + ' posten beoordeeld</div></div>';
 
