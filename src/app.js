@@ -2423,39 +2423,6 @@
     };
   }
 
-  // Ronde stap voor de eurogaas (1, 2, 5 × 10^n) zodat de as geen
-  // rare tussenwaarden toont.
-  function niceStep(range, targetTicks) {
-    var raw = range / targetTicks;
-    var mag = Math.pow(10, Math.floor(Math.log(raw) / Math.LN10));
-    var norm = raw / mag;
-    return (norm <= 1 ? 1 : norm <= 2 ? 2 : norm <= 5 ? 5 : 10) * mag;
-  }
-
-  // De (max. 3) grootste uitgavenjaren, met de zwaarste post van dat jaar
-  // als naam — die worden in de grafiek zelf benoemd, zodat te zien is
-  // waaróm het saldo daar zakt.
-  function overzichtCallouts(plan) {
-    var perJaar = {};
-    plan.forEach(function (p) {
-      var g = perJaar[p.jaar];
-      if (!g) g = perJaar[p.jaar] = { jaar: p.jaar, totaal: 0, aantal: 0, top: p };
-      g.totaal += p.bedrag;
-      g.aantal++;
-      if (p.bedrag > g.top.bedrag) g.top = p;
-    });
-    var lijst = Object.keys(perJaar).map(function (k) { return perJaar[k]; })
-      .sort(function (a, b) { return b.totaal - a.totaal; });
-    if (!lijst.length) return [];
-    var drempel = lijst[0].totaal * 0.25;
-    return lijst.slice(0, 3).filter(function (g) { return g.totaal >= drempel; })
-      .sort(function (a, b) { return a.jaar - b.jaar; });
-  }
-
-  function overzichtCalloutNaam(g) {
-    return g.top.naam + (g.aantal > 1 ? ' + ' + (g.aantal - 1) + ' ' + meervoud(g.aantal - 1, 'post', 'posten') : '');
-  }
-
   // zonderKnop = de homepage-weergave: geen actieknop, en de kop is een h2
   // omdat de hero zelf al een h1 heeft.
   function ovVerdictHtml(m, zonderKnop, kopNiveau) {
@@ -2465,19 +2432,25 @@
       // De route hierboven vraagt al om het saldo; hier alleen wat er komt.
       return '<p class="ov-lede" style="margin-top:0">Zodra het saldo is ingevuld, zie je hier of jullie genoeg sparen.</p>';
     }
-    var html = '<' + kop + ' class="ov-head">' + (m.eerste
+    var html = '<span class="ov-verdict-badge' + (m.eerste ? '' : ' ok') + '">' + (m.eerste ? 'Tekort' : 'Op schema') + '</span>';
+    html += '<' + kop + ' class="ov-head">' + (m.eerste
       ? 'Bij ' + eur(b) + ' per maand is het fonds in ' + m.eerste.jaar + ' leeg.'
       : 'Bij ' + eur(b) + ' per maand blijft het fonds de komende ' + HORIZON + ' jaar op peil.') + '</' + kop + '>';
     html += '<p class="ov-lede">' + (m.eerste
       ? 'Je hebt ' + eur(m.nodig) + ' per appartement per maand nodig om alle posten tot en met ' + m.eind + ' te betalen (' + eur(m.nodig * m.units) + ' per maand voor het hele gebouw)' +
         (b < m.nodig ? ', ' + eur(m.nodig - b) + ' per appartement meer dan nu.' : '.')
       : 'Het laagste saldo in deze periode is ' + eurSigned(m.laagste.saldo) + ' (' + m.laagste.jaar + ').') + '</p>';
+    var altHtml = '';
     if (m.eerste) {
       var tekort = Math.ceil(-m.laagste.saldo);
-      html += '<p class="ov-alt">Of stort eenmalig ' + eur(tekort) + ' extra in het fonds (' + eur(Math.ceil(tekort / m.units)) + ' per appartement).</p>';
+      altHtml = 'Of stort eenmalig <b>' + eur(tekort) + '</b> extra in het fonds (' + eur(Math.ceil(tekort / m.units)) + ' per appartement).';
     }
     if (b < m.nodig && !zonderKnop) {
-      html += '<button type="button" class="ov-btn" data-act="zet-advies" data-nodig="' + m.nodig + '">Zet bijdrage op ' + eur(m.nodig) + '</button>';
+      html += '<div class="ov-verdict-actions"><button type="button" class="ov-btn" data-act="zet-advies" data-nodig="' + m.nodig + '">Zet bijdrage op ' + eur(m.nodig) + '</button>';
+      if (altHtml) html += '<p class="ov-alt">' + altHtml + '</p>';
+      html += '</div>';
+    } else if (altHtml) {
+      html += '<p class="ov-alt" style="margin-top:10px">' + altHtml + '</p>';
     }
     return html;
   }
@@ -2488,67 +2461,42 @@
     return '<span>Laagste stand van het fonds (' + m.laagste.jaar + ')</span><b class="' + (neg ? 'ov-neg' : '') + '">' + eurSigned(m.laagste.saldo) + '</b>';
   }
 
+  // Twee vaste zones (120px boven de basislijn, 44px eronder) i.p.v. een
+  // doorlopende, op de data geschaalde as — geen assen/tikken meer, de
+  // exacte bedragen staan al in de bedieningspaneel-kaart ernaast
+  // (README §3: "10 jaarstaven in een 120px hoge zone ... en 44px
+  // eronder"). Elke zone schaalt onafhankelijk naar zijn eigen uiterste
+  // (het hoogste positieve resp. het diepste tekort), niet naar een
+  // gedeeld bereik.
+  var OV_CHART_POS_PX = 120;
+  var OV_CHART_NEG_PX = 44;
+
   function ovChartHtml(m) {
     if (!m.saldoBekend) {
       return '<div class="ov-empty">Zodra je het saldo van het reservefonds hebt ingevuld, zie je hier per jaar hoeveel er in het fonds zit en wanneer er een tekort dreigt.</div>';
     }
     var rows = m.rows;
-    var saldi = rows.map(function (r) { return r.saldo; });
-    var hi = Math.max.apply(null, saldi.concat(0));
-    var lo = Math.min.apply(null, saldi.concat(0));
-    if (hi - lo < 1000) hi = lo + 1000;
-    var stap = niceStep(hi - lo, 4);
-    // Een derde stap marge voorbij de uitersten, voor het waardelabel bij
-    // het laagste jaar.
-    var top = hi > 0 ? Math.ceil((hi + stap / 3) / stap) * stap : 0;
-    var bottom = lo < 0 ? Math.floor((lo - stap / 3) / stap) * stap : 0;
-    var range = top - bottom;
-    function pct(v) { return ((top - v) / range * 100).toFixed(2); }
+    var posMax = Math.max.apply(null, rows.map(function (r) { return r.saldo > 0 ? r.saldo : 0; }).concat(1));
+    var negMax = Math.max.apply(null, rows.map(function (r) { return r.saldo < 0 ? -r.saldo : 0; }).concat(1));
+    var tekortJaar = m.eerste ? m.eerste.jaar : null;
 
-    var callouts = overzichtCallouts(m.plan);
-    // Elk benoemd jaar krijgt een eigen regel (vroegste bovenaan); de
-    // verticale lijn naar de kolom loopt onder de tekst van lagere regels
-    // door (die hebben een achtergrond), dus er kruist niets leesbaars.
-    var band = '';
-    callouts.forEach(function (g, row) {
-      var idx = g.jaar - CURRENT_YEAR;
-      var x = (idx + 0.5) / HORIZON * 100;
-      var right = idx >= HORIZON - 3;
-      band += '<div class="ov-call' + (right ? ' right' : '') + '" style="' + (right ? 'right:' + (100 - x).toFixed(2) : 'left:' + x.toFixed(2)) + '%;top:' + (row * 24) + 'px;z-index:' + (row + 1) + ';max-width:' + (right ? x : 100 - x).toFixed(2) + '%">' +
-        '<span class="ov-call-t"><span class="ov-call-n">' + esc(overzichtCalloutNaam(g)) + '</span> <b>' + eur(g.totaal) + '</b></span></div>';
-    });
-
-    var grid = '';
-    var n = Math.round(range / stap);
-    for (var i = 0; i <= n; i++) {
-      var v = bottom + i * stap;
-      grid += '<div class="ov-grid' + (v === 0 ? ' zero' : '') + '" style="top:' + pct(v) + '%"><span class="ov-tick">' + eurSigned(v) + '</span></div>';
-    }
-
-    var minIdx = rows.indexOf(m.laagste);
     var cols = '';
     var years = '';
-    rows.forEach(function (r, i) {
+    rows.forEach(function (r) {
       var neg = r.saldo < 0;
-      var t = neg ? pct(0) : pct(r.saldo);
-      var h = (Math.abs(r.saldo) / range * 100).toFixed(2);
-      cols += '<div class="ov-col" title="' + esc(r.jaar + ': ' + eurSigned(r.saldo)) + '">' +
-        '<div class="ov-bar ' + (neg ? 'neg' : 'pos') + '" style="top:' + t + '%;height:' + h + '%"></div>' +
-        (i === minIdx ? '<span class="ov-val ' + (neg ? 'below' : 'above') + '" style="top:' + pct(r.saldo) + '%">' + eurSigned(r.saldo) + '</span>' : '') +
-        '</div>';
-      years += '<span><i class="y-full">' + r.jaar + '</i><i class="y-short">’' + String(r.jaar).slice(2) + '</i></span>';
+      if (neg) {
+        var hNeg = (Math.abs(r.saldo) / negMax * OV_CHART_NEG_PX).toFixed(1);
+        cols += '<div class="ov-col" title="' + esc(r.jaar + ': ' + eurSigned(r.saldo)) + '"><div class="ov-bar neg" style="height:' + hNeg + 'px"></div></div>';
+      } else {
+        var hPos = (r.saldo / posMax * OV_CHART_POS_PX).toFixed(1);
+        var cls = r.saldo < posMax * 0.5 ? 'weak' : 'pos';
+        cols += '<div class="ov-col" title="' + esc(r.jaar + ': ' + eurSigned(r.saldo)) + '"><div class="ov-bar ' + cls + '" style="top:' + (OV_CHART_POS_PX - hPos) + 'px;height:' + hPos + 'px"></div></div>';
+      }
+      years += '<span class="' + (r.jaar === tekortJaar ? 'tekort' : '') + '"><i class="y-full">' + r.jaar + '</i><i class="y-short">’' + String(r.jaar).slice(2) + '</i></span>';
     });
 
-    var html = '<div class="ov-band">' + band + '</div>';
-    html += '<div class="ov-plot">' + grid + '<div class="ov-cols">' + cols + '</div></div>';
+    var html = '<div class="ov-plot"><div class="ov-baseline"></div><div class="ov-cols">' + cols + '</div></div>';
     html += '<div class="ov-years">' + years + '</div>';
-    // Op een telefoon is er geen ruimte voor de benoemde jaren in de
-    // grafiek zelf — daar staan ze als lijst eronder.
-    if (callouts.length) {
-      html += '<ul class="ov-bigs">' + callouts.map(function (g) {
-        return '<li><span class="ov-bigs-y">' + g.jaar + '</span><span class="ov-bigs-n">' + esc(overzichtCalloutNaam(g)) + '</span><b>' + eur(g.totaal) + '</b></li>';
-      }).join('') + '</ul>';
-    }
     // Volledige waarden voor schermlezers; de grafiek zelf is een plaatje.
     html += '<div class="sr-only"><table><caption>Saldo van het reservefonds per jaar</caption><thead><tr><th>Jaar</th><th>Kosten</th><th>Saldo aan het einde van het jaar</th></tr></thead><tbody>' +
       rows.map(function (r) { return '<tr><td>' + r.jaar + '</td><td>' + eur(r.kosten) + '</td><td>' + eurSigned(r.saldo) + '</td></tr>'; }).join('') +
@@ -2589,38 +2537,9 @@
     return { stappen: stappen, eersteOpen: eersteOpen, klaarAantal: klaarAantal, resterend: 4 - klaarAantal };
   }
 
-  function stappenKop(sm) {
-    var woord = { 1: 'één', 2: 'twee', 3: 'drie' };
-    if (sm.resterend === 0) return 'Je voorstel staat klaar';
-    return 'Nog ' + woord[sm.resterend] + ' ' + meervoud(sm.resterend, 'stap', 'stappen') + ' tot je voorstel';
-  }
-
   function actieAttrs(actie) {
     if (!actie[2]) return ' data-act="' + actie[0] + '"';
     return ' data-act="' + actie[0] + '"' + (actie[0] === 'set-tab' ? ' data-tab="' : ' data-id="') + actie[2] + '"';
-  }
-
-  // Het gebouw bij avond: elk raam brandt zodra de bijbehorende stap klaar is
-  // (vier ramen voor stap 1 t/m 4) en de voordeur zodra het voorstel klaar is.
-  function gebouwNachtSvg(sm) {
-    var lit = [0, 1, 2, 3].map(function (i) { return sm.stappen[i].klaar; });
-    var s = '<svg viewBox="0 0 300 250" width="300" height="250" focusable="false">';
-    s += '<rect x="30" y="66" width="240" height="176" rx="2" fill="#0E2F57"/><rect x="24" y="52" width="252" height="16" rx="2" fill="#0A2444"/>';
-    s += '<rect x="176" y="30" width="34" height="22" fill="#0A2444"/><rect x="184" y="14" width="7" height="18" fill="#0A2444"/>';
-    var xs = [54, 210], ys = [84, 140], i = 0;
-    ys.forEach(function (y) {
-      xs.forEach(function (x) {
-        var an = lit[i++];
-        if (an) s += '<rect x="' + (x - 6) + '" y="' + (y - 6) + '" width="52" height="46" rx="5" fill="#F2B45A" opacity=".25"/>';
-        s += '<rect x="' + x + '" y="' + y + '" width="40" height="34" rx="2" fill="' + (an ? '#F7CE8A' : '#1C4675') + '"/>';
-        if (an) s += '<path d="M' + (x + 20) + ' ' + y + 'v34M' + x + ' ' + (y + 17) + 'h40" stroke="#B87A2B" stroke-width="1.6"/>';
-      });
-    });
-    var deurAan = sm.resterend === 0;
-    s += '<rect x="140" y="84" width="20" height="94" fill="#173E6C"/>';
-    s += '<rect x="134" y="196" width="32" height="46" fill="' + (deurAan ? '#F2B45A' : '#1C4675') + '"/>';
-    s += '<rect x="54" y="196" width="40" height="34" rx="2" fill="#1C4675"/><rect x="210" y="196" width="40" height="34" rx="2" fill="#1C4675"/><rect x="0" y="242" width="300" height="8" fill="#0A2444"/></svg>';
-    return s;
   }
 
   // Slanke voortgangsbalk bovenaan de andere tabs: waar sta je in de route.
@@ -2643,41 +2562,63 @@
     var sm = stappenModel();
     var nu = sm.stappen[sm.eersteOpen];
     var volgende = m.plan.slice(0, 5);
+    var tekortJaar = m.eerste ? m.eerste.jaar : null;
+    var b = state.building;
 
     var html = '<div class="ov-page"><div class="ov">';
 
-    // De route: het hoofdmoment van het Overzicht.
-    html += '<h1 class="ov-route-kop">' + stappenKop(sm) + '</h1>';
-    html += '<p class="ov-route-lede">' + (sm.resterend === 0
-      ? 'Alles is ingevuld. Bekijk het voorstel en neem het mee naar de vergadering.'
-      : 'Loop de stappen van links naar rechts. Wat klaar is blijft bewaard.') + '</p>';
-    html += '<section class="ov-route" aria-label="Jouw route naar het voorstel"><div class="ov-route-main">';
-    html += '<div class="ov-route-prog"><b>' + sm.klaarAantal + ' van 5</b><span>stappen klaar</span></div>';
-    html += '<ol class="ov-track">';
+    // Kop: zelfde patroon als Gebouw/Planning/Rapport (README §3).
+    html += '<div class="ov-page-head"><div><h1 class="page-title">Overzicht</h1>';
+    html += '<p class="page-sub">' + esc(b.adres) + ' · bouwjaar ' + (b.bouwjaar || 'onbekend') + ' · ' +
+      b.units + ' ' + meervoud(b.units, 'appartement', 'appartementen') + ' · ' + state.elements.length + ' ' + meervoud(state.elements.length, 'post', 'posten') + '</p></div>';
+    html += '<button type="button" class="ov-btn-dark" data-act="set-tab" data-tab="rapport">Rapport openen</button>';
+    html += '</div>';
+
+    // Routebalk: voortgang + "nu aan de beurt", als kaart i.p.v. hero.
+    html += '<section class="ov-card ov-routebar" aria-label="Jouw route naar het voorstel">';
+    html += '<div class="ov-routebar-top">';
+    html += '<span class="ov-routebar-label">' + sm.klaarAantal + ' van 5 klaar</span>';
+    html += '<div class="ov-routebar-track">';
     ROUTE_KORT.forEach(function (naam, i) {
       var st = sm.stappen[i];
-      html += '<li class="' + (st.klaar ? 'done' : (i === sm.eersteOpen ? 'now' : '')) + '"><span class="d" aria-hidden="true">' + (st.klaar ? CHOICE_ICONS.check : (i + 1)) + '</span><span class="lbl">' + naam + (st.klaar ? '<span class="sr-only"> (klaar)</span>' : '') + '</span></li>';
+      var cls = st.klaar ? 'done' : (i === sm.eersteOpen ? 'now' : '');
+      html += '<div class="ov-routebar-step ' + cls + '"><span class="ov-routebar-dot" aria-hidden="true">' + (st.klaar ? CHOICE_ICONS.check : (i + 1)) + '</span>';
+      html += '<span class="ov-routebar-lbl">' + naam + (st.klaar ? '<span class="sr-only"> (klaar)</span>' : '') + '</span></div>';
+      if (i < ROUTE_KORT.length - 1) html += '<div class="ov-routebar-line' + (st.klaar ? ' done' : '') + '"></div>';
     });
-    html += '</ol>';
-    html += '<div class="ov-now"><div><div class="ov-now-k">Nu aan de beurt</div><h2 class="ov-now-h">' + esc(nu.vraag) + '</h2><p class="ov-now-p">' + esc(nu.tekst) + '</p></div>';
-    if (nu.actie) html += '<button type="button" class="ov-btn ov-now-btn"' + actieAttrs(nu.actie) + '>' + nu.actie[1] + '</button>';
     html += '</div></div>';
-    html += '<div class="ov-route-art" aria-hidden="true">' + gebouwNachtSvg(sm) + '</div></section>';
+    html += '<div class="ov-routebar-now"><div><div class="ov-routebar-now-label">Nu aan de beurt</div>';
+    html += '<h2 class="ov-routebar-now-h">' + esc(nu.vraag) + '</h2><p class="ov-routebar-now-p">' + esc(nu.tekst) + '</p></div>';
+    if (nu.actie) html += '<button type="button" class="ov-btn"' + actieAttrs(nu.actie) + '>' + nu.actie[1] + '</button>';
+    html += '</div></section>';
 
-    html += '<div class="ov-grid-main">';
+    html += '<div class="ov-grid-main"><div class="ov-col-main">';
 
-    html += '<div class="ov-area-verdict" id="ov-verdict">' + ovVerdictHtml(m, false, 'h2') + '</div>';
+    html += '<section class="ov-card" id="ov-verdict">' + ovVerdictHtml(m, false, 'h3') + '</section>';
 
-    html += '<section class="ov-card ov-area-chart" aria-labelledby="ov-chart-title">';
+    html += '<section class="ov-card" aria-labelledby="ov-chart-title">';
     html += '<div class="ov-card-head"><div><h2 class="ov-h2" id="ov-chart-title">Saldo van het reservefonds</h2>';
     html += '<p class="ov-sub">Aan het einde van elk jaar, bij de ingestelde bijdrage</p></div>';
-    if (m.saldoBekend) html += '<div class="ov-key"><span class="k-pos"></span>Saldo positief<span class="k-neg"></span>Fonds is leeg</div>';
+    if (m.saldoBekend) html += '<div class="ov-key"><span class="k-pos"></span>positief<span class="k-neg"></span>fonds is leeg</div>';
     html += '</div>';
     html += '<div class="ov-chart" id="ov-chart">' + ovChartHtml(m) + '</div>';
     html += '</section>';
 
-    html += '<section class="ov-card ov-area-controls" aria-label="Bijdrage en reservefonds">';
-    html += '<label class="ov-row" for="bijdrage-num"><span>Bijdrage per appartement per maand</span>';
+    html += '<section class="ov-card"><h2 class="ov-h2">Eerstvolgende posten</h2>';
+    if (volgende.length) {
+      html += '<div class="ov-posts">' + volgende.map(function (p) {
+        return '<div class="ov-post" data-act="open-element" data-id="' + p.elId + '"><span class="ov-post-y' + (p.jaar === tekortJaar ? ' tekort' : '') + '">' + p.jaar + '</span><span class="ov-post-n">' + esc(p.naam) + '</span><b>' + eur(p.bedrag) + '</b></div>';
+      }).join('') + '</div>';
+      html += '<p class="ov-more"><span class="linkish" data-act="set-tab" data-tab="planning">Alle jaren bekijken</span></p>';
+    } else {
+      html += '<p class="ov-hint">Er staan de komende ' + HORIZON + ' jaar geen posten gepland. Voeg een post toe via Gebouw.</p>';
+    }
+    html += '</section>';
+
+    html += '</div><div class="ov-col-side">';
+
+    html += '<section class="ov-card" aria-label="Bijdrage en reservefonds">';
+    html += '<label class="ov-row" for="bijdrage-num"><span>Bijdrage per appartement p/m</span>';
     html += '<span class="ov-eurinput">€<input id="bijdrage-num" type="text" inputmode="numeric" data-change="bijdrage-bedrag" value="' + state.bijdrage + '" /></span></label>';
     html += '<input id="bijdrage-slider" class="ov-slider" type="range" min="10" max="400" step="5" value="' + state.bijdrage + '" data-change="bijdrage" aria-label="Bijdrage per appartement per maand" />';
     html += '<div class="ov-range"><span>€ 10</span><span>€ 400</span></div>';
@@ -2687,26 +2628,17 @@
     html += '<span class="ov-eurinput">€<input id="fonds-bedrag" data-bind="fonds-bedrag" inputmode="numeric" placeholder="0" value="' + (state.invul.fonds ? state.fonds : '') + '" /></span></label>';
     html += '<p class="ov-hint">' + (!state.invul.fonds ? 'Nog niet ingevuld. Vul het saldo uit de VvE-administratie in.' : 'Saldo uit de VvE-administratie.') + '</p>';
     html += '<div class="ov-rule"></div>';
-    html += '<div class="ov-kv"><span>Onderhoud de komende ' + HORIZON + ' jaar</span><b>' + eur(m.totaal) + '</b></div>';
+    html += '<div class="ov-kv"><span>Onderhoud ' + CURRENT_YEAR + ' — ' + m.eind + '</span><b>' + eur(m.totaal) + '</b></div>';
     html += '<div class="ov-kv" id="ov-low">' + ovLowHtml(m) + '</div>';
     html += '</section>';
 
-    html += '</div>';
-
-    html += '<div class="ov-lower">';
-    html += '<section class="ov-card"><h2 class="ov-h2">Eerstvolgende posten</h2>';
-    if (volgende.length) {
-      html += '<div class="ov-posts">' + volgende.map(function (p) {
-        return '<div class="ov-post" data-act="open-element" data-id="' + p.elId + '"><span class="ov-post-y">' + p.jaar + '</span><span class="ov-post-n">' + esc(p.naam) + '</span><b>' + eur(p.bedrag) + '</b></div>';
-      }).join('') + '</div>';
-      html += '<p class="ov-more"><span class="linkish" data-act="set-tab" data-tab="planning">Alle jaren bekijken</span></p>';
-    } else {
-      html += '<p class="ov-hint">Er staan de komende ' + HORIZON + ' jaar geen posten gepland. Voeg een post toe via Gebouw.</p>';
-    }
+    html += '<section class="ov-card ov-source"><h2 class="ov-h2">Waar komen deze cijfers vandaan?</h2>';
+    html += '<p class="ov-hint">De bedragen zijn indicatieve richtprijzen (inclusief btw, prijspeil ' + CURRENT_YEAR + '), geen offerte. Hoe vaak onderhoud nodig is volgt uit het bouwjaar in de BAG. Beoordeel je de staat van een post, dan schuift het onderhoud naar voren of naar achteren.</p>';
     html += '</section>';
-    html += '</div>';
 
-    html += '<p class="ov-foot">De bedragen zijn indicatieve richtprijzen (inclusief btw, prijspeil ' + CURRENT_YEAR + '), geen offerte. Hoe vaak onderhoud nodig is volgt uit het bouwjaar in de BAG. Beoordeel je de staat van een post, dan schuift het onderhoud naar voren of naar achteren. Kosten na ' + m.eind + ' tellen niet mee.</p>';
+    html += '</div></div>';
+
+    html += '<p class="ov-foot">Kosten na ' + m.eind + ' tellen niet mee.</p>';
     html += '</div></div>';
     return html;
   }
