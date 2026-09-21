@@ -1702,7 +1702,12 @@
       html += '<div class="entry-links"><span class="entry-link" data-act="login-change-email">Ander e-mailadres of opnieuw versturen</span></div>';
     } else {
       html += '<label class="entry-label" for="auth-email">E-mailadres</label>';
-      html += '<input id="auth-email" class="entry-input" data-bind="auth-email" type="email" value="' + esc(a.email) + '" placeholder="naam@voorbeeld.nl" autocomplete="email" />';
+      // type="text" i.p.v. "email": een input[type=email] ondersteunt geen
+      // selectionStart/setSelectionRange (HTML-spec), waardoor render()
+      // hieronder de cursor na elke toetsaanslag niet kan terugzetten en
+      // hij steeds naar positie 0 springt — inputmode="email" geeft
+      // mobiel nog wel het juiste toetsenbord.
+      html += '<input id="auth-email" class="entry-input" data-bind="auth-email" type="text" inputmode="email" value="' + esc(a.email) + '" placeholder="naam@voorbeeld.nl" autocomplete="email" />';
       if (a.fout) html += '<div class="notice error" style="margin-top:12px">' + esc(a.fout) + '</div>';
       html += '<button type="button" class="ov-btn entry-submit" data-act="login-request">' + (a.bezig ? 'Bezig…' : 'Verstuur inloglink') + '</button>';
     }
