@@ -119,13 +119,9 @@
   --ink-14: rgba(16, 18, 17, .14);
   --ink-10: rgba(16, 18, 17, .1);
   --ink-08: rgba(16, 18, 17, .08);
-  /* Koper/navy/amber: illustratie-accenten uit de vorige huisstijl, nog in
-     gebruik bij de getekende gebouw- en route-componenten die pas in
-     latere stappen (Gebouw, Instapscherm) worden nagebouwd — tokens.css
-     kent ze niet meer, dus deze vervallen zodra die stappen klaar zijn. */
-  --copper: #B0673A;
-  --copper-tint: #F3E7DC;
-  --navy: #123B6D;
+  /* Amber: illustratie-accent uit de vorige huisstijl, nog in gebruik bij
+     de voortgangsbalk-stippen (.ov-vg-dots) op de nog niet herbouwde
+     schermen (Account, uploadwizard) — tokens.css kent 'm niet meer. */
   --amber: #F2B45A;
 }
 
@@ -741,7 +737,7 @@ input[type=range]::-moz-range-thumb {
 }
 .mkt-header {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 18px 40px; background: var(--card); border-bottom: 1px solid var(--ink-08);
+  padding: 16px 36px; background: var(--card); border-bottom: 1px solid var(--border-2);
   position: sticky; top: 0; z-index: 5;
 }
 /* Logo: één gedraaid vierkant in kobalt, geen letter — het enige merkteken
@@ -749,53 +745,126 @@ input[type=range]::-moz-range-thumb {
 .mkt-logo { display: flex; align-items: center; gap: 9px; cursor: pointer; }
 .mkt-logo .mark { width: 18px; height: 18px; border-radius: var(--r-bar); background: var(--blue); transform: rotate(45deg); flex: none; }
 .mkt-logo .word { font: 600 17px/1 var(--font); letter-spacing: -.02em; color: var(--ink); }
-.mkt-nav { display: flex; align-items: center; gap: 30px; }
-.mkt-nav a { font: 500 13.5px/1 var(--sans); color: var(--ink-60); cursor: pointer; text-decoration: none; }
+.mkt-nav { display: flex; align-items: center; gap: 24px; }
+.mkt-nav a, .mkt-nav-todo { font: 400 14.5px/1 var(--font); color: var(--text-2); cursor: pointer; text-decoration: none; }
 .mkt-nav a:hover { color: var(--ink); }
-.mkt-login-btn { display: inline-flex; align-items: center; gap: 8px; padding: 10px 18px; border-radius: 6px; background: var(--blue); color: #fff; font: 600 13.5px/1 var(--sans); cursor: pointer; }
-.mkt-login-btn:hover { background: var(--blue-dark); }
+.mkt-nav-todo { cursor: default; color: var(--text-dim); }
+.mkt-header-actions { display: flex; align-items: center; gap: 18px; font-size: 14.5px; }
+.mkt-login-link { color: var(--text-2); cursor: pointer; }
+.mkt-login-link:hover { color: var(--ink); }
+.mkt-header-cta { background: var(--ink); color: var(--on-ink); padding: 10px 18px; border-radius: var(--r-ctl); font: 500 14.5px/1 var(--font); cursor: pointer; }
+.mkt-header-cta:hover { background: #1F2320; }
 
-/* Hero: de straat als achtergrond (frames wisselen mee met scrollen, zie
-   initMktHeroScroll in app.js), de vraag links en onderin de route in
-   vijf stappen. .mkt-hero-pin-wrap geeft extra scrollruimte terwijl de
-   hero zelf vastgeplakt blijft staan. */
-.mkt-hero-pin-wrap { position: relative; height: 200vh; }
-.mkt-hero { position: sticky; top: 71px; height: calc(100vh - 71px); overflow: hidden; background: #0F1620; color: #fff; }
-.mkt-hero-bg { position: absolute; inset: 0; }
-.mkt-hero-bg canvas, .mkt-hero-bg img { display: block; width: 100%; height: 100%; object-fit: cover; }
-.mkt-hero-scrim { position: absolute; inset: 0; background: linear-gradient(95deg, rgba(10,22,38,.92) 0%, rgba(10,22,38,.7) 38%, rgba(10,22,38,.1) 72%), linear-gradient(0deg, rgba(10,22,38,.7) 0%, rgba(10,22,38,0) 42%); }
-.mkt-hero-inner { position: relative; z-index: 2; display: flex; flex-direction: column; justify-content: space-between; height: 100%; max-width: 1180px; margin: 0 auto; padding: 0 40px; box-sizing: border-box; }
-.mkt-hero-copy { max-width: 640px; padding-top: clamp(24px, 6vh, 72px); }
-.mkt-h1 { font: 800 clamp(38px, 4.6vw, 62px)/1.04 var(--heading); letter-spacing: -.035em; text-wrap: balance; margin: 0; color: #fff; }
-.mkt-sub { font: 400 19px/1.5 var(--sans); color: rgba(255,255,255,.88); margin: 18px 0 0; max-width: 30em; }
-.mkt-cta-row { display: flex; align-items: center; gap: 12px; margin-top: 26px; flex-wrap: wrap; }
-.mkt-cta-primary { display: inline-flex; align-items: center; padding: 16px 24px; border-radius: 9px; background: #fff; color: #0E1F35; font: 700 16px/1 var(--sans); cursor: pointer; }
-.mkt-cta-primary:hover { background: #E7EDF5; }
-.mkt-cta-secondary { padding: 14.5px 22px; border: 1.5px solid rgba(255,255,255,.7); border-radius: 9px; font: 600 16px/1 var(--sans); color: #fff; cursor: pointer; }
-.mkt-cta-secondary:hover { background: rgba(255,255,255,.12); }
-.mkt-fineprint { font: 400 14px/1.5 var(--sans); color: rgba(255,255,255,.75); margin-top: 14px; }
+/* Hero: twee gelijkwaardige ingangen (adres of bestaand plan) naast een
+   sfeerbeeld met een zwevend browservenster. */
+.mkt-hero2 { display: grid; grid-template-columns: minmax(0,1.02fr) minmax(0,1fr); align-items: stretch; background: var(--app); }
+.mkt-hero-left { padding: 60px 44px 56px 36px; display: flex; flex-direction: column; gap: 24px; justify-content: center; }
+.mkt-badge {
+  display: inline-flex; align-self: flex-start; align-items: center; gap: 9px;
+  border: 1px solid var(--blue-border); background: var(--blue-tint-2); border-radius: var(--r-pill);
+  padding: 6px 14px; font: 500 11.5px/1 var(--mono); letter-spacing: .06em; color: var(--blue-deep);
+}
+.mkt-hero-h2 { margin: 0; font: 600 58px/0.98 var(--font); letter-spacing: -.045em; text-wrap: balance; color: var(--ink); }
+.mkt-hero-p { margin: 0; font: 400 17.5px/1.55 var(--font); color: var(--text-2); max-width: 42ch; text-wrap: pretty; }
 
-.mkt-route { margin-bottom: 28px; padding: 20px 24px 22px; border-radius: 14px; background: var(--card); color: var(--ink); box-shadow: 0 20px 50px rgba(0,0,0,.35); }
-.mkt-route-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; font: 700 17px/1.2 var(--heading); }
-.mkt-route-head span { font-weight: 500; font-size: 15px; color: var(--ink-60); }
-.mkt-route-steps { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); margin: 16px 0 0; padding: 0; list-style: none; }
-.mkt-route-steps li { position: relative; padding-right: 14px; }
-.mkt-route-steps li:not(:last-child)::after { content: ""; position: absolute; top: 16px; left: 44px; right: 6px; height: 2px; background: var(--ink-14); }
-.mkt-route-steps .d { position: relative; z-index: 1; display: grid; place-items: center; width: 34px; height: 34px; border: 2px solid var(--ink-28); border-radius: 50%; background: var(--card); font: 700 14px/1 var(--sans); color: var(--ink-60); }
-.mkt-route-steps .now .d { border-color: var(--blue); background: var(--blue); color: var(--card); box-shadow: 0 0 0 5px var(--blue-tint); }
-.mkt-route-steps b { display: block; margin-top: 10px; font: 700 15px/1.25 var(--sans); }
-.mkt-route-steps .now b { color: var(--blue); }
-.mkt-route-steps .k { display: block; margin-top: 3px; font: 400 13.5px/1.4 var(--sans); color: var(--ink-60); }
+.mkt-routes { display: flex; flex-direction: column; gap: 14px; margin-top: 4px; }
+.mkt-route-block { display: flex; flex-direction: column; gap: 9px; }
+.mkt-route-label-row { display: flex; align-items: baseline; gap: 9px; }
+.mkt-route-tag { font: 500 11px/1 var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--blue); }
+.mkt-route-name { font: 600 14px/1 var(--font); color: var(--ink); }
+.mkt-route-a-box {
+  display: flex; align-items: center; gap: 8px; background: var(--card); border: 1.5px solid var(--ink);
+  border-radius: 5px; padding: 6px 6px 6px 18px; cursor: pointer;
+}
+.mkt-route-a-placeholder { flex: 1; font: 400 16.5px/1 var(--font); color: var(--text-dim); white-space: nowrap; overflow: hidden; }
+.mkt-route-a-btn { background: var(--blue); color: #fff; padding: 13px 24px; border-radius: var(--r-chip); font: 600 15px/1 var(--font); white-space: nowrap; }
+.mkt-route-a-box:hover .mkt-route-a-btn { background: var(--blue-deep); }
+.mkt-or-row { display: flex; align-items: center; gap: 14px; }
+.mkt-or-line { flex: 1; height: 1px; background: var(--border); }
+.mkt-or-text { font: 400 13px/1 var(--font); color: var(--text-dim); }
+.mkt-route-b-box {
+  display: flex; align-items: center; gap: 16px; border: 1.5px dashed #B9BCC9; background: var(--blue-tint);
+  border-radius: 5px; padding: 14px 16px; cursor: pointer;
+}
+.mkt-route-b-copy { display: flex; flex-direction: column; gap: 3px; flex: 1; }
+.mkt-route-b-title { font: 500 15px/1 var(--font); color: var(--ink); }
+.mkt-route-b-sub { font: 400 13px/1.45 var(--font); color: var(--text-3); }
+.mkt-route-b-btn { background: var(--card); border: 1.5px solid var(--ink); color: var(--ink); padding: 11px 18px; border-radius: var(--r-chip); font: 600 14.5px/1 var(--font); white-space: nowrap; }
+.mkt-route-b-box:hover { border-color: var(--ink); }
+.mkt-hero-fine { display: flex; gap: 16px; font: 400 14px/1 var(--font); color: var(--text-4); }
+.mkt-hero-fine .dot { color: var(--border-input); }
+.mkt-hero-fine .link { color: var(--blue-deep); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.mkt-hero-fine .link:hover { color: var(--ink); }
 
-.mkt-rijen { max-width: 1000px; margin: 44px auto 0; padding: 0; list-style: none; }
-.mkt-rij { display: grid; grid-template-columns: 72px minmax(0, 1fr) 320px; gap: 28px; align-items: center; padding: 30px 0; border-top: 1px solid var(--ink-14); }
-.mkt-rij .n { display: grid; place-items: center; width: 56px; height: 56px; border-radius: 50%; background: var(--copper); color: var(--card); font: 800 24px/1 var(--heading); }
-.mkt-rij h3 { margin: 0; font: 700 24px/1.2 var(--heading); letter-spacing: -.02em; }
-.mkt-rij p { max-width: 32em; margin: 8px 0 0; font: 400 16px/1.55 var(--sans); color: var(--ink-60); }
-.mkt-mini { display: flex; flex-direction: column; justify-content: center; gap: 4px; min-height: 110px; padding: 18px 20px; box-sizing: border-box; border: 1px solid var(--ink-10); border-radius: 12px; background: var(--card); font: 500 15px/1.4 var(--sans); color: var(--ink-60); }
-.mkt-mini b { color: var(--ink); font-weight: 700; }
-.mkt-mini .lab { font-size: 13px; }
-.mkt-mini .eur { font: 800 28px/1.1 var(--heading); color: var(--ink); }
+.mkt-hero-right { position: relative; background: var(--ink); overflow: hidden; padding: 48px 34px 48px 40px; display: flex; align-items: center; }
+.mkt-hero-photo { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: .92; }
+.mkt-hero-gradient { position: absolute; inset: 0; background: linear-gradient(90deg, var(--app) 0%, rgba(252,252,251,0) 22%, rgba(16,18,17,.22) 100%); }
+.mkt-browser { position: relative; width: 100%; background: var(--card); border: 1px solid var(--border); border-radius: var(--r-card); box-shadow: var(--shadow-float); overflow: hidden; }
+.mkt-browser-bar { display: flex; align-items: center; justify-content: space-between; padding: 13px 18px; border-bottom: 1px solid var(--border-3); background: var(--subtle); }
+.mkt-browser-dots { display: flex; gap: 6px; }
+.mkt-browser-dots span { width: 9px; height: 9px; border-radius: 50%; background: #E4E3DE; }
+.mkt-browser-url { font: 400 11px/1 var(--mono); color: var(--text-mono); }
+.mkt-browser-bar-spacer { width: 40px; }
+.mkt-browser-shot {
+  height: 430px; background: var(--subtle); display: flex; align-items: center; justify-content: center;
+  padding: 24px; text-align: center; font: 400 12px/1.5 var(--font); color: var(--text-dim);
+}
+
+/* Animatieblok "adres wordt gebouw" (README §Interacties) — vol-breed op
+   --ink-deep. De DOM-knopen (id's) worden per tick bijgewerkt door
+   mktAnimApply() in app.js, niet door een re-render. */
+.mkt-anim { background: var(--ink-deep); color: var(--on-ink); padding: 44px 36px 40px; }
+.mkt-anim-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; }
+.mkt-anim-eyebrow { font: 500 11px/1 var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--blue-3); }
+.mkt-anim-title { margin: 8px 0 0; font: 600 30px/1.12 var(--font); letter-spacing: -.03em; max-width: 56ch; }
+.mkt-anim-replay {
+  display: flex; align-items: center; gap: 9px; border: 1px solid var(--ink-line); border-radius: var(--r-ctl);
+  padding: 9px 15px; font: 400 13.5px/1 var(--font); color: var(--on-ink-3); cursor: pointer; white-space: nowrap;
+}
+.mkt-anim-replay:hover { border-color: var(--blue-3); color: #fff; }
+.mkt-anim-replay-ico { font-family: var(--mono); font-size: 13px; }
+.mkt-anim-body { display: grid; grid-template-columns: minmax(0,300px) minmax(0,1fr); gap: 32px; align-items: center; margin-top: 20px; }
+.mkt-anim-left { display: flex; flex-direction: column; gap: 18px; }
+.mkt-anim-addr { display: flex; flex-direction: column; gap: 8px; }
+.mkt-anim-addr-label { font: 500 10.5px/1 var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--on-ink-dim); }
+.mkt-anim-addr-box { border: 1px solid var(--ink-line); background: #141716; border-radius: var(--r-ctl); padding: 12px 14px; font: 400 15px/1 var(--font); min-height: 20px; white-space: nowrap; overflow: hidden; }
+.mkt-anim-caret { color: var(--blue-3); }
+.mkt-anim-steps { display: flex; flex-direction: column; gap: 10px; }
+.mkt-anim-step { display: flex; align-items: baseline; gap: 10px; transition: opacity .5s ease; }
+.mkt-anim-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; transform: translateY(-2px); transition: background .5s ease; }
+.mkt-anim-steplabel { font: 400 13.5px/1 var(--font); transition: color .5s ease; }
+.mkt-anim-right { position: relative; }
+.mkt-anim-svg { width: 100%; height: auto; display: block; overflow: visible; }
+.mkt-anim-metric { position: absolute; display: flex; flex-direction: column; gap: 2px; }
+.mkt-anim-metric-dak { left: 75.5%; top: 20%; }
+.mkt-anim-metric-gevel { left: 75.5%; top: 68%; }
+.mkt-anim-metric-hoogte { left: 0; top: 30%; }
+.mkt-anim-metric-bouw { left: 24%; top: 89%; white-space: nowrap; }
+.mkt-anim-metric-label { font: 500 11px/1 var(--mono); letter-spacing: .12em; color: var(--on-ink-label); }
+.mkt-anim-metric-value { font: 600 29px/1 var(--font); letter-spacing: -.02em; color: var(--on-ink); }
+.mkt-anim-metric-bouw .mkt-anim-metric-label { color: var(--on-ink-label); }
+.mkt-anim-cta { display: flex; align-items: center; gap: 18px; margin-top: 24px; transition: opacity .6s ease; }
+.mkt-anim-cta-btn { background: var(--blue); color: #fff; padding: 12px 22px; border-radius: var(--r-ctl); font: 600 15px/1 var(--font); cursor: pointer; }
+.mkt-anim-cta-btn:hover { background: var(--blue-deep); }
+.mkt-anim-cta-note { font: 400 14px/1 var(--font); color: var(--on-ink-5); }
+
+.mkt-steps4 { border-top: 1px solid var(--border-2); display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); }
+.mkt-step4 { padding: 26px 30px; border-right: 1px solid var(--border-2); display: flex; flex-direction: column; gap: 6px; }
+.mkt-step4:last-child { border-right: none; }
+.mkt-step4-num { font: 500 11px/1 var(--mono); color: var(--blue); }
+.mkt-step4-title { font: 600 15px/1.3 var(--font); letter-spacing: -.01em; color: var(--ink); }
+.mkt-step4-body { font: 400 13.5px/1.5 var(--font); color: var(--text-3); }
+
+.mkt-personal { border-top: 1px solid var(--border-2); background: var(--shade); padding: 34px 36px; display: flex; gap: 26px; align-items: flex-start; }
+.mkt-personal-photo {
+  width: 68px; height: 68px; border-radius: var(--r-ctl); flex-shrink: 0;
+  background: repeating-linear-gradient(135deg, var(--border-4) 0 6px, var(--border-3) 6px 12px); border: 1px solid var(--border-2);
+  display: flex; align-items: center; justify-content: center; text-align: center;
+  font: 400 8.5px/1.3 var(--mono); color: var(--text-mono);
+}
+.mkt-personal-copy { display: flex; flex-direction: column; gap: 8px; max-width: 70ch; }
+.mkt-personal-quote { margin: 0; font: 400 16.5px/1.55 var(--font); color: var(--text); text-wrap: pretty; }
+.mkt-personal-sub { margin: 0; font: 400 13.5px/1 var(--font); color: var(--text-3); }
 
 .mkt-try { display: grid; grid-template-columns: minmax(0, 4fr) minmax(0, 7fr); gap: 56px; align-items: center; }
 .mkt-try-title { margin: 0; font: 800 36px/1.1 var(--heading); letter-spacing: -.03em; }
@@ -816,7 +885,7 @@ input[type=range]::-moz-range-thumb {
 
 .mkt-feature-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px; margin-top: 44px; }
 .mkt-feature-card { background: var(--card); border: 1px solid var(--ink-08); border-radius: 10px; padding: 26px; }
-.mkt-feature-icon { width: 40px; height: 40px; border-radius: 8px; background: var(--copper-tint); color: var(--copper); display: flex; align-items: center; justify-content: center; }
+.mkt-feature-icon { width: 40px; height: 40px; border-radius: 8px; background: var(--blue-tint); color: var(--blue); display: flex; align-items: center; justify-content: center; }
 .mkt-feature-title { font: 600 16px/1.3 var(--sans); margin-top: 16px; color: var(--ink); }
 .mkt-feature-body { font: 400 13.5px/1.6 var(--sans); color: var(--ink-60); margin-top: 8px; }
 
@@ -835,33 +904,44 @@ input[type=range]::-moz-range-thumb {
 .mkt-pricing-plan.featured .mkt-pricing-cta { background: var(--blue); color: #fff; }
 .mkt-pricing-plan.featured .mkt-pricing-cta:hover { background: var(--blue-dark); }
 
-.mkt-steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 32px; margin-top: 44px; }
-.mkt-step { text-align: center; }
-.mkt-step-num { width: 34px; height: 34px; border-radius: 8px; background: var(--copper); color: var(--card); display: flex; align-items: center; justify-content: center; font: 700 14px/1 var(--heading); margin: 0 auto; }
-.mkt-step-title { font: 600 15px/1.3 var(--sans); margin-top: 14px; color: var(--ink); }
-.mkt-step-body { font: 400 13px/1.55 var(--sans); color: var(--ink-60); margin-top: 6px; max-width: 260px; margin-left: auto; margin-right: auto; }
-
-.mkt-footer { background: var(--blue); color: rgba(255,255,255,.85); padding: 40px; }
+.mkt-footer { background: var(--ink); color: var(--on-ink-3); padding: 32px 40px; }
 .mkt-footer-inner { max-width: 1180px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 20px; }
-.mkt-footer .mkt-logo .word { color: #fff; }
-.mkt-footer .mkt-logo .mark { background: rgba(255,255,255,.15); }
+.mkt-footer .mkt-logo .word { color: var(--on-ink); }
 .mkt-footer-links { display: flex; gap: 26px; }
-.mkt-footer-links a { color: rgba(255,255,255,.75); font: 500 13px/1 var(--sans); text-decoration: none; cursor: pointer; }
-.mkt-footer-links a:hover { color: #fff; }
+.mkt-footer-links a { color: var(--on-ink-3); font: 500 13px/1 var(--font); text-decoration: none; cursor: pointer; }
+.mkt-footer-links a:hover { color: var(--on-ink); }
 
 @media (max-width: 1100px) {
-  .mkt-hero-inner { padding: 0 32px; }
+  .mkt-hero2 { grid-template-columns: minmax(0, 1fr); }
+  .mkt-hero-right { min-height: 320px; }
   .mkt-try { grid-template-columns: minmax(0, 1fr); gap: 28px; }
-  .mkt-rij { grid-template-columns: 56px minmax(0, 1fr); }
-  .mkt-mini { grid-column: 2; }
-  .mkt-h1 { font-size: 40px; }
+  .mkt-hero-h2 { font-size: 44px; }
 }
 
+/* README §Responsief: onder 900px worden alle tweekolomsgrids één kolom en
+   geen vaste hoogtes op tekstblokken. */
 @media (max-width: 900px) {
-  .mkt-h1 { font-size: 34px; }
-  .mkt-feature-grid, .mkt-steps { grid-template-columns: 1fr; }
   .mkt-header { padding: 16px 20px; }
   .mkt-nav { display: none; }
+  .mkt-hero-left { padding: 40px 20px 36px; }
+  .mkt-hero-h2 { font-size: 34px; }
+  .mkt-anim { padding: 32px 20px 28px; }
+  .mkt-anim-head { flex-direction: column; align-items: flex-start; gap: 14px; }
+  .mkt-anim-body { grid-template-columns: minmax(0, 1fr); }
+  .mkt-anim-right { margin-top: 12px; }
+  .mkt-steps4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .mkt-step4 { border-bottom: 1px solid var(--border-2); }
+  .mkt-step4:nth-child(2n) { border-right: none; }
+  .mkt-personal { flex-direction: column; padding: 28px 20px; }
+  .mkt-feature-grid { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 480px) {
+  .mkt-hero-h2 { font-size: 28px; }
+  .mkt-anim-title { font-size: 22px; }
+  .mkt-anim-metric-value { font-size: 22px; }
+  .mkt-steps4 { grid-template-columns: minmax(0, 1fr); }
+  .mkt-step4:nth-child(2n) { border-right: 1px solid var(--border-2); }
 }
 
 /* Het afdrukbare/PDF-rapport (renderPrintReport in app.js): een losse,
@@ -1214,39 +1294,10 @@ input[type=range].ov-slider::-moz-range-thumb { width: 14px; height: 14px; borde
 .ov-details summary { cursor: pointer; font-weight: 600; }
 .ov-details p { margin: 8px 0 0; }
 
-/* ------------------------------------------------------------------
-   Getekend gebouw (gebouwSvg in app.js): vooraanzicht met vijf
-   onderdelen. Kleur laat de staat zien (groen/geel/rood), neutraal
-   betekent nog niet beoordeeld. Op het Gebouw-scherm klikbaar.
-   ------------------------------------------------------------------ */
-.gb-svg { display: block; width: 100%; height: auto; }
-.gb-svg .gb-shape { stroke-width: 1.5; stroke-linejoin: round; }
-.gb-svg .gb-part { transition: opacity .15s ease; }
-.gb-svg .gb-part.leeg { opacity: .35; }
-.gb-svg.klikbaar .gb-part[data-gb-filter] { cursor: pointer; }
-.gb-svg.klikbaar .gb-part[data-gb-filter]:hover .gb-shape { stroke-width: 3; }
-.gb-svg .gb-part.actief .gb-shape { stroke-width: 3; }
-.gb-svg.heeft-actief .gb-part:not(.actief) { opacity: .4; }
-
-.gb-svg .gb-terrein .gb-shape { fill: var(--good-bg); stroke: none; }
-.gb-svg .gb-pad { fill: var(--panel); }
-.gb-svg .gb-groen { fill: var(--good-fg); opacity: .35; }
-.gb-svg .gb-wall { fill: var(--copper-tint); stroke: var(--copper); }
-.gb-svg .gb-window { fill: var(--blue-tint); stroke: var(--blue); stroke-width: 1.5; }
-.gb-svg .gb-mullion { fill: none; stroke: var(--blue); stroke-width: 1.2; opacity: .7; }
-.gb-svg .gb-trap { fill: var(--blue-tint); stroke: var(--blue); }
-.gb-svg .gb-deur { fill: var(--card); stroke: var(--ink-60); stroke-width: 2; }
-.gb-svg .gb-luifel { fill: var(--blue); }
-.gb-svg .gb-plaat { fill: var(--blue-tint); stroke: var(--blue); stroke-width: 2; }
-.gb-svg .gb-inst .gb-shape { fill: var(--panel); stroke: var(--ink-60); }
-.gb-svg .st-good .gb-shape { fill: var(--good-bg); stroke: var(--good-fg); }
-.gb-svg .st-warn .gb-shape { fill: var(--warn-bg); stroke: var(--warn-fg); }
-.gb-svg .st-bad .gb-shape { fill: var(--bad-bg); stroke: var(--bad-fg); }
-
 /* Gebouw: voortgangsbalk (beoordelen), filterchips, postentabel — geen
-   getekend gebouw meer op dit scherm (README §4 toont geen illustratie;
-   .gb-svg zelf blijft bestaan voor de homepage-hero, zie .mkt-gebouw-fig
-   verderop). */
+   getekend gebouw op dit scherm (README §4 toont geen illustratie; het
+   vroegere gebouwSvg()/.gb-svg-tekenwerk is met de homepage-herziening
+   verwijderd, zie renderMarketing() in app.js). */
 .gb-progress {
   display: flex; align-items: center; gap: 18px; flex-wrap: wrap; margin-bottom: var(--gap-card);
   padding: 15px 20px; border: 1px solid var(--blue-border); border-radius: var(--r-card); background: var(--blue-tint);
@@ -1295,16 +1346,6 @@ input[type=range].ov-slider::-moz-range-thumb { width: 14px; height: 14px; borde
   .gb-cell-bedrag { grid-column: 2; }
 }
 
-.mkt-gebouw { display: grid; grid-template-columns: minmax(0, 420px) minmax(0, 1fr); gap: 56px; align-items: center; margin-top: 44px; }
-.mkt-gebouw-fig { padding: 24px; }
-.mkt-onderdelen { display: grid; gap: 22px; margin: 0; }
-.mkt-onderdeel { padding-left: 16px; border-left: 3px solid var(--copper); }
-.mkt-onderdeel dt { font: 700 17px/1.3 var(--heading); }
-.mkt-onderdeel dd { margin: 4px 0 0; font: 400 15px/1.5 var(--sans); color: var(--ink-60); }
-
-@media (max-width: 900px) {
-  .mkt-gebouw { grid-template-columns: minmax(0, 1fr); gap: 28px; }
-}
 
 /* ------------------------------------------------------------------
    Upload-wizard voor een bestaand MJOP (renderUploadWizard): zelfde
