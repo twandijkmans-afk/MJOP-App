@@ -2767,18 +2767,6 @@
     return s;
   }
 
-  // Slechtste (hoogste) conditiescore per categorie; null zolang er in die
-  // categorie niets beoordeeld is.
-  function statusPerCategorie() {
-    var st = {};
-    state.elements.forEach(function (el) {
-      var sc = conditionScore(el);
-      if (sc == null) return;
-      st[el.categorie] = Math.max(st[el.categorie] || 0, sc);
-    });
-    return st;
-  }
-
   function renderGebouw() {
     if (state.activeElementId) return renderElementDetail(state.activeElementId);
     var b = state.building;
@@ -2791,69 +2779,86 @@
     var metGebrekenCount = state.elements.filter(function (el) { return el.gebreken.length > 0; }).length;
     if (state.gebrekenFilter) els = els.filter(function (el) { return el.gebreken.length > 0; });
 
-    var html = pgOpen(true, true);
-    html += '<div class="pg-head">';
-    html += '<h1 class="page-title">Gebouw</h1>';
+    var totaal = state.elements.length;
+    var aandacht = state.elements.filter(needsAssessment);
+    var beoordeeld = totaal - aandacht.length;
+    var pct = totaal ? Math.round(beoordeeld / totaal * 100) : 0;
+    var m = overzichtModel();
+    var tekortJaar = m.eerste ? m.eerste.jaar : null;
+
+    var html = '<div class="ov-page"><div class="ov">';
+
+    html += '<div class="ov-page-head"><div><h1 class="page-title">Gebouw</h1>';
+    html += '<p class="page-sub">' + totaal + ' ' + meervoud(totaal, 'post', 'posten') + ' · ' + beoordeeld + ' beoordeeld · ' + eur(m.totaal) + ' aan onderhoud tot ' + m.eind + '</p>';
     // Aantal appartementen komt uit de BAG maar klopt niet altijd (bv. bij
     // een pand dat als één verblijfsobject geregistreerd staat) — daarom
-    // hier bewerkbaar, met dezelfde zichtbare invoerstijl als de velden
-    // op de elementdetailpagina (zie .inline-num in style.css), i.p.v.
-    // de eerdere gestippelde onderstreping die niet als invoerveld oogde.
+    // hier bewerkbaar. Het ontwerp noemt de aantallen niet in deze kop
+    // (die staan al op Overzicht), dus dit veld staat op een eigen regel
+    // i.p.v. de kop-tekst te herschrijven.
     var uOrigin = unitsOrigin();
-    html += '<div class="page-sub">' + esc(b.adres) + ' · bouwjaar ' + (b.bouwjaar || 'onbekend') + ' · ';
-    html += '<input id="building-units" data-bind="building-units" type="number" min="1" inputmode="numeric" value="' + b.units + '" class="inline-num" /> ';
-    html += meervoud(b.units, 'appartement', 'appartementen') + (uOrigin ? ' <span class="origin-tag origin-' + uOrigin.cls + '">' + uOrigin.label + '</span>' : '') + ' · ' + state.elements.length + ' posten</div>';
-    html += '<p class="pg-intro">Dit zijn de onderdelen van het gebouw waar onderhoud voor nodig is. Open een post om de staat te beoordelen of de kosten aan te passen.</p>';
+    html += '<p class="page-sub gb-units-edit"><input id="building-units" data-bind="building-units" type="number" min="1" inputmode="numeric" value="' + b.units + '" class="inline-num" /> ';
+    html += meervoud(b.units, 'appartement', 'appartementen') + (uOrigin ? ' <span class="origin-tag origin-' + uOrigin.cls + '">' + uOrigin.label + '</span>' : '') + '</p>';
+    html += '</div>';
+    html += '<button type="button" class="ov-btn" data-act="open-add-element">Post toevoegen</button>';
     html += '</div>';
 
-    var tekening = gebouwSvg({
-      id: 'gb', units: b.units, hoogte: b.werkhoogte, status: statusPerCategorie(), actief: state.filter,
-      aanwezig: aanwezigeCats, klikbaar: true,
-    });
-    html += '<div class="gb-layout"><aside class="ov-card gb-aside" aria-label="Onderdelen van het gebouw">' + tekening;
-    html += '<p class="gb-caption">Klik op een onderdeel om alleen die posten te zien. De kleur laat de staat zien: groen is goed, geel redelijk, rood matig of slecht. Onbeoordeelde onderdelen blijven neutraal.</p></aside><div class="gb-main">';
-    html += '<div class="section"><div class="chip-row">';
+    html += '<section class="gb-progress" aria-label="Voortgang beoordelen">';
+    html += '<span class="gb-progress-label">' + beoordeeld + ' van ' + totaal + ' beoordeeld</span>';
+    html += '<div class="gb-progress-track"><div class="gb-progress-fill" style="width:' + pct + '%"></div></div>';
+    html += '<span class="gb-progress-hint">Zonder beoordeling rekent de app met de gebruikelijke levensduur.</span>';
+    if (aandacht.length) {
+      html += '<button type="button" class="ov-btn secondary" data-act="open-element" data-id="' + aandacht[0].id + '">Begin met beoordelen</button>';
+    }
+    html += '</section>';
+
+    html += '<div class="gb-chips">';
     cats.forEach(function (c) {
-      html += '<div class="chip' + (state.filter === c ? ' active' : '') + '" data-act="set-filter" data-filter="' + c + '">' + c + '</div>';
+      html += '<span class="gb-chip' + (state.filter === c ? ' active' : '') + '" data-act="set-filter" data-filter="' + c + '">' + c + '</span>';
     });
     if (metGebrekenCount) {
-      html += '<div class="chip chip-gebreken' + (state.gebrekenFilter ? ' active' : '') + '" data-act="toggle-gebreken-filter">Met gebreken (' + metGebrekenCount + ')</div>';
+      html += '<span class="gb-chip gb-chip-gebreken' + (state.gebrekenFilter ? ' active' : '') + '" data-act="toggle-gebreken-filter">Met gebreken (' + metGebrekenCount + ')</span>';
     }
-    html += '</div></div>';
-
-    html += '<div class="section"><div class="card">';
-    if (!els.length) {
-      html += '<div class="row" style="border-top:none"><div class="grow meta" style="font-size:12.5px">Geen posten in deze weergave.</div></div>';
-    }
-    els.forEach(function (el, i) {
-      var bedrag = eur(elementCost(el, state));
-      var score = conditionScore(el);
-      html += '<div class="row" data-act="open-element" data-id="' + el.id + '" style="cursor:pointer' + (i === 0 ? ';border-top:none' : '') + '">';
-      html += '<div class="grow"><div class="name">' + esc(el.naam) + '</div><div class="meta">' + conditiePill(score) + elementRowMeta(el) + '</div></div>';
-      html += '<div class="value">' + bedrag + '<div class="value-sub">per keer</div></div>';
-      html += '<div class="chev">›</div></div>';
-    });
     html += '</div>';
-    html += '<div class="add-el" data-act="open-add-element"><div class="plus">+</div><div><div class="title">Post toevoegen</div><div class="sub">Bijv. balkons, hekwerk, liftinstallatie</div></div></div>';
+
+    html += '<div class="ov-card gb-table">';
+    html += '<div class="gb-row gb-row-head"><span>Post</span><span>Eerstvolgend</span><span>Per keer</span></div>';
+    if (!els.length) {
+      html += '<div class="gb-row"><span class="ov-hint" style="margin:0">Geen posten in deze weergave.</span></div>';
+    }
+    els.forEach(function (el) {
+      var score = conditionScore(el);
+      var jaar = elementNextYear(el);
+      html += '<div class="gb-row" data-act="open-element" data-id="' + el.id + '">';
+      html += '<div class="gb-cell-post"><span class="gb-post-naam">' + esc(el.naam) + '</span><span class="gb-post-meta">' + gebouwRowMeta(el) + '</span>' + (score != null ? conditiePill(score) : '') + '</div>';
+      html += '<span class="gb-cell-jaar' + (jaar === tekortJaar ? ' tekort' : '') + '">' + jaar + '</span>';
+      html += '<span class="gb-cell-bedrag">' + eur(elementCost(el, state)) + '</span>';
+      html += '</div>';
+    });
     html += '</div>';
 
     if (state.addForm) html += renderAddElementForm();
 
     html += '</div></div>';
-    html += PG_CLOSE;
     return html;
   }
 
-  // Regel-tekst in de Gebouw-lijst: het volgende jaar en de cyclus, i.p.v.
-  // de rekenformule (die staat nu op de detailpagina, zie renderHoeveelheidKengetal()/renderSteiger()).
-  function elementRowMeta(el) {
-    if (el.type === 'custom') return elementMeta(el);
+  // Jaartal voor de "Eerstvolgend"-kolom in de Gebouw-tabel.
+  function elementNextYear(el) {
     if (el.type === 'kozijnen') {
       var score = conditionScore(el);
       var jaren = kozGroepen(el).map(function (g) { return yearForCycle(g.cyclus, el.laatsteBeurt, score); });
-      return 'Volgt in ' + Math.min.apply(null, jaren);
+      return Math.min.apply(null, jaren);
     }
-    return 'Volgt in ' + conditionYear(el) + ' · elke ' + el.cyclus + ' jaar';
+    return conditionYear(el);
+  }
+
+  // Regel-metatekst in de Gebouw-tabel: categorie + de rekenformule
+  // (bv. "Gevel · 220 m² × € 22 · elke 6 jaar") — het jaar zelf staat nu
+  // in een eigen kolom, dus zonder "Volgt in ...".
+  function gebouwRowMeta(el) {
+    var basis = esc(el.categorie) + ' · ' + elementMeta(el);
+    if (el.type === 'custom' || el.type === 'kozijnen' || el.type === 'steiger') return basis;
+    return basis + ' · elke ' + el.cyclus + ' jaar';
   }
 
   function renderAddElementForm() {
