@@ -2255,18 +2255,68 @@
     }
     var a = state.auth;
     if (!state.session) {
+      // Dit kleine, ingebedde formulier is voor de meeste mensen de eerste
+      // (en na uitloggen: enige voor de hand liggende) plek om weer in te
+      // loggen — het volledige inlogscherm (renderLoginScreen) zit achter
+      // de marketing-homepage, niet rechtstreeks vanuit de app bereikbaar.
+      // Daarom hier dezelfde stappen/acties (auth-mode-*, login-password,
+      // enz.) als daar, alleen in de compacte kaart-stijl van deze pagina
+      // i.p.v. de entry-*-opmaak.
       var html = '<div class="card pad">';
-      if (a.stap === 'sent') {
+      if (a.stap === 'recovery') {
+        html += '<div style="font:500 13.5px/1.35 var(--sans)">Kies een nieuw wachtwoord</div>';
+        html += '<div class="input-row" style="margin-top:14px"><div class="label">Nieuw wachtwoord</div><input id="auth-password" data-bind="auth-password" type="password" value="' + esc(a.password) + '" class="wide" placeholder="Minstens 6 tekens" style="width:200px;text-align:left" autocomplete="new-password" /></div>';
+        html += '<div class="input-row"><div class="label">Herhaal wachtwoord</div><input id="auth-password2" data-bind="auth-password2" type="password" value="' + esc(a.password2) + '" class="wide" placeholder="Nogmaals" style="width:200px;text-align:left" autocomplete="new-password" /></div>';
+        if (a.fout) html += '<div class="notice error" style="margin-top:10px">' + esc(a.fout) + '</div>';
+        html += '<div class="btn-row"><div class="primary-btn" data-act="set-new-password">' + (a.bezig ? 'Bezig…' : 'Wachtwoord instellen') + '</div></div>';
+      } else if (a.stap === 'sent') {
         html += '<div style="font:500 13.5px/1.35 var(--sans)">Inloglink verstuurd naar ' + esc(a.email) + '</div>';
         html += '<div class="hint" style="margin-top:6px">Open de e-mail en klik op de link — je komt dan hier terug, automatisch ingelogd. De link is eenmalig geldig; kom je op een foutmelding uit, vraag dan hieronder een nieuwe aan.</div>';
         if (a.fout) html += '<div class="notice error" style="margin-top:10px">' + esc(a.fout) + '</div>';
         html += '<div class="btn-row"><div class="ghost-btn" data-act="login-change-email">Andere e-mail / opnieuw versturen</div></div>';
-      } else {
+      } else if (a.stap === 'signup-sent') {
+        html += '<div style="font:500 13.5px/1.35 var(--sans)">Bevestig je e-mailadres</div>';
+        html += '<div class="hint" style="margin-top:6px">We hebben een bevestigingsmail gestuurd naar ' + esc(a.email) + '. Klik op de link daarin om je account te activeren, dan kun je meteen inloggen.</div>';
+        if (a.fout) html += '<div class="notice error" style="margin-top:10px">' + esc(a.fout) + '</div>';
+        html += '<div class="btn-row"><div class="ghost-btn" data-act="auth-mode-password">Naar inloggen</div></div>';
+      } else if (a.stap === 'reset-sent') {
+        html += '<div style="font:500 13.5px/1.35 var(--sans)">Resetlink verstuurd naar ' + esc(a.email) + '</div>';
+        html += '<div class="hint" style="margin-top:6px">Open de e-mail en klik op de link om een nieuw wachtwoord te kiezen.</div>';
+        if (a.fout) html += '<div class="notice error" style="margin-top:10px">' + esc(a.fout) + '</div>';
+        html += '<div class="btn-row"><div class="ghost-btn" data-act="auth-mode-password">Terug naar inloggen</div></div>';
+      } else if (a.stap === 'reset') {
+        html += '<div style="font:500 13.5px/1.35 var(--sans)">Wachtwoord vergeten</div>';
+        html += '<div class="hint" style="margin-top:6px">Vul je e-mailadres in, dan sturen we een link om een nieuw wachtwoord te kiezen.</div>';
+        html += '<div class="input-row" style="margin-top:14px"><div class="label">E-mailadres</div><input id="auth-email" data-bind="auth-email" value="' + esc(a.email) + '" class="wide" placeholder="naam@voorbeeld.nl" style="width:200px;text-align:left" autocomplete="email" /></div>';
+        if (a.fout) html += '<div class="notice error" style="margin-top:10px">' + esc(a.fout) + '</div>';
+        html += '<div class="btn-row"><div class="primary-btn" data-act="reset-password-request">' + (a.bezig ? 'Bezig…' : 'Verstuur resetlink') + '</div></div>';
+        html += '<div class="hint" style="margin-top:10px"><span class="linkish" data-act="auth-mode-password">Terug naar inloggen</span></div>';
+      } else if (a.stap === 'magic') {
         html += '<div style="font:500 13.5px/1.35 var(--sans)">Inloggen met e-mail</div>';
         html += '<div class="hint" style="margin-top:6px">Je krijgt een eenmalige inloglink per e-mail toegestuurd.</div>';
         html += '<div class="input-row" style="margin-top:14px"><div class="label">E-mailadres</div><input id="auth-email" data-bind="auth-email" value="' + esc(a.email) + '" class="wide" placeholder="naam@voorbeeld.nl" style="width:200px;text-align:left" autocomplete="email" /></div>';
         if (a.fout) html += '<div class="notice error" style="margin-top:10px">' + esc(a.fout) + '</div>';
         html += '<div class="btn-row"><div class="primary-btn" data-act="login-request">' + (a.bezig ? 'Bezig…' : 'Stuur inloglink') + '</div></div>';
+        html += '<div class="hint" style="margin-top:10px"><span class="linkish" data-act="auth-mode-password">Terug naar wachtwoord</span></div>';
+      } else if (a.stap === 'signup') {
+        html += '<div style="font:500 13.5px/1.35 var(--sans)">Account aanmaken</div>';
+        html += '<div class="input-row" style="margin-top:14px"><div class="label">E-mailadres</div><input id="auth-email" data-bind="auth-email" value="' + esc(a.email) + '" class="wide" placeholder="naam@voorbeeld.nl" style="width:200px;text-align:left" autocomplete="email" /></div>';
+        html += '<div class="input-row"><div class="label">Wachtwoord</div><input id="auth-password" data-bind="auth-password" type="password" value="' + esc(a.password) + '" class="wide" placeholder="Minstens 6 tekens" style="width:200px;text-align:left" autocomplete="new-password" /></div>';
+        html += '<div class="input-row"><div class="label">Herhaal wachtwoord</div><input id="auth-password2" data-bind="auth-password2" type="password" value="' + esc(a.password2) + '" class="wide" placeholder="Nogmaals" style="width:200px;text-align:left" autocomplete="new-password" /></div>';
+        if (a.fout) html += '<div class="notice error" style="margin-top:10px">' + esc(a.fout) + '</div>';
+        html += '<div class="btn-row"><div class="primary-btn" data-act="signup-password">' + (a.bezig ? 'Bezig…' : 'Account aanmaken') + '</div></div>';
+        html += '<div class="hint" style="margin-top:10px"><span class="linkish" data-act="auth-mode-password">Heb je al een account? Inloggen</span></div>';
+      } else {
+        html += '<div style="font:500 13.5px/1.35 var(--sans)">Inloggen</div>';
+        html += '<div class="input-row" style="margin-top:14px"><div class="label">E-mailadres</div><input id="auth-email" data-bind="auth-email" value="' + esc(a.email) + '" class="wide" placeholder="naam@voorbeeld.nl" style="width:200px;text-align:left" autocomplete="email" /></div>';
+        html += '<div class="input-row"><div class="label">Wachtwoord</div><input id="auth-password" data-bind="auth-password" type="password" value="' + esc(a.password) + '" class="wide" placeholder="Je wachtwoord" style="width:200px;text-align:left" autocomplete="current-password" /></div>';
+        if (a.fout) html += '<div class="notice error" style="margin-top:10px">' + esc(a.fout) + '</div>';
+        html += '<div class="btn-row"><div class="primary-btn" data-act="login-password">' + (a.bezig ? 'Bezig…' : 'Inloggen') + '</div></div>';
+        html += '<div class="hint" style="margin-top:10px">';
+        html += '<span class="linkish" data-act="auth-mode-reset">Wachtwoord vergeten?</span> · ';
+        html += '<span class="linkish" data-act="auth-mode-signup">Account aanmaken</span> · ';
+        html += '<span class="linkish" data-act="auth-mode-magic">Inloglink per mail</span>';
+        html += '</div>';
       }
       html += '</div>';
       return html;
@@ -3905,7 +3955,15 @@
         a.bezig = false; a.fout = 'Kon geen verbinding maken. Probeer het opnieuw.'; render();
       });
     },
-    'logout': function () { state.accountMenuOpen = false; if (sb) sb.auth.signOut(); },
+    // state.auth.stap resetten voorkomt dat iemand die opnieuw wil
+    // inloggen een oude 'sent'/'signup-sent'/'recovery'-tussenstap van
+    // vóór het uitloggen te zien krijgt op het ingebedde inlogformulier
+    // (renderAcctProfiel) of het volledige inlogscherm.
+    'logout': function () {
+      state.accountMenuOpen = false;
+      state.auth.stap = 'password'; state.auth.fout = ''; state.auth.password = ''; state.auth.password2 = '';
+      if (sb) sb.auth.signOut();
+    },
     'save-profiel': function () {
       var p = state.profile, ui = state.profielUi;
       if (!isValidPhone(p.telefoon)) { ui.fout = 'Dit telefoonnummer klopt niet — bijv. 06 12345678 of 010 1234567.'; render(); return; }
