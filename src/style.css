@@ -944,60 +944,96 @@ input[type=range]::-moz-range-thumb {
   .mkt-step4:nth-child(2n) { border-right: 1px solid var(--border-2); }
 }
 
-/* Het afdrukbare/PDF-rapport (renderPrintReport in app.js): een losse,
-   op zichzelf staande weergave naar het model van een professioneel
-   MJOP-rapport (jarenplan-tabel per hoofdgroep, één kostenkolom per jaar).
-   Onzichtbaar op het scherm; vervangt de hele app-weergave zodra er
-   afgedrukt wordt of "opslaan als pdf" gekozen wordt. */
+/* Het afdrukbare/PDF-rapport (renderPrintReport in app.js, README §6): één
+   doorlopend A4-document (0.8in marge, basistekst 12pt/1.55) met een
+   herhalende kop/voet — .pr-doc-header/-footer staan buiten de normale
+   flow (position:fixed) en verschijnen daardoor op elke afgedrukte
+   pagina; .pr-body erboven/-onder krijgt evenveel ruimte vrij zodat de
+   inhoud er niet onder/achter verdwijnt. Onzichtbaar op het scherm;
+   vervangt de hele app-weergave zodra er afgedrukt wordt of "opslaan als
+   pdf" gekozen wordt. */
 .print-report { display: none; }
 
-@page { size: A4 landscape; margin: 14mm 12mm; }
+@page { size: A4; margin: 0.8in; }
 
 @media print {
   body { background: #fff; }
   .screen-view { display: none !important; }
-  .print-report { display: block; color: #111; font-family: var(--sans); }
-  .pr-page { page-break-after: always; padding: 0 4mm; }
-  .pr-page:last-child { page-break-after: auto; }
+  .print-report { display: block; color: var(--ink); font-family: var(--font); }
 
-  .pr-cover { display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; height: 160mm; page-break-after: always; }
-  .pr-eyebrow { font: 600 11px/1 var(--sans); letter-spacing: .12em; text-transform: uppercase; color: var(--blue); }
-  .pr-cover h1 { font: 700 34px/1.25 var(--heading); margin: 14px 0 0; }
-  .pr-sub { font: 400 13px/1.5 var(--sans); color: #555; margin-top: 10px; }
+  /* .pr-doc is één tabel voor de volle inhoud, puur om thead/tfoot als
+     herhalende kop/voet te krijgen (zie renderPrintReport in app.js) —
+     geen tabelrand/-vulling, dus onzichtbaar als tabel. */
+  .pr-doc { width: 100%; border-collapse: collapse; }
+  .pr-doc thead { display: table-header-group; }
+  .pr-doc tfoot { display: table-footer-group; }
+  .pr-doc td { padding: 0; }
 
-  .pr-section-title { font: 700 15px/1.3 var(--heading); color: var(--blue); margin: 0 0 10px; padding-bottom: 6px; border-bottom: 2px solid var(--blue); }
-  .pr-page > .pr-section-title ~ .pr-section-title { margin-top: 26px; }
+  .pr-doc-header, .pr-doc-footer {
+    display: flex; align-items: baseline; justify-content: space-between;
+    font: 400 9.5pt/1 var(--font); color: var(--text-3);
+  }
+  .pr-doc-header { padding-bottom: 8pt; margin-bottom: 20pt; border-bottom: 1px solid var(--border-input); }
+  .pr-doc-footer { padding-top: 9pt; margin-top: 20pt; border-top: 1px solid var(--border-input); font-size: 10pt; }
 
-  .pr-kv { border-collapse: collapse; width: 100%; margin-bottom: 22px; }
-  .pr-kv td { padding: 5px 8px; font-size: 11.5px; border-bottom: 1px solid #eee; }
-  .pr-kv-label { color: #666; width: 220px; }
+  .pr-body { font: 400 12pt/1.55 var(--font); }
 
-  .pr-legend { border-collapse: collapse; margin-bottom: 10px; }
-  .pr-legend td { padding: 3px 8px; font-size: 11px; }
+  .pr-brand { display: flex; align-items: center; gap: 10pt; margin-bottom: 26pt; }
+  .pr-brand-mark { width: 14px; height: 14px; background: var(--blue); border-radius: 1px; transform: rotate(45deg); flex: none; }
+  .pr-brand-label { font: 500 9.5pt/1 var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--text-3); }
 
-  .pr-badge { display: inline-block; min-width: 18px; text-align: center; border-radius: 5px; padding: 2px 6px; font: 700 10.5px/1.4 var(--mono); }
+  .pr-h1 { margin: 0 0 6pt; font: 600 30pt/1.05 var(--font); letter-spacing: -.03em; }
+  .pr-lede { margin: 0 0 4pt; font: 400 13pt/1.4 var(--font); color: var(--text-2); }
+  .pr-sub2 { margin: 0 0 30pt; font: 400 11pt/1.4 var(--font); color: var(--text-3); }
 
-  .pr-note { font: 400 10.5px/1.5 var(--sans); color: #666; margin-top: 4px; max-width: 640px; }
-  .pr-footer { font: 400 9.5px/1.6 var(--sans); color: #777; margin-top: 26px; border-top: 1px solid #ddd; padding-top: 10px; }
+  .pr-box { border: 1.5px solid var(--ink); padding: 22pt 24pt; margin-bottom: 28pt; page-break-inside: avoid; }
+  .pr-box-eyebrow { font: 500 9pt/1 var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--blue-deep); margin-bottom: 8pt; }
+  .pr-box-price { display: flex; align-items: baseline; gap: 12pt; margin-bottom: 10pt; }
+  .pr-box-price span:first-child { font: 600 34pt/1 var(--font); letter-spacing: -.03em; }
+  .pr-box-price-sub { font: 400 12pt/1 var(--font); color: var(--text-2); }
+  .pr-box-text { margin: 0; font: 400 11.5pt/1.5 var(--font); color: var(--text); }
+  .pr-box-text + .pr-box-text { margin-top: 8pt; }
 
-  .pr-table { border-collapse: collapse; width: 100%; font-size: 10.5px; }
-  .pr-table th { text-align: left; font: 700 9px/1.3 var(--sans); text-transform: uppercase; letter-spacing: .04em; color: #fff; background: var(--blue); padding: 6px 6px; }
-  .pr-table td { padding: 4px 6px; border-bottom: 1px solid #eee; vertical-align: top; }
-  .pr-table tr.pr-group td { background: var(--blue-tint); font-weight: 700; padding-top: 7px; padding-bottom: 3px; border-bottom: none; }
-  .pr-table tr.pr-subtotal td { font-weight: 700; border-top: 1px solid #999; background: #f7f7f7; }
-  .pr-table tr.pr-grandtotal td { font-weight: 700; border-top: 2px solid var(--blue); background: var(--blue-tint); font-size: 11px; }
-  .pr-table .pr-c-code { width: 62px; font-family: var(--mono); font-size: 9.5px; color: #777; }
-  .pr-table .pr-c-hvh { width: 80px; text-align: right; font-family: var(--mono); font-size: 9.5px; }
-  .pr-table .pr-c-cond { width: 60px; text-align: center; }
-  .pr-table .pr-c-narrow { width: 44px; text-align: right; font-family: var(--mono); font-size: 9.5px; }
-  .pr-table.pr-jaren th, .pr-table.pr-jaren td.pr-c-year { text-align: right; }
-  .pr-table .pr-c-year { width: 62px; font-family: var(--mono); font-size: 9.5px; white-space: nowrap; }
-  .pr-table .pr-strong { font-weight: 700; }
-  .pr-landscape thead { display: table-header-group; }
-  .pr-landscape tr { page-break-inside: avoid; }
+  .pr-h2 { margin: 0 0 12pt; font: 600 15pt/1.3 var(--font); letter-spacing: -.02em; color: var(--ink); }
+  .pr-h2-tight { margin: 0 0 6pt; font: 600 15pt/1.3 var(--font); letter-spacing: -.02em; color: var(--ink); }
+  .pr-h2.pr-break { page-break-before: always; }
 
-  .pr-proposal { font: 700 30px/1 var(--mono); color: var(--blue); margin: 10px 0 8px; }
-  .pr-proposal span { font: 400 12px/1 var(--sans); color: #666; margin-left: 8px; }
+  .pr-kv { border-collapse: collapse; width: 100%; margin-bottom: 28pt; font-size: 11pt; }
+  .pr-kv tr { border-bottom: 1px solid var(--border-5); }
+  .pr-kv td { padding: 8pt 0; }
+  .pr-kv-label { color: var(--text-2); }
+  .pr-kv td:last-child { text-align: right; font-family: var(--mono); font-weight: 500; }
+  .pr-kv .pr-neg { color: var(--red-ink); font-weight: 600; }
+  .pr-kv .pr-accent { color: var(--blue-deep); font-weight: 600; }
+
+  .pr-note { margin: 0 0 12pt; font: 400 10.5pt/1.5 var(--font); color: var(--text-3); }
+  .pr-note-tight { margin: -16pt 0 28pt; }
+
+  .pr-table { border-collapse: collapse; width: 100%; margin-bottom: 28pt; font-size: 11pt; }
+  .pr-table thead tr { border-bottom: 1.5px solid var(--ink); }
+  .pr-table th { padding: 7pt 8pt 7pt 0; text-align: left; font: 500 8.5pt/1 var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--text-3); white-space: nowrap; }
+  .pr-table th.pr-r, .pr-table td.pr-r { text-align: right; }
+  .pr-table tbody tr { border-bottom: 1px solid var(--border-3); }
+  .pr-table td { padding: 7pt 8pt 7pt 0; vertical-align: top; }
+  .pr-table td.pr-r, .pr-table td.pr-mono { font-family: var(--mono); white-space: nowrap; }
+  .pr-table .pr-dim { color: var(--text-3); }
+  .pr-table .pr-pct { color: var(--text-3); font-size: 10pt; width: 44pt; }
+  .pr-table .pr-strong { font-weight: 600; }
+  .pr-table .pr-neg { color: var(--red-ink); font-weight: 600; }
+  .pr-table tr.pr-tekort { background: var(--red-tint-2); }
+  .pr-table tr.pr-total td { padding-top: 9pt; font-weight: 600; border-bottom: none; }
+  .pr-table-tight td { padding-top: 7pt; padding-bottom: 7pt; }
+  .pr-table tr.pr-muted td { color: var(--text-3); }
+  .pr-table tr { page-break-inside: avoid; }
+  .pr-table thead { display: table-header-group; }
+
+  .pr-uitgangspunten { display: flex; flex-direction: column; gap: 11pt; font-size: 12pt; line-height: 1.55; margin-bottom: 30pt; }
+  .pr-uitgangspunten p { margin: 0; }
+  .pr-uitgangspunten strong { font-weight: 600; }
+
+  .pr-disclaimer { border-top: 1px solid var(--border-input); padding-top: 14pt; margin-bottom: 8pt; font: 400 10.5pt/1.5 var(--font); color: var(--text-3); page-break-inside: avoid; }
+  .pr-disclaimer p { margin: 0 0 4pt; }
+  .pr-disclaimer p:last-child { margin-bottom: 0; }
 }
 
 /* ------------------------------------------------------------------

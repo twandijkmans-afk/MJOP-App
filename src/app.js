@@ -759,6 +759,19 @@
     return posten;
   }
 
+  // Totaal per categorie binnen de horizon, aflopend gesorteerd — gebruikt
+  // door zowel Planning ("Kosten per onderdeel") als het Rapport.
+  function categorieTotalen(state) {
+    var totalen = {};
+    state.elements.forEach(function (el) {
+      var som = 0;
+      scheduleFor(el, state).forEach(function (p) { som += p.bedrag; });
+      if (som > 0) totalen[el.categorie] = (totalen[el.categorie] || 0) + som;
+    });
+    return Object.keys(totalen).map(function (c) { return { naam: c, bedrag: totalen[c] }; })
+      .sort(function (a, b) { return b.bedrag - a.bedrag; });
+  }
+
   // Jaar -> totale kosten binnen de horizon, los van een bepaalde bijdrage —
   // gedeeld door kasstroom() en benodigdeBijdrage() hieronder, die daar elk
   // een andere bijdrage overheen leggen.
@@ -807,33 +820,6 @@
       guard++;
     }
     return Math.max(5, bijdrage);
-  }
-
-  // Jaar -> bedrag voor één element, voor de jarenplan-tabel van het
-  // afdrukbare rapport (elke voorkomst binnen de horizon opgeteld per jaar).
-  function elementYearMap(el, state) {
-    var map = {};
-    scheduleFor(el, state).forEach(function (p) { map[p.jaar] = (map[p.jaar] || 0) + p.bedrag; });
-    return map;
-  }
-
-  function hoeveelheidLabel(el) {
-    switch (el.type) {
-      case 'dak': case 'gevel': return num(el.hoeveelheid).toLocaleString('nl-NL') + ' m²';
-      case 'per-unit': return el.hoeveelheid + ' st';
-      case 'steiger': return el.hoeveelheid + ' m²';
-      case 'vast-variabel': return el.hoeveelheid + ' eenh.';
-      case 'kozijnen': return el.koz.reduce(function (s, k) { return s + k.aantal; }, 0) + ' st';
-      case 'custom': return '1 pst';
-      default: return '';
-    }
-  }
-
-  function stjCyFor(el, state) {
-    var sched = scheduleFor(el, state);
-    var stj = sched.length ? sched[0].jaar : conditionYear(el);
-    var cy = el.type === 'kozijnen' ? 'diverse' : (el.cyclus || 'eenmalig');
-    return { stj: stj, cy: cy };
   }
 
   // ---------------------------------------------------------------------
@@ -3193,14 +3179,7 @@
 
     // Totaal per categorie binnen de horizon — geeft in één oogopslag
     // waar het geld naartoe gaat, naast de jaar-voor-jaar tijdlijn.
-    var catTotalen = {};
-    state.elements.forEach(function (el) {
-      var som = 0;
-      scheduleFor(el, state).forEach(function (p) { som += p.bedrag; });
-      if (som > 0) catTotalen[el.categorie] = (catTotalen[el.categorie] || 0) + som;
-    });
-    var catRijen = Object.keys(catTotalen).map(function (c) { return { naam: c, bedrag: catTotalen[c] }; })
-      .sort(function (a, b) { return b.bedrag - a.bedrag; });
+    var catRijen = categorieTotalen(state);
     var catMax = catRijen.length ? catRijen[0].bedrag : 1;
     // Vier aflopende kobaltschakeringen (README §5); vanaf de vijfde
     // categorie herhaalt de zwakste tint.
@@ -3338,140 +3317,165 @@
     return html;
   }
 
-  var PRINT_CATS = ['Dak', 'Gevel', 'Installaties', 'Binnen', 'Terrein', 'Overig'];
-
-  // Het afdrukbare/PDF-rapport: een jarenplan-tabel per hoofdgroep met een
-  // kostenkolom per jaar, naar het model van een professioneel MJOP-rapport
-  // (opbouw/kolommen — niet de huisstijl of tekst van een specifieke
-  // aanbieder). Onzichtbaar op het scherm, alleen zichtbaar bij afdrukken/
-  // opslaan als pdf (zie .print-report in style.css).
+  // Het afdrukbare/PDF-rapport (README §6): één doorlopend A4-document met
+  // herhalende kop/voet i.p.v. het oude systeem van één sectie per pagina
+  // (en één pagina daarvan noodgedwongen liggend, alleen voor de
+  // jarenplan-tabel) — dat laatste is met deze herziening vervallen, samen
+  // met de aparte conditiescore-legenda (conditiePill() toont nu overal,
+  // ook hier, al een woord i.p.v. een kaal cijfer) en de NL-SfB/Hvh-Ehd-
+  // kolommen (elders in de herziene app ook al losgelaten, zie Gebouw).
   function renderPrintReport() {
     var b = state.building;
-    var jaren = [];
-    for (var j = CURRENT_YEAR; j <= CURRENT_YEAR + HORIZON - 1; j++) jaren.push(j);
+    var eind = CURRENT_YEAR + HORIZON - 1;
+    var jaarRange = CURRENT_YEAR + ' – ' + eind;
     var rows = kasstroom(state);
     var totaal = rows.reduce(function (a, r) { return a + r.kosten; }, 0);
     var laagste = Math.min.apply(null, rows.map(function (r) { return r.saldo; }));
     var eerste = rows.filter(function (r) { return r.saldo < 0; })[0];
     var nodig = benodigdeBijdrage(state);
-    var vandaag = new Date().toLocaleDateString('nl-NL');
-    var cats = PRINT_CATS.filter(function (c) { return state.elements.some(function (el) { return el.categorie === c; }); });
-
-    var html = '<div class="print-report">';
-
+    var vandaag = new Date().toLocaleDateString('nl-NL', { day: 'numeric', month: 'long', year: 'numeric' });
     var opsteller = opstellerNaam();
-    html += '<div class="pr-page pr-cover">';
-    html += '<div class="pr-eyebrow">Meerjarenonderhoudsplan</div>';
-    html += '<h1>' + esc(b.adres) + '</h1>';
-    html += '<div class="pr-sub">MJOP ' + CURRENT_YEAR + '–' + (CURRENT_YEAR + HORIZON - 1) + ' · opgesteld met MJOP Live · ' + vandaag + '</div>';
-    if (opsteller) html += '<div class="pr-sub">Opgesteld door: ' + esc(opsteller) + '</div>';
+
+    // Herhalende kop/voet op elke afgedrukte pagina: een <thead>/<tfoot>
+    // met display:table-header-group/table-footer-group is de manier die
+    // browsers al decennia betrouwbaar over paginagrenzen heen herhalen
+    // (position:fixed deelt in Chromium's print-pijplijn dezelfde
+    // marge-doos als de doorlopende inhoud en overlapt daarmee — geen
+    // bruikbare manier om dit te doen).
+    var html = '<div class="print-report"><table class="pr-doc"><thead><tr><td>';
+    html += '<div class="pr-doc-header"><span>Meerjarenonderhoudsplan ' + jaarRange + '</span><span>VvE ' + esc(b.adres) + '</span></div>';
+    html += '</td></tr></thead><tfoot><tr><td>';
+    html += '<div class="pr-doc-footer"><span>Opgesteld met MJOP Live op ' + vandaag + '</span><span>Indicatieve richtprijzen, geen offerte</span></div>';
+    html += '</td></tr></tfoot><tbody><tr><td>';
+
+    html += '<div class="pr-body">';
+
+    html += '<div class="pr-brand"><span class="pr-brand-mark"></span><span class="pr-brand-label">Meerjarenonderhoudsplan</span></div>';
+    html += '<h1 class="pr-h1">Onderhoud en reservefonds ' + jaarRange + '</h1>';
+    html += '<p class="pr-lede">VvE ' + esc(b.adres) + '</p>';
+    // Geen typologie ("Portiekflat") in de sub-regel: dat gegeven berekent
+    // de app nergens (BAG/3D BAG leveren bouwjaar en maten, geen
+    // gebouwtype) — README-regel: niet stilzwijgend een cijfer verzinnen
+    // dat er niet is.
+    var metaRegel = ['bouwjaar ' + (b.bouwjaar || 'onbekend'), b.units + ' ' + meervoud(b.units, 'appartement', 'appartementen'),
+      state.elements.length + ' ' + meervoud(state.elements.length, 'onderhoudspost', 'onderhoudsposten')].join(' · ');
+    html += '<p class="pr-sub2">' + metaRegel + (opsteller ? ' · opgesteld door ' + esc(opsteller) : '') + '</p>';
+
+    html += '<div class="pr-box">';
+    html += '<div class="pr-box-eyebrow">Voorstel voor de ledenvergadering</div>';
+    html += '<div class="pr-box-price"><span>' + eur(eerste ? nodig : state.bijdrage) + '</span><span class="pr-box-price-sub">per appartement per maand</span></div>';
+    if (!state.invul.fonds) {
+      html += '<p class="pr-box-text">Het saldo van het reservefonds is niet ingevuld; dit voorstel gaat uit van € 0.</p>';
+    }
+    if (eerste) {
+      var tekort = -laagste;
+      var verschil = nodig - state.bijdrage;
+      html += '<p class="pr-box-text">Bij de huidige bijdrage van ' + eur(state.bijdrage) + ' raakt het reservefonds in ' + eerste.jaar + ' leeg, met een tekort van ' + eur(tekort) + '. Met ' + eur(nodig) + ' per appartement per maand — ' + eur(verschil) + ' meer — blijven alle geplande werkzaamheden tot en met ' + eind + ' gedekt. Een eenmalige storting van ' + eur(tekort) + ' (' + eur(tekort / Math.max(1, b.units)) + ' per appartement) is het alternatief.</p>';
+    } else {
+      html += '<p class="pr-box-text">Bij ' + eur(state.bijdrage) + ' per appartement per maand blijft het reservefonds de hele periode tot en met ' + eind + ' positief, met ' + eur(laagste) + ' als laagste stand.</p>';
+    }
     html += '</div>';
 
-    html += '<div class="pr-page">';
-    html += '<div class="pr-section-title">Algemene objectgegevens</div>';
+    html += '<h2 class="pr-h2">Samenvatting</h2>';
     html += '<table class="pr-kv">';
     [
-      ['Adres', esc(b.adres)],
-      ['Bouwjaar', b.bouwjaar || 'onbekend'],
-      ['Aantal appartementen', b.units],
-      ['Dakoppervlak', Math.round(b.dakM2 || 0) + ' m²'],
-      ['Geveloppervlak', Math.round(b.gevelM2 || 0) + ' m²'],
-      ['Werkhoogte', (b.werkhoogte || 0) + ' m'],
-      ['Reservefonds nu', eur(state.fonds)],
-      ['Bijdrage per appartement/mnd', eur(state.bijdrage)],
-      ['Prijspeil', CURRENT_YEAR],
+      ['Verwacht onderhoud ' + jaarRange, eur(totaal), ''],
+      ['Reservefonds per 1 januari ' + CURRENT_YEAR, eur(state.fonds), ''],
+      ['Huidige bijdrage per appartement per maand', eur(state.bijdrage), ''],
+      ['Laagste fondsstand binnen de periode' + (eerste ? ' (' + eerste.jaar + ')' : ''), laagste < 0 ? eurSigned(laagste) : eur(laagste), laagste < 0 ? 'pr-neg' : ''],
+      ['Benodigde bijdrage per appartement per maand', eur(nodig), 'pr-accent'],
     ].forEach(function (row) {
-      html += '<tr><td class="pr-kv-label">' + row[0] + '</td><td>' + row[1] + '</td></tr>';
+      html += '<tr><td class="pr-kv-label">' + row[0] + '</td><td class="' + row[2] + '">' + row[1] + '</td></tr>';
     });
     html += '</table>';
 
-    html += '<div class="pr-section-title">Conditiescore</div>';
-    html += '<table class="pr-legend">';
-    [1, 2, 3, 4, 5, 6].forEach(function (s) {
-      var colors = scoreColors(s);
-      html += '<tr><td><span class="pr-badge" style="background:' + colors[0] + ';color:' + colors[1] + '">' + s + '</span></td><td>' + CONDITIE_LABELS[s] + '</td></tr>';
+    html += '<h2 class="pr-h2-tight">Kasstroom per jaar</h2>';
+    html += '<p class="pr-note">Bij de huidige bijdrage van ' + eur(state.bijdrage) + ' per appartement per maand, oftewel ' + eur(state.bijdrage * 12 * Math.max(1, b.units)) + ' per jaar voor de hele VvE.</p>';
+    html += '<table class="pr-table"><thead><tr><th>Jaar</th><th class="pr-r">Geplande kosten</th><th class="pr-r">Saldo eind van het jaar</th></tr></thead><tbody>';
+    rows.forEach(function (r) {
+      var tekortRow = eerste && r.jaar === eerste.jaar;
+      html += '<tr' + (tekortRow ? ' class="pr-tekort"' : '') + '><td class="pr-mono' + (tekortRow ? ' pr-neg' : '') + '">' + r.jaar + '</td>';
+      html += '<td class="pr-r">' + (r.kosten ? eur(r.kosten) : '—') + '</td>';
+      html += '<td class="pr-r' + (r.saldo < 0 ? ' pr-neg' : '') + '">' + (r.saldo < 0 ? eurSigned(r.saldo) : eur(r.saldo)) + '</td></tr>';
     });
-    html += '</table>';
-    html += '<div class="pr-note">Vereenvoudigde, zelf geïmplementeerde toepassing van de NEN 2767-systematiek (ernst/omvang/intensiteit → conditiescore) voor planningsdoeleinden — geen vervanging voor een inspectie door een gecertificeerd inspecteur.</div>';
+    html += '<tr class="pr-total"><td>Totaal</td><td class="pr-r">' + eur(totaal) + '</td><td></td></tr>';
+    html += '</tbody></table>';
+
+    var catRijen = categorieTotalen(state);
+    if (catRijen.length) {
+      html += '<h2 class="pr-h2">Kosten per onderdeel</h2>';
+      html += '<table class="pr-table pr-table-tight"><tbody>';
+      catRijen.forEach(function (c) {
+        var pct = totaal ? Math.round(c.bedrag / totaal * 100) : 0;
+        html += '<tr><td>' + esc(c.naam) + '</td><td class="pr-r">' + eur(c.bedrag) + '</td><td class="pr-r pr-pct">' + pct + '%</td></tr>';
+      });
+      html += '</tbody></table>';
+    }
+
+    // Alle posten: één rij per element (i.p.v. per jaar/voorkomst zoals
+    // fullPlan()), op volgorde van eerstvolgende beurt — zelfde
+    // elementNextYear()/elementCost() als de Gebouw-tabel, voor dezelfde
+    // getallen op beide plekken.
+    var posten = state.elements.map(function (el) {
+      return { el: el, jaar: elementNextYear(el), bedrag: elementCost(el, state) };
+    }).sort(function (a, b2) { return a.jaar - b2.jaar || b2.bedrag - a.bedrag; });
+    var buitenPeriode = posten.some(function (p) { return p.jaar > eind; });
+    // De post die het grootste deel van een eventueel tekortjaar verklaart
+    // wordt uitgelicht, i.p.v. elke post in dat jaar (zie het ontwerp: van
+    // twee posten in hetzelfde jaar staat alleen de grootste vet).
+    var tekortPostId = null;
+    if (eerste) {
+      var inTekortjaar = posten.filter(function (p) { return p.jaar === eerste.jaar; });
+      if (inTekortjaar.length) {
+        tekortPostId = inTekortjaar.reduce(function (a, b2) { return b2.bedrag > a.bedrag ? b2 : a; }).el.id;
+      }
+    }
+
+    html += '<h2 class="pr-h2 pr-break">Alle posten</h2>';
+    html += '<p class="pr-note">Op volgorde van de eerstvolgende beurt.' + (state.elements.every(function (el) { return conditionScore(el) == null; })
+      ? ' Geen van de posten is op locatie beoordeeld; de jaartallen volgen uit het bouwjaar en de gebruikelijke levensduur.'
+      : '') + '</p>';
+    html += '<table class="pr-table"><thead><tr><th>Post</th><th>Onderdeel</th><th class="pr-r">Cyclus</th><th class="pr-r">Volgt in</th><th class="pr-r">Per keer</th></tr></thead><tbody>';
+    posten.forEach(function (p) {
+      var el = p.el;
+      var muted = p.jaar > eind;
+      var nadruk = p.el.id === tekortPostId;
+      var cyclusLabel = el.type === 'kozijnen' ? 'diverse' : (el.cyclus ? el.cyclus + ' jaar' : 'eenmalig');
+      html += '<tr' + (muted ? ' class="pr-muted"' : '') + '>';
+      html += '<td' + (nadruk ? ' class="pr-strong"' : '') + '>' + esc(el.naam) + '</td>';
+      html += '<td class="pr-dim">' + esc(el.categorie) + '</td>';
+      html += '<td class="pr-r pr-dim">' + cyclusLabel + '</td>';
+      html += '<td class="pr-r' + (nadruk ? ' pr-strong' : '') + '">' + p.jaar + '</td>';
+      html += '<td class="pr-r' + (nadruk ? ' pr-strong' : '') + '">' + eur(p.bedrag) + '</td></tr>';
+    });
+    html += '</tbody></table>';
+    if (buitenPeriode) html += '<p class="pr-note pr-note-tight">Posten met een jaartal na ' + eind + ' vallen buiten deze periode en tellen niet mee in het totaal.</p>';
+
+    html += '<h2 class="pr-h2">Uitgangspunten</h2>';
+    html += '<div class="pr-uitgangspunten">';
+    html += '<p><strong>Bouwgegevens.</strong> Bouwjaar en het aantal appartementen komen uit de Basisregistratie Adressen en Gebouwen (BAG). Het dakoppervlak van ' + (b.dakM2 != null ? Math.round(b.dakM2) + ' m²' : 'onbekende omvang') + ', het geveloppervlak van ' + (b.gevelM2 != null ? Math.round(b.gevelM2) + ' m²' : 'onbekende omvang') + ' en de gebouwhoogte komen uit de 3D BAG van de TU Delft. Er is niet op locatie ingemeten.</p>';
+    html += '<p><strong>Kosten.</strong> De bedragen zijn indicatieve richtprijzen inclusief btw, prijspeil ' + CURRENT_YEAR + '. Het zijn geen offertes. Voor de grote posten is het verstandig voorafgaand aan het uitvoeringsjaar minimaal twee offertes op te vragen.</p>';
     var beoordeeldPr = state.elements.filter(isAssessed).length;
-    if (beoordeeldPr < state.elements.length) {
-      html += '<div class="pr-note">Indicatie op basis van standaardcycli; ' + beoordeeldPr + ' van ' + state.elements.length + ' beoordeeld.</div>';
-    }
+    var conditieTekst = beoordeeldPr === 0
+      ? 'Geen van de posten is beoordeeld. De planning volgt daarom de gebruikelijke levensduur per bouwdeel. Een inspectie kan een post naar voren of naar achteren schuiven.'
+      : (beoordeeldPr === state.elements.length
+        ? 'Alle posten zijn beoordeeld op locatie.'
+        : beoordeeldPr + ' van de ' + state.elements.length + ' posten zijn beoordeeld op locatie; de rest volgt de gebruikelijke levensduur per bouwdeel.');
+    html += '<p><strong>Conditie.</strong> ' + conditieTekst + '</p>';
+    html += '<p><strong>Reservefonds.</strong> ' + (state.invul.fonds
+      ? 'Het saldo van ' + eur(state.fonds) + ' is opgegeven door het bestuur en komt niet uit een openbare bron.'
+      : 'Er is geen reservefondssaldo opgegeven; deze berekening gaat uit van € 0.') + ' De berekening gaat uit van een gelijkblijvende bijdrage en houdt geen rekening met rente of inflatie.</p>';
+    html += '<p><strong>Periode.</strong> De toets loopt van ' + CURRENT_YEAR + ' tot en met ' + eind + '. Werkzaamheden daarna zijn wel opgenomen in de postenlijst, maar tellen niet mee in het totaal of in de benodigde bijdrage.</p>';
     html += '</div>';
 
-    // Binnen een categorie op volgende-beurt-jaar gesorteerd, i.p.v. de
-    // (willekeurige) aanmaakvolgorde — zowel hier als in het jarenplan
-    // hieronder. De categorie-indeling zelf (het model van een
-    // professioneel MJOP-rapport) blijft staan.
-    function elsInCat(cat) {
-      return state.elements.filter(function (el) { return el.categorie === cat; })
-        .sort(function (a, b) { return conditionYear(a) - conditionYear(b); });
-    }
-
-    html += '<div class="pr-page">';
-    html += '<div class="pr-section-title">Elementenoverzicht</div>';
-    html += '<table class="pr-table"><thead><tr><th class="pr-c-code">NL-SfB</th><th>Element</th><th class="pr-c-hvh">Hvh/Ehd</th><th class="pr-c-cond">Conditie</th></tr></thead><tbody>';
-    cats.forEach(function (cat) {
-      html += '<tr class="pr-group"><td colspan="4">' + cat + '</td></tr>';
-      elsInCat(cat).forEach(function (el) {
-        var score = conditionScore(el);
-        var colors = scoreColors(score);
-        html += '<tr><td class="pr-c-code">' + (el.sfb ? esc(el.sfb) : '–') + '</td><td>' + esc(el.naam) + '</td>';
-        html += '<td class="pr-c-hvh">' + hoeveelheidLabel(el) + '</td>';
-        html += '<td class="pr-c-cond"><span class="pr-badge" style="background:' + colors[0] + ';color:' + colors[1] + '">' + (score == null ? '–' : score) + '</span></td></tr>';
-      });
-    });
-    html += '</tbody></table>';
+    html += '<div class="pr-disclaimer">';
+    html += '<p>Dit plan is een hulpmiddel voor de begroting van de VvE en geen vervanging voor een inspectie door een gecertificeerd inspecteur. De toegepaste conditiesystematiek is een vereenvoudigde toepassing van NEN 2767 en niet de officiële NEN- of SBR-defectcatalogus.</p>';
+    var indexRegel = 'Bedragen vanaf geïmporteerde posten zijn geïndexeerd met ' + (cbsIndexatie ? cbsIndexatie.pct : Math.round(INDEXATIE_PCT * 1000) / 10) + '% per jaar' + ((cbsIndexatie && state.settings.toonCbsBron) ? ' (CBS-bouwkostenindex ' + cbsIndexatie.periode + ')' : '') + ' vanaf het prijspeil van het brondocument.';
+    html += '<p>Bronnen: PDOK Locatieserver en BAG (Public Domain Mark 1.0), 3D BAG van de TU Delft (CC BY 4.0). ' + indexRegel + '</p>';
     html += '</div>';
 
-    html += '<div class="pr-page pr-landscape">';
-    html += '<div class="pr-section-title">Jarenplan ' + CURRENT_YEAR + '–' + (CURRENT_YEAR + HORIZON - 1) + '</div>';
-    html += '<table class="pr-table pr-jaren"><thead><tr><th>Element</th><th class="pr-c-hvh">Hvh/Ehd</th><th class="pr-c-narrow">Stj</th><th class="pr-c-narrow">Cy</th>';
-    jaren.forEach(function (y) { html += '<th class="pr-c-year">' + y + '</th>'; });
-    html += '<th class="pr-c-year">Totaal</th></tr></thead><tbody>';
-
-    var grandPerYear = {};
-    cats.forEach(function (cat) {
-      html += '<tr class="pr-group"><td colspan="' + (5 + jaren.length) + '">' + cat + '</td></tr>';
-      var catPerYear = {};
-      elsInCat(cat).forEach(function (el) {
-        var ym = elementYearMap(el, state);
-        var sc = stjCyFor(el, state);
-        var elTotaal = 0;
-        html += '<tr><td>' + esc(el.naam) + '</td><td class="pr-c-hvh">' + hoeveelheidLabel(el) + '</td>';
-        html += '<td class="pr-c-narrow">' + sc.stj + '</td><td class="pr-c-narrow">' + sc.cy + '</td>';
-        jaren.forEach(function (y) {
-          var bedrag = ym[y] || 0;
-          elTotaal += bedrag;
-          catPerYear[y] = (catPerYear[y] || 0) + bedrag;
-          grandPerYear[y] = (grandPerYear[y] || 0) + bedrag;
-          html += '<td class="pr-c-year">' + (bedrag ? eur(bedrag) : '–') + '</td>';
-        });
-        html += '<td class="pr-c-year pr-strong">' + eur(elTotaal) + '</td></tr>';
-      });
-      var catTotaal = 0;
-      html += '<tr class="pr-subtotal"><td colspan="4">Subtotaal ' + cat + '</td>';
-      jaren.forEach(function (y) { catTotaal += (catPerYear[y] || 0); html += '<td class="pr-c-year">' + eur(catPerYear[y] || 0) + '</td>'; });
-      html += '<td class="pr-c-year">' + eur(catTotaal) + '</td></tr>';
-    });
-    var grandTotaal = 0;
-    html += '<tr class="pr-grandtotal"><td colspan="4">Totaal alle posten</td>';
-    jaren.forEach(function (y) { grandTotaal += (grandPerYear[y] || 0); html += '<td class="pr-c-year">' + eur(grandPerYear[y] || 0) + '</td>'; });
-    html += '<td class="pr-c-year">' + eur(grandTotaal) + '</td></tr>';
-    html += '</tbody></table>';
-    html += '</div>';
-
-    html += '<div class="pr-page">';
-    html += '<div class="pr-section-title">Voorstel voor de vergadering</div>';
-    html += '<div class="pr-proposal">' + eur(eerste ? nodig : state.bijdrage) + ' <span>per appartement per maand</span></div>';
-    if (!state.invul.fonds) html += '<div class="pr-note">Het saldo van het reservefonds is niet ingevuld; dit voorstel gaat uit van € 0.</div>';
-    html += '<div class="pr-note">' + (eerste
-      ? 'Bij de huidige bijdrage van ' + eur(state.bijdrage) + ' raakt het reservefonds in ' + eerste.jaar + ' leeg.'
-      : 'Bij ' + eur(state.bijdrage) + ' per maand blijft het reservefonds ' + HORIZON + ' jaar positief, met ' + eur(laagste) + ' als laagste stand.') + '</div>';
-    html += '<div class="pr-footer">Bronnen: PDOK Locatieserver en BAG (Public Domain Mark 1.0), 3D BAG van de TU Delft (CC BY 4.0). Kengetallen zijn indicatieve richtprijzen inclusief btw, geen offerte. Bedragen vanaf geïmporteerde posten zijn geïndexeerd met ' + (cbsIndexatie ? cbsIndexatie.pct : Math.round(INDEXATIE_PCT * 1000) / 10) + '% per jaar' + ((cbsIndexatie && state.settings.toonCbsBron) ? ' (CBS-bouwkostenindex ' + cbsIndexatie.periode + ')' : '') + ' vanaf het prijspeil van het brondocument. Afgedrukt op ' + vandaag + ' met MJOP Live.</div>';
-    html += '</div>';
-
-    html += '</div>';
+    html += '</div>'; // .pr-body
+    html += '</td></tr></tbody></table></div>'; // .print-report
     return html;
   }
 
