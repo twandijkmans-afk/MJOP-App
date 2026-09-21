@@ -3173,6 +3173,7 @@
     var totaal = rows.reduce(function (a, r) { return a + r.kosten; }, 0);
     var laagste = Math.min.apply(null, rows.map(function (r) { return r.saldo; }));
     var eerste = rows.filter(function (r) { return r.saldo < 0; })[0];
+    var eind = CURRENT_YEAR + HORIZON - 1;
 
     // Totaal per categorie binnen de horizon — geeft in één oogopslag
     // waar het geld naartoe gaat, naast de jaar-voor-jaar tijdlijn.
@@ -3184,6 +3185,10 @@
     });
     var catRijen = Object.keys(catTotalen).map(function (c) { return { naam: c, bedrag: catTotalen[c] }; })
       .sort(function (a, b) { return b.bedrag - a.bedrag; });
+    var catMax = catRijen.length ? catRijen[0].bedrag : 1;
+    // Vier aflopende kobaltschakeringen (README §5); vanaf de vijfde
+    // categorie herhaalt de zwakste tint.
+    var CAT_TINTS = ['var(--blue)', 'var(--blue-2)', 'var(--blue-4)', 'var(--blue-7)'];
 
     // Piekjaar: het jaar met de hoogste kosten binnen de horizon, apart
     // vermeld bij de categorieën zodat ook duidelijk is wannéér het grote
@@ -3191,67 +3196,69 @@
     var piekjaar = rows.reduce(function (best, r) { return (!best || r.kosten > best.kosten) ? r : best; }, null);
     var piekPosten = piekjaar ? plan.filter(function (p) { return p.jaar === piekjaar.jaar; }) : [];
 
-    var html = pgOpen(false, true);
-    html += '<div class="pg-head"><h1 class="page-title">Planning</h1>';
-    html += '<div class="page-sub">' + CURRENT_YEAR + ' – ' + (CURRENT_YEAR + HORIZON - 1) + ' · ' + eur(totaal) + ' totaal</div></div>';
+    var html = '<div class="ov-page"><div class="ov">';
 
-    html += '<div class="planning-layout">';
-
-    html += '<div class="planning-side"><div class="section" style="padding-top:14px">';
-    html += '<div class="card pad">';
-    html += '<div class="kv"><div class="label">Totaal geraamd</div><div class="amount">' + eur(totaal) + '</div></div>';
-    html += '<div class="divider"></div>';
-    if (!state.invul.fonds) {
-      html += '<div class="hint">Vul op het Overzicht het saldo van het reservefonds in om te zien of het fonds toereikend is.</div>';
-    } else {
-    html += '<div class="kv"><div class="label">Laagste fondsstand</div><div class="amount" style="' + (laagste < 0 ? 'color:var(--bad-fg)' : '') + '">' + (laagste < 0 ? eurSigned(laagste) : eur(laagste)) + '</div></div>';
-    html += '<div class="hint"' + (eerste ? ' style="color:var(--bad-fg)"' : '') + '>' + (eerste
-      ? 'Bij de huidige bijdrage raakt het fonds in ' + eerste.jaar + ' leeg.'
-      : 'Bij de huidige bijdrage blijft het fonds ' + HORIZON + ' jaar positief.') + '</div>';
-    }
-    html += '</div>';
-    if (catRijen.length) {
-      html += '<div class="section-title" style="margin-top:16px">Kosten per onderdeel</div>';
-      html += '<div class="card" style="margin-top:8px">';
-      catRijen.forEach(function (c, i) {
-        html += '<div class="row"' + (i === 0 ? ' style="border-top:none"' : '') + '><div class="grow name">' + esc(c.naam) + '</div><div class="value">' + eur(c.bedrag) + '</div></div>';
-      });
-      html += '</div>';
-      if (piekjaar && piekPosten.length) {
-        html += '<div class="hint" style="margin-top:8px">Piekjaar ' + piekjaar.jaar + ': ' + piekPosten.length + ' ' + meervoud(piekPosten.length, 'post', 'posten') + ' samen ' + eur(piekjaar.kosten) + '.</div>';
-      }
-    }
+    html += '<div class="ov-page-head"><div><h1 class="page-title">Planning</h1>';
+    html += '<p class="page-sub">' + CURRENT_YEAR + ' – ' + eind + ' · ' + eur(totaal) + ' totaal' + (piekjaar ? ' · piekjaar ' + piekjaar.jaar : '') + '</p></div>';
+    html += '<div style="display:flex;gap:10px;flex:none">';
+    html += '<button type="button" class="ov-btn secondary" data-act="export-csv">Exporteer csv</button>';
+    html += '<button type="button" class="ov-btn-dark" data-act="print-rapport">Afdrukken</button>';
     html += '</div></div>';
 
-    html += '<div class="planning-main"><div class="section timeline" style="padding-top:14px">';
-    html += '<div class="timeline-head"><span>Saldo eind van het jaar</span></div>';
+    html += '<div class="pl-layout">';
+
+    html += '<div class="pl-side">';
+    html += '<section class="ov-card">';
+    html += '<div class="ov-kv"><span>Totaal geraamd</span><b>' + eur(totaal) + '</b></div>';
+    html += '<div class="ov-rule"></div>';
+    if (!state.invul.fonds) {
+      html += '<p class="ov-hint">Vul op het Overzicht het saldo van het reservefonds in om te zien of het fonds toereikend is.</p>';
+    } else {
+      html += '<div class="ov-kv"><span>Laagste fondsstand</span><b' + (laagste < 0 ? ' class="ov-neg"' : '') + '>' + (laagste < 0 ? eurSigned(laagste) : eur(laagste)) + '</b></div>';
+      if (eerste) html += '<p class="pl-notice">Bij de huidige bijdrage raakt het fonds in ' + eerste.jaar + ' leeg.</p>';
+    }
+    html += '</section>';
+
+    if (catRijen.length) {
+      html += '<section class="ov-card"><h2 class="ov-h2">Kosten per onderdeel</h2>';
+      html += '<div style="margin-top:14px">' + catRijen.map(function (c, i) {
+        var pct = Math.round(c.bedrag / catMax * 100);
+        return '<div class="pl-cat-row"><div class="pl-cat-top"><span>' + esc(c.naam) + '</span><b>' + eur(c.bedrag) + '</b></div>' +
+          '<div class="pl-cat-track"><div class="pl-cat-fill" style="width:' + pct + '%;background:' + CAT_TINTS[Math.min(i, CAT_TINTS.length - 1)] + '"></div></div></div>';
+      }).join('') + '</div>';
+      html += '</section>';
+      if (piekjaar && piekPosten.length) {
+        html += '<section class="ov-card ov-source"><h2 class="ov-h2">Piekjaar ' + piekjaar.jaar + '</h2>';
+        html += '<p class="ov-hint">' + piekPosten.length + ' ' + meervoud(piekPosten.length, 'post', 'posten') + ' samen ' + eur(piekjaar.kosten) + '.</p></section>';
+      }
+    }
+    html += '</div>';
+
+    html += '<div class="pl-main"><div class="ov-card pl-tl">';
+    html += '<div class="pl-tl-head"><span style="grid-column:1 / 3">Jaar en posten</span><span>Saldo eind van het jaar</span></div>';
     rows.forEach(function (r) {
       var posten = plan.filter(function (p) { return p.jaar === r.jaar; });
-      var saldoTxt = r.saldo < 0 ? eurSigned(r.saldo) : eur(r.saldo);
-      var saldoStyle = 'color:' + (r.saldo < 0 ? 'var(--bad-fg)' : 'var(--ink-60)') + ';background:' + (r.saldo < 0 ? 'var(--bad-bg)' : 'var(--panel)');
+      var tekort = r.saldo < 0;
+      var saldoTxt = tekort ? eurSigned(r.saldo) : eur(r.saldo);
       if (!posten.length) {
         // Lege jaren compacter tonen (dunnere rij) — een reeks rustige
         // jaren hoeft niet evenveel ruimte te vragen als een druk jaar.
-        html += '<div class="tl-row tl-row-empty"><div class="tl-year" style="color:' + (r.saldo < 0 ? 'var(--bad-fg)' : 'var(--ink-50)') + '">' + r.jaar + '</div>';
-        html += '<div class="tl-dot-col"><div class="tl-dot" style="background:' + (r.saldo < 0 ? 'var(--accent)' : 'var(--ink-14)') + '"></div><div class="tl-line"></div></div>';
-        html += '<div class="tl-body"><div class="tl-empty">niets gepland</div></div>';
-        html += '<div class="tl-saldo" style="' + saldoStyle + '">' + saldoTxt + '</div></div>';
+        html += '<div class="pl-row leeg' + (tekort ? ' tekort' : '') + '"><span class="pl-year">' + r.jaar + '</span>';
+        html += '<span class="pl-empty">niets gepland</span>';
+        html += '<span class="pl-saldo">' + saldoTxt + '</span></div>';
         return;
       }
-      html += '<div class="tl-row"><div class="tl-year" style="color:' + (r.saldo < 0 ? 'var(--bad-fg)' : 'var(--ink-50)') + '">' + r.jaar + '</div>';
-      html += '<div class="tl-dot-col"><div class="tl-dot" style="background:' + (r.saldo < 0 ? 'var(--accent)' : 'var(--blue)') + '"></div><div class="tl-line"></div></div>';
-      html += '<div class="tl-body">';
-      posten.forEach(function (p) {
-        html += '<div class="tl-post" data-act="open-element" data-id="' + p.elId + '" style="cursor:pointer"><div class="grow"><div class="name">' + esc(p.naam) + '</div><div class="meta">' + esc(p.meta) + '</div></div><div class="amount">' + eur(p.bedrag) + '</div></div>';
-      });
-      html += '</div>';
-      html += '<div class="tl-saldo" style="' + saldoStyle + '">' + saldoTxt + '</div></div>';
+      html += '<div class="pl-row' + (tekort ? ' tekort' : '') + '"><span class="pl-year">' + r.jaar + '</span>';
+      html += '<div class="pl-posts">' + posten.map(function (p) {
+        return '<div class="pl-post" data-act="open-element" data-id="' + p.elId + '"><div><div class="name">' + esc(p.naam) + '</div><div class="meta">' + esc(p.meta) + '</div></div><span class="amount">' + eur(p.bedrag) + '</span></div>';
+      }).join('') + '</div>';
+      html += '<span class="pl-saldo">' + saldoTxt + '</span></div>';
     });
     html += '</div></div>';
 
     html += '</div>';
-    html += '<div class="footer-note">Kosten na ' + (CURRENT_YEAR + HORIZON - 1) + ' vallen buiten deze toets — de simulatie kijkt alleen naar de getoonde ' + HORIZON + ' jaar.</div>';
-    html += PG_CLOSE;
+    html += '<p class="ov-foot">Kosten na ' + eind + ' vallen buiten deze toets — de simulatie kijkt alleen naar de getoonde ' + HORIZON + ' jaar.</p>';
+    html += '</div></div>';
     return html;
   }
 

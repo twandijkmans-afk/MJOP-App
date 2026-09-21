@@ -364,24 +364,23 @@ input[type=range]::-moz-range-thumb {
 .koz-total .count { flex: none; font: 400 11px/1 var(--mono); color: var(--ink-50); }
 .koz-total .amount { flex: none; font: 500 16px/1 var(--mono); }
 
-.timeline { margin-top: 20px; }
+/* Planning: kerncijfers/categorieën links, tijdlijn rechts (README §5) —
+   op mobiel/tablet onder elkaar, pas vanaf de zijbalk-breedte (900px)
+   een 288px/1fr-grid. */
+.pl-layout { display: flex; flex-direction: column; gap: var(--gap-card); }
+.pl-side { display: flex; flex-direction: column; gap: var(--gap-card); min-width: 0; }
+.pl-main { min-width: 0; }
 
-/* Planning: samenvatting (totaal, laagste fondsstand, per categorie) naast
-   de tijdlijn i.p.v. alleen een lange lijst — op mobiel/tablet blijft dit
-   gewoon onder elkaar staan (samenvatting eerst, dan de tijdlijn), pas
-   vanaf de zijbalk-breedte (900px) komt het naast elkaar te staan. */
-.planning-layout { display: flex; flex-direction: column; gap: 4px; }
-.planning-main, .planning-side { min-width: 0; }
-/* .card op zichzelf (witte achtergrond, 10%-opacity rand) valt op de
-   bijna even lichte paginakleur nauwelijks op — hier, waar de kaart de
-   enige inhoud is (geen rijen/tekst eromheen die de kaart al afbakenen),
-   krijgt 'm daarom een duidelijkere rand plus een lichte schaduw zodat
-   de cijfers zichtbaar "in het vak" staan i.p.v. los op de pagina. */
-.planning-side .card { border-color: var(--ink-14); box-shadow: 0 1px 3px rgba(27,36,48,.06); }
+.pl-notice { margin-top: 12px; padding: 10px 12px; border-radius: var(--r-ctl); background: var(--red-tint); font: 400 13px/1.5 var(--font); color: var(--red-ink); }
+
+.pl-cat-row + .pl-cat-row { margin-top: 13px; }
+.pl-cat-top { display: flex; justify-content: space-between; gap: 12px; font: 400 13.5px/1 var(--font); color: var(--ink); margin-bottom: 5px; }
+.pl-cat-top b { font: 500 13.5px/1 var(--mono); font-weight: 500; }
+.pl-cat-track { height: 6px; border-radius: var(--r-pill); background: var(--border-3); overflow: hidden; }
+.pl-cat-fill { height: 100%; border-radius: var(--r-pill); background: var(--blue); }
+
 @media (min-width: 900px) {
-  .planning-layout { flex-direction: row-reverse; align-items: flex-start; gap: 8px; }
-  .planning-side { flex: 0 0 300px; }
-  .planning-main { flex: 1; }
+  .pl-layout { display: grid; grid-template-columns: 288px minmax(0, 1fr); align-items: start; gap: 20px; }
 }
 
 /* Account-pagina: links een sub-menu (Profiel/Weergave/Rapport/
@@ -414,29 +413,48 @@ input[type=range]::-moz-range-thumb {
   .acct-nav-item.danger { margin-top: 10px; }
   .acct-content { flex: 1; }
 }
-.tl-row { display: flex; gap: 13px; align-items: flex-start; padding: 0 0 4px; }
-.tl-year { flex: none; width: 38px; padding-top: 3px; font: 500 12px/1 var(--mono); }
-.tl-dot-col { flex: none; width: 9px; display: flex; flex-direction: column; align-items: center; align-self: stretch; }
-.tl-dot { width: 9px; height: 9px; border-radius: 50%; margin-top: 4px; flex: none; }
-.tl-line { width: 1px; flex: 1; background: var(--ink-14); }
-.tl-body { flex: 1; min-width: 0; padding-bottom: 14px; }
-.tl-post { background: var(--card); border: 1px solid var(--ink-08); border-radius: 8px; padding: 11px 13px; margin-bottom: 7px; display: flex; gap: 10px; align-items: center; }
-.tl-post .grow { flex: 1; min-width: 0; }
-.tl-post .name { font: 500 13px/1.3 var(--sans); }
-.tl-post .meta { font: 400 11px/1.35 var(--sans); color: var(--ink-50); margin-top: 2px; }
-.tl-post .amount { font: 500 12.5px/1 var(--mono); flex: none; background: var(--panel); padding: 6px 10px; border-radius: 6px; }
-.tl-empty { font: 400 11.5px/1 var(--sans); color: var(--ink-45); padding: 5px 0 9px; }
-.tl-saldo { flex: none; align-self: flex-start; min-width: 64px; text-align: center; font: 500 11px/1 var(--mono); padding: 5px 8px; border-radius: 6px; white-space: nowrap; }
+/* Tijdlijn: grid 52px/1fr/108px (README §5) — geen verbindingslijn/stip
+   meer, alleen jaar / posten (of "niets gepland") / saldo-chip. */
+.pl-tl { padding: 0; overflow: hidden; }
+.pl-tl-head {
+  display: grid; grid-template-columns: 52px minmax(0, 1fr) 108px; gap: 16px;
+  padding: 12px 20px; background: var(--subtle); border-bottom: 1px solid var(--border-3);
+  font: 600 10.5px/1 var(--mono); letter-spacing: .09em; text-transform: uppercase; color: var(--text-mono);
+}
+.pl-tl-head span:last-child { text-align: center; }
+.pl-row {
+  display: grid; grid-template-columns: 52px minmax(0, 1fr) 108px; gap: 16px; align-items: start;
+  padding: 16px 20px; border-bottom: 1px solid var(--border-4);
+}
+.pl-row:last-child { border-bottom: 0; }
+.pl-row.tekort { background: var(--red-tint-2); }
+.pl-row.leeg { align-items: center; padding: 10px 20px; }
+.pl-year { font: 600 14px/1.3 var(--mono); color: var(--ink); padding-top: 2px; }
+.pl-row.leeg .pl-year { font-weight: 400; color: var(--text-dim); }
+.pl-empty { font: 400 13px/1.3 var(--font); color: var(--text-dim); }
+.pl-posts { display: flex; flex-direction: column; gap: 7px; }
+.pl-post {
+  display: flex; align-items: center; justify-content: space-between; gap: 14px;
+  border: 1px solid var(--border-3); border-radius: var(--r-ctl); padding: 9px 12px; cursor: pointer; background: var(--card);
+}
+.pl-row.tekort .pl-post { border-color: var(--red-border); }
+.pl-post:hover { background: var(--subtle); }
+.pl-post .name { font: 400 14px/1.3 var(--font); color: var(--ink); }
+.pl-post .meta { font: 400 11.5px/1.3 var(--font); color: var(--text-mono); margin-top: 1px; }
+.pl-post .amount { flex: none; font: 500 13px/1 var(--mono); color: var(--ink); white-space: nowrap; }
+.pl-saldo {
+  align-self: start; text-align: center; font: 400 13px/1 var(--mono); color: var(--ink);
+  background: var(--muted-surface); border-radius: var(--r-chip); padding: 5px 9px; white-space: nowrap;
+}
+.pl-row.tekort .pl-saldo { background: var(--red-tint); color: var(--red-ink); font-weight: 600; }
 
-.timeline-head { display: flex; justify-content: flex-end; padding: 0 4px 10px; }
-.timeline-head span { font: 600 9.5px/1 var(--sans); text-transform: uppercase; letter-spacing: .05em; color: var(--ink-45); }
-
-/* Compactere rij voor een jaar zonder posten, zodat een reeks rustige
-   jaren niet evenveel ruimte opeist als een jaar met werk. */
-.tl-row-empty .tl-body { padding-bottom: 4px; }
-.tl-row-empty .tl-empty { padding: 2px 0; }
-.tl-row-empty .tl-saldo { padding: 2px 8px; }
-.tl-row-empty .tl-dot { margin-top: 1px; }
+@media (max-width: 639px) {
+  .pl-tl-head { display: none; }
+  .pl-row, .pl-row.leeg { grid-template-columns: minmax(0, 1fr) auto; row-gap: 8px; align-items: baseline; }
+  .pl-year { grid-column: 1; }
+  .pl-saldo { grid-column: 2; justify-self: end; }
+  .pl-posts, .pl-empty { grid-column: 1 / -1; }
+}
 
 /* Zijbalk/tabbalk: één en hetzelfde ink-zwarte component dat onder 900px
    als tabbalk onderin ligt en vanaf 900px een zijbalk wordt (zie de
@@ -1085,7 +1103,7 @@ input[type=range].ov-slider::-moz-range-thumb { width: 14px; height: 14px; borde
 .ov .row .meta { margin-top: 3px; font: 400 13px/1.4 var(--sans); }
 .ov .row .value { font: 700 15px/1 var(--sans); }
 .ov .row .value-sub { font: 400 12px/1 var(--sans); }
-.ov .row[data-act]:hover, .ov .tl-post[data-act]:hover { background: var(--panel); }
+.ov .row[data-act]:hover { background: var(--panel); }
 .ov .el-badge { width: 36px; height: 36px; font: 700 14px/1 var(--sans); }
 .ov .sfb-tag { padding: 3px 6px; font: 500 12px/1 var(--sans); }
 .ov .origin-tag { font: 500 12px/1 var(--sans); letter-spacing: 0; text-transform: none; }
@@ -1119,30 +1137,12 @@ input[type=range].ov-slider::-moz-range-thumb { width: 14px; height: 14px; borde
 .ov .ct-cell, .ov .ct-total .amount, .ov .ct-rang { font-size: 12.5px; }
 .ov .compare-text { font-size: 12px; }
 
-/* Planning: samenvatting naast de tijdlijn */
-.ov .planning-layout { gap: 32px; }
-.ov .planning-side .section { padding-left: 0; padding-right: 0; }
-.ov .timeline { margin-top: 0; }
-.ov .timeline-head span { font: 500 13px/1 var(--sans); letter-spacing: 0; text-transform: none; }
-.ov .tl-year { width: 46px; font: 700 14px/1.2 var(--sans); }
-.ov .tl-post { padding: 14px 16px; }
-.ov .tl-post .name { font: 500 15px/1.35 var(--sans); }
-.ov .tl-post .meta { font: 400 13px/1.4 var(--sans); }
-.ov .tl-post .amount { padding: 6px 10px; font: 700 14px/1 var(--sans); }
-.ov .tl-empty { font-size: 13px; }
-.ov .tl-saldo { min-width: 76px; font: 600 13px/1 var(--sans); }
-
 /* Account */
 .ov .acct-nav-item { font-size: 14.5px; }
 .ov .acct-content-title { font: 700 17px/1.3 var(--heading); }
 .ov .acct-profile-name { font-size: 15px; }
 .ov .acct-profile-sub { font-size: 13px; }
 .ov .toggle-row .hint, .ov .row .meta { max-width: 60em; }
-
-@media (min-width: 900px) {
-  .ov .planning-layout { gap: 40px; }
-  .ov .planning-side { flex: 0 0 320px; }
-}
 
 /* ------------------------------------------------------------------
    Adres- en loginscherm (renderOnboarding, renderLoginScreen): links de
