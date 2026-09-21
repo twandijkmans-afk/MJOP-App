@@ -862,7 +862,12 @@
     // weerspiegelen; `auth` is puur lokale UI-state voor het inlogformulier.
     session: null,
     user: null,
-    auth: { email: '', stap: 'email', bezig: false, fout: '' },
+    // stap: 'password' (inloggen, standaard) | 'signup' | 'magic'
+    // (inloglink-variant) | 'sent' (inloglink verstuurd) | 'signup-sent'
+    // (bevestigingsmail onderweg) | 'reset' | 'reset-sent' | 'recovery'
+    // (nieuw wachtwoord kiezen na een resetlink, gezet door PASSWORD_RECOVERY
+    // in de auth-listener hieronder).
+    auth: { email: '', password: '', password2: '', stap: 'password', bezig: false, fout: '' },
     // Opslaan/heropenen (fase 2 van SPEC_ACCOUNTS_AND_SAVING.md). savedPlans
     // is alleen de lichte lijst (id/label/updated_at), niet de volledige
     // blobs — zie loadSavedPlans(). lastSavedSnapshot is een JSON-snapshot
@@ -1301,7 +1306,12 @@
     var active = document.activeElement;
     var focusInfo = null;
     if (active && root.contains(active) && active.id) {
-      focusInfo = { id: active.id, start: active.selectionStart, end: active.selectionEnd };
+      focusInfo = { id: active.id, start: null, end: null };
+      // Sommige input-types (o.a. password) ondersteunen selectionStart/End
+      // niet en gooien daar een InvalidStateError op i.p.v. undefined terug
+      // te geven — zonder deze try/catch crashte render() bij elke
+      // toetsaanslag in zo'n veld.
+      try { focusInfo.start = active.selectionStart; focusInfo.end = active.selectionEnd; } catch (e) {}
     }
     var screen = currentScreen();
     var mainHtml;
@@ -1762,33 +1772,87 @@
     return '<div class="entry-top">' + choiceLogo() + '</div>';
   }
 
+  // type="text" i.p.v. "email"/"password" waar dat kan: een input[type=email]
+  // ondersteunt geen selectionStart/setSelectionRange (HTML-spec), waardoor
+  // render() de cursor na elke toetsaanslag niet kan terugzetten en hij
+  // steeds naar positie 0 springt — inputmode="email" geeft mobiel nog wel
+  // het juiste toetsenbord. type="password" ondersteunt de Selection API
+  // wél (spec noemt het expliciet naast text/search/url/tel), dus die
+  // velden hebben dit workaround niet nodig.
+  function authEmailField(a) {
+    return '<label class="entry-label" for="auth-email">E-mailadres</label>' +
+      '<input id="auth-email" class="entry-input" data-bind="auth-email" type="text" inputmode="email" value="' + esc(a.email) + '" placeholder="naam@voorbeeld.nl" autocomplete="email" />';
+  }
+
   function renderLoginScreen() {
     var a = state.auth;
+    var koppen = {
+      password: ['Log in op je account', 'Met je e-mailadres en wachtwoord.'],
+      signup: ['Maak een account aan', 'Met een e-mailadres en zelfgekozen wachtwoord.'],
+      magic: ['Log in met een inloglink', 'Geen wachtwoord nodig — je ontvangt een eenmalige link per e-mail.'],
+      sent: ['Inloglink verstuurd', 'Open de e-mail en klik op de link om in te loggen.'],
+      'signup-sent': ['Bevestig je e-mailadres', 'Nog één stap voordat je account klaar is.'],
+      reset: ['Wachtwoord vergeten', 'Vul je e-mailadres in, dan sturen we een link om een nieuw wachtwoord te kiezen.'],
+      'reset-sent': ['Resetlink verstuurd', 'Open de e-mail en klik op de link om een nieuw wachtwoord te kiezen.'],
+      recovery: ['Kies een nieuw wachtwoord', 'Dit geldt voor je hele account.'],
+    };
+    var kop = koppen[a.stap] || koppen.password;
     var html = '<div class="entry-screen">' + entryTop() + '<div class="entry">';
     html += '<div class="entry-copy">';
-    html += '<h1 class="entry-h1">Log in met je e-mailadres</h1>';
-    html += '<p class="entry-lede">Geen wachtwoord nodig. Je ontvangt een eenmalige inloglink per e-mail.</p>';
-    html += '<p class="entry-note">Inloggen heb je nodig om plannen op te slaan. Doorrekenen kan ook zonder account.</p>';
+    html += '<h1 class="entry-h1">' + kop[0] + '</h1>';
+    html += '<p class="entry-lede">' + kop[1] + '</p>';
+    if (a.stap === 'password' || a.stap === 'signup') html += '<p class="entry-note">Inloggen heb je nodig om plannen op te slaan. Doorrekenen kan ook zonder account.</p>';
     html += '</div>';
 
     html += '<div class="ov-card entry-card">';
     if (!sb) {
       html += '<div class="notice error" style="margin-top:0">Inloggen is nog niet geconfigureerd. Vul de Supabase-projectgegevens (URL en anon-sleutel) in <code>src/config.js</code> in.</div>';
+    } else if (a.stap === 'recovery') {
+      html += '<label class="entry-label" for="auth-password">Nieuw wachtwoord</label>';
+      html += '<input id="auth-password" class="entry-input" data-bind="auth-password" type="password" value="' + esc(a.password) + '" placeholder="Minstens 6 tekens" autocomplete="new-password" />';
+      html += '<label class="entry-label" style="margin-top:12px" for="auth-password2">Herhaal wachtwoord</label>';
+      html += '<input id="auth-password2" class="entry-input" data-bind="auth-password2" type="password" value="' + esc(a.password2) + '" placeholder="Nogmaals" autocomplete="new-password" />';
+      if (a.fout) html += '<div class="notice error" style="margin-top:12px">' + esc(a.fout) + '</div>';
+      html += '<button type="button" class="ov-btn entry-submit" data-act="set-new-password">' + (a.bezig ? 'Bezig…' : 'Wachtwoord instellen') + '</button>';
     } else if (a.stap === 'sent') {
-      html += '<h2 class="ov-h2">Inloglink verstuurd</h2>';
       html += '<p class="entry-sent">Naar <strong>' + esc(a.email) + '</strong>. Open de e-mail en klik op de link, dan kom je hier terug en ben je ingelogd. Geen mail ontvangen? Controleer de spamfolder.</p>';
       if (a.fout) html += '<div class="notice error" style="margin-top:12px">' + esc(a.fout) + '</div>';
-      html += '<div class="entry-links"><span class="entry-link" data-act="login-change-email">Ander e-mailadres of opnieuw versturen</span></div>';
-    } else {
-      html += '<label class="entry-label" for="auth-email">E-mailadres</label>';
-      // type="text" i.p.v. "email": een input[type=email] ondersteunt geen
-      // selectionStart/setSelectionRange (HTML-spec), waardoor render()
-      // hieronder de cursor na elke toetsaanslag niet kan terugzetten en
-      // hij steeds naar positie 0 springt — inputmode="email" geeft
-      // mobiel nog wel het juiste toetsenbord.
-      html += '<input id="auth-email" class="entry-input" data-bind="auth-email" type="text" inputmode="email" value="' + esc(a.email) + '" placeholder="naam@voorbeeld.nl" autocomplete="email" />';
+      html += '<div class="entry-links"><span class="entry-link" data-act="auth-mode-magic">Ander e-mailadres of opnieuw versturen</span></div>';
+    } else if (a.stap === 'signup-sent') {
+      html += '<p class="entry-sent">We hebben een bevestigingsmail gestuurd naar <strong>' + esc(a.email) + '</strong>. Klik op de link daarin om je account te activeren, dan kun je meteen inloggen.</p>';
+      if (a.fout) html += '<div class="notice error" style="margin-top:12px">' + esc(a.fout) + '</div>';
+      html += '<div class="entry-links"><span class="entry-link" data-act="auth-mode-password">Naar inloggen</span></div>';
+    } else if (a.stap === 'reset-sent') {
+      html += '<p class="entry-sent">Naar <strong>' + esc(a.email) + '</strong>. Open de e-mail en klik op de link om een nieuw wachtwoord te kiezen. Geen mail ontvangen? Controleer de spamfolder.</p>';
+      if (a.fout) html += '<div class="notice error" style="margin-top:12px">' + esc(a.fout) + '</div>';
+      html += '<div class="entry-links"><span class="entry-link" data-act="auth-mode-reset">Opnieuw versturen</span><span class="entry-link" data-act="auth-mode-password">Terug naar inloggen</span></div>';
+    } else if (a.stap === 'reset') {
+      html += authEmailField(a);
+      if (a.fout) html += '<div class="notice error" style="margin-top:12px">' + esc(a.fout) + '</div>';
+      html += '<button type="button" class="ov-btn entry-submit" data-act="reset-password-request">' + (a.bezig ? 'Bezig…' : 'Verstuur resetlink') + '</button>';
+      html += '<div class="entry-links"><span class="entry-link" data-act="auth-mode-password">Terug naar inloggen</span></div>';
+    } else if (a.stap === 'magic') {
+      html += authEmailField(a);
       if (a.fout) html += '<div class="notice error" style="margin-top:12px">' + esc(a.fout) + '</div>';
       html += '<button type="button" class="ov-btn entry-submit" data-act="login-request">' + (a.bezig ? 'Bezig…' : 'Verstuur inloglink') + '</button>';
+      html += '<div class="entry-links"><span class="entry-link" data-act="auth-mode-password">Terug naar wachtwoord</span></div>';
+    } else if (a.stap === 'signup') {
+      html += authEmailField(a);
+      html += '<label class="entry-label" style="margin-top:12px" for="auth-password">Wachtwoord</label>';
+      html += '<input id="auth-password" class="entry-input" data-bind="auth-password" type="password" value="' + esc(a.password) + '" placeholder="Minstens 6 tekens" autocomplete="new-password" />';
+      html += '<label class="entry-label" style="margin-top:12px" for="auth-password2">Herhaal wachtwoord</label>';
+      html += '<input id="auth-password2" class="entry-input" data-bind="auth-password2" type="password" value="' + esc(a.password2) + '" placeholder="Nogmaals" autocomplete="new-password" />';
+      if (a.fout) html += '<div class="notice error" style="margin-top:12px">' + esc(a.fout) + '</div>';
+      html += '<button type="button" class="ov-btn entry-submit" data-act="signup-password">' + (a.bezig ? 'Bezig…' : 'Account aanmaken') + '</button>';
+      html += '<div class="entry-links"><span class="entry-link" data-act="auth-mode-password">Heb je al een account? Inloggen</span></div>';
+    } else {
+      html += authEmailField(a);
+      html += '<label class="entry-label" style="margin-top:12px" for="auth-password">Wachtwoord</label>';
+      html += '<input id="auth-password" class="entry-input" data-bind="auth-password" type="password" value="' + esc(a.password) + '" placeholder="Je wachtwoord" autocomplete="current-password" />';
+      if (a.fout) html += '<div class="notice error" style="margin-top:12px">' + esc(a.fout) + '</div>';
+      html += '<button type="button" class="ov-btn entry-submit" data-act="login-password">' + (a.bezig ? 'Bezig…' : 'Inloggen') + '</button>';
+      html += '<div class="entry-links"><span class="entry-link" data-act="auth-mode-reset">Wachtwoord vergeten?</span><span class="entry-link" data-act="auth-mode-signup">Account aanmaken</span></div>';
+      html += '<div class="entry-links"><span class="entry-link" data-act="auth-mode-magic">Liever een inloglink per mail</span></div>';
     }
     html += '<div class="entry-links"><span class="entry-link" data-act="goto-marketing">Terug</span></div>';
     html += '</div>';
@@ -3566,7 +3630,13 @@
     // vanaf het adresscherm te bereiken vóórdat er deze sessie al een
     // gebouw gekozen is.
     'goto-mijngebouwen': function () { state.screen = 'app'; state.tab = 'mijngebouwen'; render(); },
-    'goto-login': function () { state.screen = 'login'; render(); },
+    // Reset altijd naar het standaard inlogformulier i.p.v. een eerder
+    // (mogelijk afgebroken) 'sent'/'signup-sent'/'recovery'-scherm van
+    // eerder deze sessie te laten staan — wie hier expliciet naartoe
+    // klikt wil opnieuw beginnen, niet een oude tussenstap terugzien.
+    // Een echte resetlink zet stap/screen zelf (PASSWORD_RECOVERY in
+    // onAuthStateChange), dus die loopt hier niet doorheen.
+    'goto-login': function () { state.screen = 'login'; state.auth.stap = 'password'; state.auth.fout = ''; render(); },
     // Elke ingang naar het zoekscherm bedoelt "start een nieuw/ander
     // gebouw" (marketing-cta's, "+ Gebouw toevoegen") — nooit "werk verder
     // aan het huidige plan", dat gaat via goto-app. Zonder deze reset zag
@@ -3744,8 +3814,96 @@
     },
     'login-change-email': function () {
       var a = state.auth;
-      a.stap = 'email'; a.fout = '';
+      a.stap = 'magic'; a.fout = '';
       render();
+    },
+    // Wisselt alleen het formulier op het inlogscherm (state.session blijft
+    // ongemoeid) — 'wachtwoord' is de standaard, de rest is bewust een
+    // aparte stap i.p.v. alles in één lang formulier.
+    'auth-mode-password': function () { state.auth.stap = 'password'; state.auth.fout = ''; render(); },
+    'auth-mode-signup': function () { state.auth.stap = 'signup'; state.auth.fout = ''; render(); },
+    'auth-mode-magic': function () { state.auth.stap = 'magic'; state.auth.fout = ''; render(); },
+    'auth-mode-reset': function () { state.auth.stap = 'reset'; state.auth.fout = ''; render(); },
+    'login-password': function () {
+      var a = state.auth;
+      if (!sb || !a.email.trim() || !a.password) return;
+      a.bezig = true; a.fout = '';
+      render();
+      sb.auth.signInWithPassword({ email: a.email.trim(), password: a.password }).then(function (res) {
+        a.bezig = false;
+        if (res.error) { a.fout = res.error.message; render(); return; }
+        // onAuthStateChange hierboven zet state.session zodra Supabase de
+        // sessie bevestigt; hier alleen het wachtwoord uit het geheugen
+        // halen (hoeft niet in de state te blijven staan) en, anders dan
+        // bij de inloglink, meteen doorgaan — dit is een bewuste klik op
+        // "Inloggen", geen mail-omweg waarbij op deze pagina blijven staan
+        // zinvol is.
+        a.password = '';
+        state.screen = state.building ? 'app' : 'onboarding';
+        render();
+      }).catch(function () {
+        a.bezig = false; a.fout = 'Kon geen verbinding maken. Probeer het opnieuw.'; render();
+      });
+    },
+    'signup-password': function () {
+      var a = state.auth;
+      if (!sb || !a.email.trim() || !a.password) return;
+      if (a.password.length < 6) { a.fout = 'Kies een wachtwoord van minstens 6 tekens.'; render(); return; }
+      if (a.password !== a.password2) { a.fout = 'De wachtwoorden komen niet overeen.'; render(); return; }
+      a.bezig = true; a.fout = '';
+      render();
+      var redirectTo = window.location.origin + window.location.pathname;
+      sb.auth.signUp({ email: a.email.trim(), password: a.password, options: { emailRedirectTo: redirectTo } }).then(function (res) {
+        a.bezig = false;
+        a.password = ''; a.password2 = '';
+        if (res.error) { a.fout = res.error.message; render(); return; }
+        // Met "confirm email" uit (projectinstelling) geeft signUp meteen een
+        // echte sessie terug — dan hoeft niemand nog op een mail te wachten
+        // en gaan we net als bij login-password meteen door. Staat
+        // bevestiging aan, dan is er nog geen sessie en tonen we de
+        // "check je mail"-stap.
+        if (res.data && res.data.session) { state.screen = state.building ? 'app' : 'onboarding'; }
+        else { a.stap = 'signup-sent'; }
+        render();
+      }).catch(function () {
+        a.bezig = false; a.fout = 'Kon geen verbinding maken. Probeer het opnieuw.'; render();
+      });
+    },
+    'reset-password-request': function () {
+      var a = state.auth;
+      if (!sb || !a.email.trim()) return;
+      a.bezig = true; a.fout = '';
+      render();
+      var redirectTo = window.location.origin + window.location.pathname;
+      sb.auth.resetPasswordForEmail(a.email.trim(), { redirectTo: redirectTo }).then(function (res) {
+        a.bezig = false;
+        if (res.error) { a.fout = res.error.message; render(); return; }
+        a.stap = 'reset-sent';
+        render();
+      }).catch(function () {
+        a.bezig = false; a.fout = 'Kon geen verbinding maken. Probeer het opnieuw.'; render();
+      });
+    },
+    // Alleen bereikbaar met een geldige (tijdelijke) sessie uit een
+    // resetlink — zie de PASSWORD_RECOVERY-tak in onAuthStateChange
+    // hieronder, die state.auth.stap op 'recovery' zet.
+    'set-new-password': function () {
+      var a = state.auth;
+      if (!sb) return;
+      if (a.password.length < 6) { a.fout = 'Kies een wachtwoord van minstens 6 tekens.'; render(); return; }
+      if (a.password !== a.password2) { a.fout = 'De wachtwoorden komen niet overeen.'; render(); return; }
+      a.bezig = true; a.fout = '';
+      render();
+      sb.auth.updateUser({ password: a.password }).then(function (res) {
+        a.bezig = false;
+        a.password = ''; a.password2 = '';
+        if (res.error) { a.fout = res.error.message; render(); return; }
+        a.stap = 'password';
+        state.screen = state.building ? 'app' : 'onboarding';
+        render();
+      }).catch(function () {
+        a.bezig = false; a.fout = 'Kon geen verbinding maken. Probeer het opnieuw.'; render();
+      });
     },
     'logout': function () { state.accountMenuOpen = false; if (sb) sb.auth.signOut(); },
     'save-profiel': function () {
@@ -4037,6 +4195,8 @@
     'upload-regel-cyclus': function (t, d) { state.upload.regels[+d.i].cyclus = t.value; },
     'upload-basisjaar': function (t) { state.upload.basisjaar = t.value; },
     'auth-email': function (t) { state.auth.email = t.value; },
+    'auth-password': function (t) { state.auth.password = t.value; },
+    'auth-password2': function (t) { state.auth.password2 = t.value; },
     'profiel-voornaam': function (t) { if (state.profile) state.profile.voornaam = t.value; },
     'profiel-achternaam': function (t) { if (state.profile) state.profile.achternaam = t.value; },
     'profiel-telefoon': function (t) { if (state.profile) state.profile.telefoon = t.value; },
@@ -4179,6 +4339,15 @@
       sb.auth.onAuthStateChange(function (event, session) {
         state.session = session;
         state.user = session ? session.user : null;
+        // Een resetlink ("wachtwoord vergeten") geeft net als een gewone
+        // inloglink een echte sessie, maar de bedoeling is hier niet
+        // "meteen inloggen": dwing het inlogscherm met het
+        // nieuw-wachtwoord-formulier af, ook als er elders al een ander
+        // scherm openstond toen de link geopend werd.
+        if (event === 'PASSWORD_RECOVERY') {
+          state.auth.stap = 'recovery'; state.auth.fout = '';
+          state.screen = 'login';
+        }
         if (session) {
           if (!state.plansLoaded) loadSavedPlans();
           if (!state.subscriptionLoaded) loadSubscription();
