@@ -2055,7 +2055,7 @@
           '<span class="grow">' + esc(p.label || 'Naamloos gebouw') + '</span>' +
           (isCurrent ? '<span class="bswitch-current-tag">huidig</span>' : '') + '</div>';
       });
-      html += '<div class="bswitch-item bswitch-add" data-act="wijzig-adres">+ Gebouw toevoegen</div>';
+      html += '<div class="bswitch-item bswitch-add" data-act="goto-onboarding">+ Gebouw toevoegen</div>';
       html += '</div>';
     }
     html += '</div>';
@@ -3567,7 +3567,26 @@
     // gebouw gekozen is.
     'goto-mijngebouwen': function () { state.screen = 'app'; state.tab = 'mijngebouwen'; render(); },
     'goto-login': function () { state.screen = 'login'; render(); },
-    'goto-onboarding': function () { state.screen = 'onboarding'; render(); },
+    // Elke ingang naar het zoekscherm bedoelt "start een nieuw/ander
+    // gebouw" (marketing-cta's, "+ Gebouw toevoegen") — nooit "werk verder
+    // aan het huidige plan", dat gaat via goto-app. Zonder deze reset zag
+    // applyBuilding() bij het kiezen van het gevonden adres de nog gevulde
+    // state.elements van een eerder/huidig plan aan voor "hier stond al
+    // iets" en herschaalde die op het nieuwe gebouw i.p.v. de standaard-
+    // bibliotheek te installeren — het nieuwe gebouw kreeg dan de posten/
+    // beoordelingen van het vorige plan mee. Wijzig-adres hierboven is de
+    // ene bewuste uitzondering: die is juist bedoeld om de posten van
+    // hetzélfde plan te laten staan bij het corrigeren van het adres.
+    'goto-onboarding': function () {
+      state.buildingSwitcherOpen = false;
+      state.screen = 'onboarding'; state.onboarding = { q: '', sug: [], bezig: false, bezigTekst: '', fout: '', gezocht: false };
+      state.currentPlanId = null; state.lastSavedSnapshot = null;
+      state.building = null; state.elements = [];
+      state.fonds = 0; state.bijdrage = 55; state.invul = { fonds: false, bijdrage: false };
+      state.offertes = {}; state.bijvullen = {};
+      state.activeElementId = null; state.filter = 'Alles'; state.gebrekenFilter = false; state.addForm = null;
+      render();
+    },
     // Zet de animatie op t=0 en start 'm meteen weer, buiten render() om —
     // dezelfde DOM-knopen blijven bestaan, dus de CSS-transition op de
     // statusregels blijft werken (zie mktAnimApply hierboven).
