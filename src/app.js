@@ -1373,7 +1373,7 @@
   };
 
   function mktLogo(wordmarkOnly) {
-    return '<div class="mkt-logo" data-act="goto-marketing"><div class="mark">M</div>' + (wordmarkOnly ? '' : '<div class="word">MJOP Live</div>') + '</div>';
+    return '<div class="mkt-logo" data-act="goto-marketing"><div class="mark"></div>' + (wordmarkOnly ? '' : '<div class="word">MJOP Live</div>') + '</div>';
   }
 
   // ---------------------------------------------------------------------
@@ -1980,10 +1980,10 @@
 
   function renderTabBar() {
     var tabs = [
-      ['home', 'Overzicht', NAV_ICONS.overzicht],
-      ['gebouw', 'Gebouw', NAV_ICONS.gebouw],
-      ['planning', 'Planning', NAV_ICONS.planning],
-      ['rapport', 'Rapport', NAV_ICONS.rapport],
+      ['home', 'Overzicht'],
+      ['gebouw', 'Gebouw'],
+      ['planning', 'Planning'],
+      ['rapport', 'Rapport'],
     ];
     var html = '<div class="tab-bar">';
     html += '<div class="tab-brand">' + mktLogo() + (state.building ? renderBuildingSwitcher('sidebar') : '') + '</div>';
@@ -1991,30 +1991,16 @@
     tabs.forEach(function (t) {
       var active = state.tab === t[0];
       html += '<button class="tab-item' + (active ? ' active' : '') + '" data-act="set-tab" data-tab="' + t[0] + '">';
-      html += '<span class="tab-icon">' + t[2] + '</span><span class="tab-label">' + t[1] + '</span></button>';
+      html += '<span class="tab-label">' + t[1] + '</span></button>';
     });
-    // "Opslaan" is een actie, geen navigatie-tab — een klik slaat het
-    // huidige plan meteen op, het label is de status (zie
-    // SPEC_ACCOUNTS_AND_SAVING.md §8: "showing opgeslagen/niet opgeslagen
-    // status so it's clear whether changes are persisted"). Voor een
-    // abonnee is dit nu overbodig in de normale, geslaagde situatie —
-    // scheduleAutoSave() regelt het opslaan zelf al stil op de
-    // achtergrond (zie render()) — dus die ziet 'm alleen nog als er
-    // écht iets misgaat, om dat niet stilzwijgend te laten gebeuren. Een
-    // ingelogde gebruiker zonder abonnement ziet 'm gewoon altijd nog:
-    // dat is voor hen de enige weg naar "opslaan is een betaalde functie"
-    // (zie ACTIONS['save-plan']), en zonder abonnement slaat er sowieso
-    // niets automatisch op.
-    if (state.session && (!isSubscribed() || state.plansUi.fout)) {
-      var dirty = isDirty();
-      var saveLabel = state.plansUi.fout ? 'Opslaan mislukt'
-        : state.plansUi.bezig ? 'Bezig…'
-        : !state.currentPlanId ? 'Opslaan'
-        : dirty ? 'Wijzigingen' : 'Opgeslagen';
-      html += '<button class="tab-item' + (dirty || state.plansUi.fout ? ' dirty' : '') + '" data-act="save-plan">';
-      html += '<span class="tab-icon">' + NAV_ICONS.opslaan + '</span><span class="tab-label">' + saveLabel + '</span></button>';
-    }
-    // "Account" is vanaf 960px geen los menu-item meer — het klikbare
+    // Geen "Opslaan"-knop meer in de zijbalk/tabbalk (huisstijl-README
+    // §Zijbalk: "Geen opslaan-knop, nergens" — alles wordt automatisch
+    // opgeslagen, de status staat in de voet hieronder). Voor een
+    // ingelogde gebruiker zonder abonnement — voorheen de enige weg naar
+    // "opslaan is een betaalde functie" (zie ACTIONS['save-plan']) — loopt
+    // die ontdekking nu via het accountmenu in de voet i.p.v. een eigen
+    // knop hier.
+    // "Account" is vanaf 900px geen los menu-item meer — het klikbare
     // gebruikersblok onderin (.tab-account-row, zie .tab-bottom hieronder)
     // met zijn eigen mini-menu neemt die rol over (zie 'toggle-account-
     // menu'). Op mobiel bestaat dat blok niet (.tab-bottom is daar altijd
@@ -2022,21 +2008,31 @@
     // account — vandaar alleen op desktop weg (zie .tab-item-account-
     // mobile in style.css).
     html += '<button class="tab-item tab-item-account-mobile' + (state.tab === 'account' ? ' active' : '') + '" data-act="set-tab" data-tab="account">';
-    html += '<span class="tab-icon">' + NAV_ICONS.account + '</span><span class="tab-label">' + (state.session ? 'Account' : 'Inloggen') + '</span></button>';
+    html += '<span class="tab-label">' + (state.session ? 'Account' : 'Inloggen') + '</span></button>';
     html += '</div>';
-    // Alleen zichtbaar vanaf 960px (zie style.css) — op mobiel blijft de
+    // Alleen zichtbaar vanaf 900px (zie style.css) — op mobiel blijft de
     // tabbalk onderin exact zoals hij was, en gaat Instellingen via het
     // losse icoontje rechtsboven (zie renderApp()).
     html += '<div class="tab-bottom">';
     html += '<button class="tab-item' + (state.tab === 'instellingen' ? ' active' : '') + '" data-act="set-tab" data-tab="instellingen">';
-    html += '<span class="tab-icon">' + NAV_ICONS.instellingen + '</span><span class="tab-label">Account</span></button>';
+    html += '<span class="tab-label">Account</span></button>';
+    html += '<div class="tab-divider"></div>';
+    // Opslaanstatus + mailadres, precies zoals in het referentieontwerp —
+    // vervangt het vorige avatar+naam-blok. Blijft klikbaar voor het
+    // account-mini-menu (Account/Uitloggen), dat bestond al.
     if (state.session) {
-      var accountNaam = displayNaam();
-      var avatarLetter = accountNaam.charAt(0).toUpperCase();
+      var fout = state.plansUi.fout;
+      var dirty = isDirty();
+      var statusLabel = fout ? 'Opslaan mislukt'
+        : !isSubscribed() ? 'Wijzigingen worden niet opgeslagen'
+        : dirty ? 'Niet-opgeslagen wijzigingen'
+        : 'Automatisch opgeslagen';
+      var statusClass = fout ? 'bad' : (dirty || !isSubscribed()) ? 'dirty' : '';
       html += '<div class="tab-account-row" data-act="toggle-account-menu">';
-      html += '<span class="tab-account-avatar">' + esc(avatarLetter) + '</span>';
-      html += '<div class="tab-account-info"><div class="tab-account-name">' + esc(accountNaam) + '</div>' +
-        (isDirty() ? '<div class="tab-account-sub">Niet-opgeslagen wijzigingen</div>' : '') + '</div>';
+      html += '<div class="grow">';
+      html += '<div class="tab-save-status ' + statusClass + '"><span class="tab-status-dot"></span>' + esc(statusLabel) + '</div>';
+      html += '<div class="tab-account-email">' + esc(state.user.email) + '</div>';
+      html += '</div>';
       html += '<span class="account-menu-chev">' + (state.accountMenuOpen ? '︿' : '﹀') + '</span>';
       html += '</div>';
       if (state.accountMenuOpen) {
@@ -2047,8 +2043,10 @@
       }
     } else {
       html += '<div class="tab-account-row" data-act="set-tab" data-tab="account">';
-      html += '<span class="tab-account-avatar">V</span>';
-      html += '<div class="tab-account-info"><div class="tab-account-name">Voorbeeldgebouw</div><div class="tab-account-sub">Demo, niet ingelogd</div></div>';
+      html += '<div class="grow">';
+      html += '<div class="tab-save-status dirty"><span class="tab-status-dot"></span>Demo, niet ingelogd</div>';
+      html += '<div class="tab-account-email">Voorbeeldgebouw</div>';
+      html += '</div>';
       html += '</div>';
     }
     html += '</div>';

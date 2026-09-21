@@ -1,87 +1,139 @@
+/* MJOP Live — huisstijl tokens, letterlijk overgenomen uit het
+   design-handoffpakket (tokens.css). Niet zelf hernoemen of hertinten —
+   componenten hieronder en in latere stappen gebruiken deze namen. */
 :root {
-  --ink: #1E242B;
-  --ink-60: rgba(30, 36, 43, .78);
-  /* ink-50/45/42 zijn opgehoogd t.o.v. de oorspronkelijke .5/.45/.42 —
-     die haalden op --page/--card geen WCAG AA (4.5:1) voor gewone tekst
-     (menu-items, de eyebrow-adresregel, hint-teksten e.d.). */
-  --ink-50: rgba(30, 36, 43, .72);
-  --ink-45: rgba(30, 36, 43, .68);
-  --ink-42: rgba(30, 36, 43, .64);
-  --ink-28: rgba(30, 36, 43, .28);
-  --ink-14: rgba(30, 36, 43, .14);
-  --ink-10: rgba(30, 36, 43, .1);
-  --ink-08: rgba(30, 36, 43, .08);
-  --page: #F2F3EF;
-  --card: #FFFFFF;
-  --panel: #E9EBE5;
+  /* --- Papier en oppervlak (van buiten naar binnen lichter) --- */
+  --canvas:        #E9E7E2;  /* achtergrond buiten de app */
+  --app:           #FCFCFB;  /* app-oppervlak */
+  --card:          #FFFFFF;  /* kaarten, tabellen, panelen */
+  --subtle:        #FAFAF8;  /* tabelkop, browserbalk */
+  --muted-surface: #F4F4F1;  /* saldo-chip */
+  --shade:         #F6F6F3;  /* footerblok homepage */
+
+  /* --- Inkt (donker) --- */
+  --ink:          #101211;  /* tekst, zijbalk, primaire knop */
+  --ink-deep:     #0E100F;  /* animatieblok */
+  --ink-2:        #161917;  /* gebouwkaart in zijbalk */
+  --ink-3:        #1F2320;  /* actief zijbalk-item */
+  --ink-line:     #2C302E;  /* rand op donker */
+  --ink-dot:      #3A3E3C;  /* inactieve stip */
+
+  /* --- Tekst op licht --- */
+  --text:         #101211;
+  --text-2:       #4C4E4B;
+  --text-3:       #5C5E5A;
+  --text-4:       #6E6A63;
+  --text-mono:    #8A8C88;  /* mono-labels, jaartallen */
+  --text-dim:     #9A9C98;  /* uitgezet, placeholders */
+
+  /* --- Tekst op donker --- */
+  --on-ink:       #FCFCFB;
+  --on-ink-2:     #E3E5E2;
+  --on-ink-3:     #C9CCC8;
+  --on-ink-4:     #B4B8B5;
+  --on-ink-5:     #8E928F;
+  --on-ink-dim:   #6E726F;
+  --on-ink-label: #8E93A8;  /* mono-label bij maatvoering */
+
+  /* --- Kobalt (accent) --- */
+  --blue:         #2F4BFF;  /* primaire knop, actief, balken */
+  --blue-deep:    #1B2ECC;  /* links, mono-accentlabels */
+  --blue-2:       #5B72FF;
+  --blue-3:       #7E8FFF;  /* accent op donker */
+  --blue-4:       #8C9BFF;
+  --blue-5:       #9FB0FF;  /* zwakke balk */
+  --blue-6:       #A9B4FF;
+  --blue-7:       #B9C2FF;
+  --blue-tint:    #F7F8FD;  /* uitleg- en actiepanelen */
+  --blue-tint-2:  #F2F4FF;  /* badge */
+  --blue-border:  #D7DBF5;
+  --blue-track:   #DCDFF2;  /* voortgangsspoor */
+
+  /* --- Rood (tekort) --- */
+  --red:          #C7362E;  /* staafje 'fonds is leeg' */
+  --red-ink:      #9E2B22;  /* tekst, negatieve bedragen */
+  --red-tint:     #FDEEEC;  /* badge, chip */
+  --red-tint-2:   #FEF8F7;  /* piekjaar-rij */
+  --red-border:   #F2DAD7;
+
+  --green:        #4E8F6E;  /* 'automatisch opgeslagen' */
+
+  /* --- Randen (grof naar fijn) --- */
+  --border:       #E2E1DC;  /* kaartrand */
+  --border-input: #D9D8D3;  /* invoer, secundaire knop */
+  --border-2:     #EBEAE5;  /* sectiescheiding */
+  --border-3:     #EFEEE9;  /* binnenscheiding kaart */
+  --border-4:     #F3F2EE;  /* tabelrij-scheiding */
+  --border-5:     #E6E5E0;  /* grafiek-basislijn */
+
+  /* --- Radius --- */
+  --r-bar:  2px;   /* staafjes, logo */
+  --r-chip: 3px;   /* badge, saldo-chip, knop in veld */
+  --r-ctl:  4px;   /* knoppen, invoer, zijbalk-item, binnenkaart */
+  --r-card: 6px;   /* kaarten, panelen, app-omlijsting */
+  --r-pill: 999px; /* filterchips, voortgangsbalk */
+
+  /* --- Type --- */
+  --font: 'Instrument Sans', system-ui, -apple-system, sans-serif;
+  --mono: 'IBM Plex Mono', ui-monospace, monospace;
+
+  /* --- Ruimte --- */
+  --sidebar-w: 232px;
+  --pad-screen: 30px 32px 36px;
+  --gap-block: 22px;  /* tussen hoofdblokken */
+  --gap-card: 18px;   /* tussen kaarten in een kolom */
+
+  --shadow-float: 0 26px 60px -20px rgba(16,18,17,0.42);
+
+  /* --- Compat-aliassen: de bestaande CSS hieronder (nog niet per stap
+     herbouwd) gebruikt deze oudere tokennamen op honderden plekken. Ze
+     wijzen nu naar de nieuwe huisstijlwaarden hierboven, zodat de hele
+     app meteen de nieuwe kleuren/typografie krijgt zonder dat elke losse
+     component al herschreven hoeft te zijn — dat gebeurt stap voor stap
+     (2 t/m 8). Nieuwe CSS gebruikt rechtstreeks de tokens hierboven. */
+  --page: var(--app);
+  --panel: var(--subtle);
   --white: #fff;
-  --blue: #1F5FA8;
-  --blue-dark: #184C88;
-  --blue-tint: #E2ECF7;
-  --link: #1F5FA8;
-  --link-dark: #184C88;
-  /* --accent is nu het tekort-/waarschuwingsrood, niet meer de CTA-kleur:
-     primaire knoppen gebruiken --blue. */
-  --accent: #C8391B;
-  --accent-dark: #A42D14;
-  /* Koper: warme tweede kleur voor de tekening en accenten — bewust niet
-     voor data of status (dat blijven blauw, groen en rood). */
-  --copper: #B0673A;
-  --copper-tint: #F3E7DC;
-  /* Route-kaart: nachtblauw met warm licht in de ramen. */
-  --navy: #123B6D;
-  --amber: #F2B45A;
+  --blue-dark: var(--blue-deep);
+  --link: var(--blue-deep);
+  --link-dark: var(--ink);
+  --accent: var(--red-ink);
+  --accent-dark: #7A2019;
   --orange: var(--accent);
   --good-bg: #E1EFE9;
-  --good-fg: #23694F;
+  --good-fg: var(--green);
   --warn-bg: #F6EFD9;
   --warn-fg: #7D6318;
   --warn2-bg: #F6E6C8;
   --warn2-fg: #8A6414;
-  --bad-bg: #F8E3DD;
-  --bad-fg: #9B2C14;
-  --sans: 'Schibsted Grotesk', system-ui, sans-serif;
-  --heading: var(--sans);
-  --mono: var(--sans);
+  --bad-bg: var(--red-tint);
+  --bad-fg: var(--red-ink);
+  --sans: var(--font);
+  --heading: var(--font);
   --card-tr: rgba(255, 255, 255, .95);
+  --ink-60: rgba(16, 18, 17, .78);
+  --ink-50: rgba(16, 18, 17, .72);
+  --ink-45: rgba(16, 18, 17, .68);
+  --ink-42: rgba(16, 18, 17, .64);
+  --ink-28: rgba(16, 18, 17, .28);
+  --ink-14: rgba(16, 18, 17, .14);
+  --ink-10: rgba(16, 18, 17, .1);
+  --ink-08: rgba(16, 18, 17, .08);
+  /* Koper/navy/amber: illustratie-accenten uit de vorige huisstijl, nog in
+     gebruik bij de getekende gebouw- en route-componenten die pas in
+     latere stappen (Gebouw, Instapscherm) worden nagebouwd — tokens.css
+     kent ze niet meer, dus deze vervallen zodra die stappen klaar zijn. */
+  --copper: #B0673A;
+  --copper-tint: #F3E7DC;
+  --navy: #123B6D;
+  --amber: #F2B45A;
 }
 
-/* Donkere modus — zelfde tokennamen, andere waarden. Componenten die
-   letterlijk #fff of var(--ink) als achtergrond gebruiken (i.p.v. var(--card)/
-   var(--blue)) draaien bewust niet automatisch mee — die zijn hieronder en
-   verderop in dit bestand apart gecorrigeerd naar een thema-vaste kleur. */
+/* Donkere modus: de nieuwe huisstijl heeft (nog) geen donker ontwerp, dus
+   dit blok laat bewust geen eigen kleuren meer declareren — de toggle in
+   Instellingen blijft werken (zet data-theme op <html>), maar valt tot er
+   een donker ontwerp is terug op de lichte tokens hierboven. */
 :root[data-theme="dark"] {
-  --ink: #E7ECF2;
-  --ink-60: rgba(231, 236, 242, .63);
-  --ink-50: rgba(231, 236, 242, .59);
-  --ink-45: rgba(231, 236, 242, .55);
-  --ink-42: rgba(231, 236, 242, .51);
-  --ink-28: rgba(231, 236, 242, .28);
-  --ink-14: rgba(231, 236, 242, .14);
-  --ink-10: rgba(231, 236, 242, .1);
-  --ink-08: rgba(231, 236, 242, .08);
-  --page: #0F1620;
-  --card: #17202B;
-  --panel: #1E2836;
-  --blue: #6C93C7;
-  --blue-dark: #86A9D6;
-  --blue-tint: rgba(108, 147, 199, .16);
-  --link: #7FB2F5;
-  --link-dark: #9FC5F7;
-  --accent: #EF6B4C;
-  --accent-dark: #F58B70;
-  --copper: #D69563;
-  --copper-tint: rgba(214, 149, 99, .16);
-  --orange: var(--accent);
-  --good-bg: rgba(63, 107, 70, .3);
-  --good-fg: #86CDB0;
-  --warn-bg: rgba(125, 99, 24, .3);
-  --warn-fg: #E8C878;
-  --warn2-bg: rgba(138, 100, 20, .3);
-  --warn2-fg: #F0C878;
-  --bad-bg: rgba(138, 61, 20, .3);
-  --bad-fg: #F0A47C;
-  --card-tr: rgba(23, 32, 43, .92);
 }
 
 * { box-sizing: border-box; }
@@ -152,7 +204,7 @@ input[type=range]::-moz-range-thumb {
    renderAccount()) moet de resterende hoogte van de flex-kolom opvullen —
    anders zakt de (sticky) tabbalk bij een korte pagina (bv. Account >
    Mijn profiel) meteen na de inhoud in plaats van onderaan het scherm te
-   blijven staan. Vanaf 960px wordt dit al preciezer geregeld (zie de
+   blijven staan. Vanaf 900px wordt dit al preciezer geregeld (zie de
    @media-regel hieronder), dit is de basisregel voor de mobiele tabbalk. */
 .app-shell > div:not(.tab-bar):not(.building-switcher) { flex: 1; min-width: 0; }
 
@@ -331,7 +383,7 @@ input[type=range]::-moz-range-thumb {
 /* Planning: samenvatting (totaal, laagste fondsstand, per categorie) naast
    de tijdlijn i.p.v. alleen een lange lijst — op mobiel/tablet blijft dit
    gewoon onder elkaar staan (samenvatting eerst, dan de tijdlijn), pas
-   vanaf de zijbalk-breedte (960px) komt het naast elkaar te staan. */
+   vanaf de zijbalk-breedte (900px) komt het naast elkaar te staan. */
 .planning-layout { display: flex; flex-direction: column; gap: 4px; }
 .planning-main, .planning-side { min-width: 0; }
 /* .card op zichzelf (witte achtergrond, 10%-opacity rand) valt op de
@@ -340,7 +392,7 @@ input[type=range]::-moz-range-thumb {
    krijgt 'm daarom een duidelijkere rand plus een lichte schaduw zodat
    de cijfers zichtbaar "in het vak" staan i.p.v. los op de pagina. */
 .planning-side .card { border-color: var(--ink-14); box-shadow: 0 1px 3px rgba(27,36,48,.06); }
-@media (min-width: 960px) {
+@media (min-width: 900px) {
   .planning-layout { flex-direction: row-reverse; align-items: flex-start; gap: 8px; }
   .planning-side { flex: 0 0 300px; }
   .planning-main { flex: 1; }
@@ -370,7 +422,7 @@ input[type=range]::-moz-range-thumb {
 }
 .acct-profile-name { font: 500 14.5px/1.3 var(--sans); color: var(--ink); }
 .acct-profile-sub { font: 400 12px/1.3 var(--sans); color: var(--ink-50); margin-top: 2px; }
-@media (min-width: 960px) {
+@media (min-width: 900px) {
   .acct-layout { flex-direction: row; align-items: flex-start; gap: 24px; }
   .acct-nav { flex: 0 0 180px; flex-direction: column; position: sticky; top: 14px; }
   .acct-nav-item.danger { margin-top: 10px; }
@@ -400,7 +452,12 @@ input[type=range]::-moz-range-thumb {
 .tl-row-empty .tl-saldo { padding: 2px 8px; }
 .tl-row-empty .tl-dot { margin-top: 1px; }
 
-.tab-bar { flex: none; display: flex; border-top: 1px solid var(--ink-10); background: var(--card-tr); backdrop-filter: blur(12px); padding: 10px 0 26px; position: sticky; bottom: 0; }
+/* Zijbalk/tabbalk: één en hetzelfde ink-zwarte component dat onder 900px
+   als tabbalk onderin ligt en vanaf 900px een zijbalk wordt (zie de
+   @media-regel verderop) — README §Zijbalk: "dezelfde vier items". Geen
+   iconenbibliotheek (README §Assets): navigatie-items krijgen een stip
+   i.p.v. een svg-icoon, zie .tab-item::before hieronder. */
+.tab-bar { flex: none; display: flex; background: var(--ink); padding: 10px 10px 26px; position: sticky; bottom: 0; }
 /* .tab-main houdt de eigenlijke navigatie-items; op mobiel is dit de
    enige zichtbare rechtstreekse child van .tab-bar (naast .tab-brand, die
    altijd display:none is buiten desktop), dus ziet de tabbalk er precies
@@ -409,19 +466,29 @@ input[type=range]::-moz-range-thumb {
    het losse icoontje rechtsboven (.mobile-settings-btn), zie renderApp(). */
 .tab-main { display: flex; flex: 1; min-width: 0; }
 .tab-bottom { display: none; }
-.tab-item { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; cursor: pointer; background: none; border: none; color: var(--ink-45); }
-.tab-icon { width: 20px; height: 20px; flex: none; display: flex; align-items: center; justify-content: center; }
+.tab-item {
+  flex: 1; display: flex; flex-direction: column; align-items: center;
+  justify-content: center; gap: 6px; cursor: pointer; background: none;
+  border: none; color: var(--on-ink-4); min-height: 44px;
+  border-radius: var(--r-ctl); font: 400 10px/1 var(--font);
+}
+.tab-item:hover { background: var(--ink-3); }
+.tab-item::before { content: ''; width: 5px; height: 5px; border-radius: 50%; flex: none; background: var(--ink-dot); }
+.tab-item.active { color: var(--on-ink); font-weight: 500; }
+.tab-item.active::before { background: var(--blue); }
+.tab-label { font: inherit; color: inherit; }
+/* .tab-icon zelf komt niet meer voor in de zijbalk/tabbalk (die gebruikt nu
+   een stip, zie .tab-item::before hierboven) — deze regel blijft voor het
+   losse zon/maan-icoontje in Instellingen (zie renderAccount()), dat de
+   klasse alleen nog voor de svg-opvulling gebruikt. */
 .tab-icon svg { width: 100%; height: 100%; }
-.tab-label { font: 500 10px/1 var(--sans); color: inherit; }
-.tab-item.active { color: var(--blue); }
-.tab-item.dirty { color: var(--accent); }
 
 /* Gebouwkiezer — twee kopieën in de HTML (sidebar op desktop, inline op
    mobiel, zie renderBuildingSwitcher()), deze regel toont per viewport
    maar één ervan. De desktop-kopie zit binnen .tab-brand, die toch al
-   altijd verborgen is onder 960px (zie verderop) — dus alleen de mobiele
+   altijd verborgen is onder 900px (zie verderop) — dus alleen de mobiele
    kopie hoeft hier expliciet weggehaald te worden op desktop. */
-@media (min-width: 960px) {
+@media (min-width: 900px) {
   .building-switcher-mobile { display: none; }
 }
 .building-switcher { position: relative; margin: 0 0 16px; }
@@ -440,7 +507,16 @@ input[type=range]::-moz-range-thumb {
 .building-switcher-sidebar .bswitch-adres { white-space: normal; overflow: visible; text-overflow: unset; }
 .building-switcher-sidebar .bswitch-current { align-items: flex-start; }
 .building-switcher-sidebar .bswitch-chev { margin-top: 1px; }
-.bswitch-current { display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--ink-14); background: var(--card); }
+/* Gebouwkaart in de zijbalk: donker, zoals in het ontwerp (README §Zijbalk)
+   — de mobiele kopie (.building-switcher-mobile) op een lichte pagina
+   houdt de gewone kaartstijl hieronder aan. */
+.building-switcher-sidebar .bswitch-current { background: var(--ink-2); border-color: var(--ink-line); }
+.building-switcher-sidebar .bswitch-current:hover { background: var(--ink-3); }
+.building-switcher-sidebar .bswitch-adres { color: var(--on-ink); font-weight: 500; font-size: 13.5px; }
+.building-switcher-sidebar .bswitch-status { color: var(--on-ink-5); font-size: 11.5px; }
+.building-switcher-sidebar .bswitch-status.dirty { color: var(--blue-3); }
+.building-switcher-sidebar .bswitch-chev { color: var(--on-ink-5); }
+.bswitch-current { display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 8px 10px; border-radius: var(--r-ctl); border: 1px solid var(--ink-14); background: var(--card); }
 .bswitch-current:hover { background: var(--panel); }
 /* .grow is verder alleen als .row .grow/.tl-post .grow gedefinieerd —
    hier expliciet zodat een lang, echt adres niet de hele knop opduwt en
@@ -469,9 +545,9 @@ input[type=range]::-moz-range-thumb {
 .account-menu-item:hover { background: var(--panel); }
 
 /* Op mobiel is dit de enige weg naar inloggen/account (.tab-bottom met
-   het gebruikersblok+menu hierboven bestaat daar niet) — vanaf 960px
+   het gebruikersblok+menu hierboven bestaat daar niet) — vanaf 900px
    neemt dat gebruikersblok die rol over, dus dan weg. */
-@media (min-width: 960px) {
+@media (min-width: 900px) {
   .tab-item-account-mobile { display: none; }
 }
 
@@ -552,7 +628,7 @@ input[type=range]::-moz-range-thumb {
    telefoonkaart met lege marges. Alleen van toepassing op het app-scherm
    (met tabbalk) — het adres-opzoekscherm en de mjop-upload-wizard hebben
    geen tabbalk en blijven een gecentreerde kaart, ook op een groot scherm. */
-@media (min-width: 960px) {
+@media (min-width: 900px) {
   .app-shell:has(.tab-bar) {
     max-width: none;
     width: 100%;
@@ -564,75 +640,73 @@ input[type=range]::-moz-range-thumb {
   .app-shell:has(.tab-bar) > .tab-bar {
     order: -1;
     flex: none;
-    width: 232px;
+    width: var(--sidebar-w);
     flex-direction: column;
     align-items: stretch;
     justify-content: flex-start;
-    gap: 3px;
-    padding: 30px 16px;
-    border-top: none;
-    border-right: 1px solid var(--ink-10);
+    gap: 2px;
+    padding: 20px 16px;
+    border-right: none;
     position: sticky;
     top: 0;
     bottom: auto;
     height: 100vh;
-    backdrop-filter: none;
-    background: var(--card);
+    background: var(--ink);
   }
   .app-shell:has(.tab-bar) > .tab-bar .tab-brand {
     display: block;
-    padding: 2px 12px 24px;
+    padding: 0 8px 26px;
   }
+  .app-shell:has(.tab-bar) > .tab-bar .tab-brand .mkt-logo .word { color: var(--on-ink); }
   .app-shell:has(.tab-bar) > .mobile-settings-btn { display: none; }
   .app-shell:has(.tab-bar) > .mobile-home-btn { display: none; }
   .app-shell:has(.tab-bar) > .tab-bar .tab-main {
     flex-direction: column;
-    gap: 3px;
+    gap: 2px;
   }
   .app-shell:has(.tab-bar) > .tab-bar .tab-item {
     flex: none; /* was nog flex:1 van de mobiele tabbalk — rekte elk item verticaal uit tot een gelijk deel van de volle zijbalkhoogte */
     flex-direction: row;
     justify-content: flex-start;
     align-items: center;
-    gap: 12px;
-    padding: 11px 12px;
-    border-radius: 8px;
+    gap: 10px;
+    padding: 10px 11px;
+    min-height: 0;
+    font-size: 14px;
   }
-  .app-shell:has(.tab-bar) > .tab-bar .tab-item:hover { background: var(--panel); }
-  .app-shell:has(.tab-bar) > .tab-bar .tab-item.active { background: var(--blue-tint); }
-  .app-shell:has(.tab-bar) > .tab-bar .tab-icon { width: 18px; height: 18px; }
-  .app-shell:has(.tab-bar) > .tab-bar .tab-label { font: 500 13px/1 var(--sans); }
 
-  /* Instellingen + accountregel onderaan de zijbalk, zoals in het
+  /* Instellingen + opslaanstatus onderaan de zijbalk, zoals in het
      referentieontwerp — op mobiel blijft dit hele blok verborgen (zie
      .tab-bottom hierboven), dus geen wijziging aan de tabbalk onderin. */
   .app-shell:has(.tab-bar) > .tab-bar .tab-bottom {
     display: flex;
     flex-direction: column;
-    gap: 3px;
+    gap: 2px;
     margin-top: auto;
-    padding-top: 14px;
-    border-top: 1px solid var(--ink-10);
+    padding-top: 4px;
   }
+  .app-shell:has(.tab-bar) > .tab-bar .tab-divider { height: 1px; background: var(--ink-line); margin: 12px 5px; }
   .app-shell:has(.tab-bar) > .tab-bar .tab-account-row {
-    display: flex; align-items: center; gap: 10px;
-    padding: 9px 12px; border-radius: 8px; cursor: pointer; margin-top: 4px;
+    display: flex; align-items: flex-start; gap: 8px;
+    padding: 4px 5px; border-radius: var(--r-ctl); cursor: pointer;
   }
-  .app-shell:has(.tab-bar) > .tab-bar .tab-account-row:hover { background: var(--panel); }
-  .tab-account-avatar {
-    flex: none; width: 28px; height: 28px; border-radius: 50%;
-    background: var(--blue-tint); color: var(--blue);
-    display: flex; align-items: center; justify-content: center;
-    font: 600 12px/1 var(--sans);
+  .app-shell:has(.tab-bar) > .tab-bar .tab-account-row:hover { background: var(--ink-3); }
+  .tab-save-status { display: flex; align-items: center; gap: 8px; font: 400 12px/1 var(--font); color: var(--on-ink-5); white-space: nowrap; }
+  .tab-status-dot { flex: none; width: 5px; height: 5px; border-radius: 50%; background: var(--green); }
+  .tab-save-status.dirty { color: var(--blue-3); }
+  .tab-save-status.dirty .tab-status-dot { background: var(--blue-3); }
+  .tab-save-status.bad { color: var(--red); }
+  .tab-save-status.bad .tab-status-dot { background: var(--red); }
+  .tab-account-email {
+    font: 400 12px/1.3 var(--font); color: var(--on-ink-dim); margin-top: 2px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
-  .tab-account-info { min-width: 0; }
-  .tab-account-name { font: 500 12.5px/1.3 var(--sans); color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .tab-account-sub { font: 400 10.5px/1.3 var(--sans); color: var(--ink-45); margin-top: 1px; }
+  .app-shell:has(.tab-bar) > .tab-bar .account-menu-chev { margin-top: 1px; color: var(--on-ink-5); }
 
   /* De feitelijke inhoud (altijd de andere rechtstreekse child van
-     .app-shell dan .tab-bar) sluit direct aan op de zijbalk — de eigen
-     border-right van de zijbalk hierboven is de enige scheidingslijn,
-     dus hier geen eigen kader/schaduw en geen margin (die zou een
+     .app-shell dan .tab-bar) sluit direct aan op de zijbalk — alleen het
+     kleurcontrast (inktzwart naast --app) scheidt ze, zoals in het
+     ontwerp, dus hier geen eigen rand/schaduw en geen margin (die zou een
      lege strook tussen zijbalk en inhoud trekken). Alleen een
      max-width tegen een onleesbaar brede lay-out op een groot scherm;
      de eventuele restruimte komt dan aan de rechterkant te staan, niet
@@ -641,7 +715,7 @@ input[type=range]::-moz-range-thumb {
     flex: 1;
     min-width: 0;
     max-width: 1080px;
-    background: var(--card);
+    background: var(--app);
     min-height: 100vh;
   }
   /* De tabs met een .ov-page (alle tabs, zie pgOpen() in app.js) lopen
@@ -666,9 +740,11 @@ input[type=range]::-moz-range-thumb {
   padding: 18px 40px; background: var(--card); border-bottom: 1px solid var(--ink-08);
   position: sticky; top: 0; z-index: 5;
 }
-.mkt-logo { display: flex; align-items: center; gap: 10px; cursor: pointer; }
-.mkt-logo .mark { width: 30px; height: 30px; border-radius: 6px; background: var(--blue); color: #fff; display: flex; align-items: center; justify-content: center; font: 700 15px/1 var(--heading); flex: none; }
-.mkt-logo .word { font: 700 16px/1 var(--heading); letter-spacing: -.01em; }
+/* Logo: één gedraaid vierkant in kobalt, geen letter — het enige merkteken
+   in de hele huisstijl (README §Assets: "geen iconenset"). */
+.mkt-logo { display: flex; align-items: center; gap: 9px; cursor: pointer; }
+.mkt-logo .mark { width: 18px; height: 18px; border-radius: var(--r-bar); background: var(--blue); transform: rotate(45deg); flex: none; }
+.mkt-logo .word { font: 600 17px/1 var(--font); letter-spacing: -.02em; color: var(--ink); }
 .mkt-nav { display: flex; align-items: center; gap: 30px; }
 .mkt-nav a { font: 500 13.5px/1 var(--sans); color: var(--ink-60); cursor: pointer; text-decoration: none; }
 .mkt-nav a:hover { color: var(--ink); }
@@ -850,7 +926,7 @@ input[type=range]::-moz-range-thumb {
 .sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 
 /* Op mobiel blijft de pagina wit zoals de andere tabs; de grijze paginakleur
-   geldt alleen naast de zijbalk (zie de 960px-regel onderaan). */
+   geldt alleen naast de zijbalk (zie de 900px-regel onderaan). */
 .ov-page { background: transparent; }
 .ov { max-width: 1240px; margin: 0 auto; padding: 8px 16px 32px; }
 .ov-grid-main {
@@ -968,7 +1044,7 @@ input[type=range].ov-slider::-moz-range-thumb { width: 20px; height: 20px; borde
   .ov-row { flex-wrap: wrap; }
 }
 
-@media (min-width: 960px) {
+@media (min-width: 900px) {
   .app-shell:has(.tab-bar) > div.ov-page { max-width: none; background: var(--page); }
   .ov { padding: 40px 48px 64px; }
   .ov-grid-main {
@@ -1063,7 +1139,7 @@ input[type=range].ov-slider::-moz-range-thumb { width: 20px; height: 20px; borde
 .ov .acct-profile-sub { font-size: 13px; }
 .ov .toggle-row .hint, .ov .row .meta { max-width: 60em; }
 
-@media (min-width: 960px) {
+@media (min-width: 900px) {
   .ov .planning-layout { gap: 40px; }
   .ov .planning-side { flex: 0 0 320px; }
 }
@@ -1182,7 +1258,7 @@ input[type=range].ov-slider::-moz-range-thumb { width: 20px; height: 20px; borde
 .mkt-onderdeel dt { font: 700 17px/1.3 var(--heading); }
 .mkt-onderdeel dd { margin: 4px 0 0; font: 400 15px/1.5 var(--sans); color: var(--ink-60); }
 
-@media (min-width: 960px) {
+@media (min-width: 900px) {
   .gb-layout { grid-template-columns: 300px minmax(0, 1fr); gap: 32px; }
   .gb-aside { position: sticky; top: 24px; padding: 20px; }
   .gb-aside .gb-svg { max-height: none; }
@@ -1267,7 +1343,7 @@ input[type=range].ov-slider::-moz-range-thumb { width: 20px; height: 20px; borde
 .ov-vg-tekst b { color: var(--ink); font-weight: 600; }
 .ov-vg .linkish { margin-left: auto; font-weight: 600; }
 
-@media (min-width: 960px) {
+@media (min-width: 900px) {
   .ov-route { grid-template-columns: minmax(0, 1fr) 320px; }
   .ov-route-main { padding: 30px 34px 32px; }
   .ov-route-art { position: relative; display: grid; place-items: end center; padding: 24px 20px 0; }
