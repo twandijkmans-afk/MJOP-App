@@ -2,6 +2,9 @@
   'use strict';
 
   var CURRENT_YEAR = new Date().getFullYear();
+  // Quantity Foundation v1 (src/quantity.js): één hoeveelheidsobject per post
+  // met herkomst, status, automatische en handmatige waarde.
+  var Q = window.MJOPQuantity;
   var HORIZON = 10; // years shown in projections (current year + 9)
 
   // ---------------------------------------------------------------------
@@ -84,6 +87,8 @@
       bedrag: pick(['bedrag', 'kosten', 'prijs', 'investering']),
       sfb: pick(['sfb', 'code']),
       conditie: pick(['conditie', 'score']),
+      hoeveelheid: pick(['hoeveelheid', 'hvh', 'aantal']),
+      eenheid: pick(['eenheid', 'ehd']),
     };
   }
 
@@ -131,7 +136,10 @@
   // hoeveelheid + eenheid, gevolgd door het startjaar en desgewenst de cyclus
   // in jaren, vóór de kostenkolommen. Herkent dit patroon ongeacht waar het
   // in de regel staat, zodat het niet aan één specifieke opmaak vastzit.
-  var STJ_CY_RE = new RegExp('([0-9]+(?:[.,][0-9]+)?)\\s*(?:' + PDF_EENHEID + ')\\.?\\s+(20[0-6][0-9])(?:\\s+([0-9]{1,3})\\b)?', 'i');
+  // Groepen: 1 = hoeveelheid, 2 = eenheid, 3 = startjaar, 4 = cyclus. De
+  // hoeveelheid + eenheid worden sinds Quantity Foundation v1 bewaard (letterlijk
+  // én gelezen), niet meer weggegooid.
+  var STJ_CY_RE = new RegExp('([0-9]+(?:[.,][0-9]+)*)\\s*(' + PDF_EENHEID + ')\\.?\\s+(20[0-6][0-9])(?:\\s+([0-9]{1,3})\\b)?', 'i');
 
   function eersteBedragNa(tekst) {
     var amountRe = /[0-9]{1,3}(?:[.,][0-9]{3})+(?:[.,][0-9]{2})?|[0-9]+(?:[.,][0-9]{2})|[0-9]{3,}/g;
@@ -158,11 +166,13 @@
       if (!line || isPdfNoiseLine(line)) continue;
 
       var stj = STJ_CY_RE.exec(line);
-      var naam, jaar, cyclus, bedrag;
+      var naam, jaar, cyclus, bedrag, hoeveelheidTekst = '', eenheidTekst = '';
       if (stj) {
         naam = line.slice(0, stj.index).replace(/[€\-–.:]+$/, '').trim();
-        jaar = +stj[2];
-        cyclus = stj[3] ? +stj[3] : 0;
+        hoeveelheidTekst = stj[1];
+        eenheidTekst = stj[2];
+        jaar = +stj[3];
+        cyclus = stj[4] ? +stj[4] : 0;
         bedrag = eersteBedragNa(line.slice(stj.index + stj[0].length));
       } else {
         var ym = /\b(20[2-6][0-9])\b/.exec(line);
@@ -178,11 +188,36 @@
       // pdf-tabellen) hoort bij de net gevonden regel.
       if (isVervolgregel(rawLines[i + 1])) { naam = (naam + ' ' + rawLines[i + 1]).trim(); i++; }
       if (naam && naam.length >= 3 && bedrag >= 100 && !isOnvoorzienPost(naam)) {
-        out.push({ naam: naam, jaar: jaar, bedrag: bedrag, cyclus: cyclus, sfb: '', conditie: '', include: true });
+        out.push({ naam: naam, jaar: jaar, bedrag: bedrag, cyclus: cyclus, sfb: '', conditie: '', include: true,
+          hoeveelheid: hoeveelheidTekst, eenheid: eenheidTekst, bronRegel: line });
       }
     }
     return out;
   }
+
+  // Hoeveelheid + eenheid van een geïmporteerde MJOP-regel als
+  // hoeveelheidsobject (bron IMPORTED_MJOP). De letterlijke tekst blijft
+  // altijd bewaard; een onduidelijk getal ("1.250") wordt niet geraden maar
+  // krijgt value null. Geen hoeveelheid in de regel -> null (geen object).
+  function importQuantity(r, bestandsnaam) {
+    var tekst = String(r.hoeveelheid == null ? '' : r.hoeveelheid).trim();
+    var eenheidTekst = String(r.eenheid == null ? '' : r.eenheid).trim();
+    if (!tekst && !eenheidTekst) return null;
+    var parsed = Q.parseQuantity(tekst);
+    var unit = Q.normalizeUnit(eenheidTekst);
+    return Q.create(Q.autoQuantity(parsed.ok ? parsed.value : null, unit, Q.SOURCES.IMPORTED_MJOP,
+      'Hoeveelheid zoals vermeld in het geïmporteerde MJOP (' + (bestandsnaam || 'bestand') + ').',
+      {
+        field: 'hoeveelheid + eenheid (letterlijk)', value: (tekst + ' ' + eenheidTekst).trim(),
+        quantity_as_stated: tekst, unit_as_stated: eenheidTekst, unit_normalized: unit,
+        parse_error: parsed.ok ? null : parsed.error,
+        source_line: r.bronRegel || null, source_name: bestandsnaam || null,
+      }));
+  }
+
+  // Alleen voor de browsertests (test/quantity-flow.spec.js): de pure
+  // pdf-regelherkenning is anders niet van buiten de IIFE te bereiken.
+  window.MJOPInternals = { extractPdfRegels: extractPdfRegels };
 
   function readFileAsText(file) {
     return new Promise(function (resolve, reject) {
@@ -311,6 +346,7 @@
             var units = p.aantal_verblijfsobjecten || (p.verblijfsobject ? p.verblijfsobject.length : 0) || 1;
 
             var afterD3 = Promise.resolve(null);
+            var d3RawCapture = null;
             if (p.identificatie) {
               afterD3 = fetch('https://api.3dbag.nl/collections/pand/items/NL.IMBAG.Pand.' + p.identificatie)
                 .then(function (tr) { return tr.ok ? tr.json() : null; })
@@ -320,6 +356,19 @@
                   var a = co && co.attributes;
                   if (!a) return null;
                   var plat = a.b3_opp_dak_plat || 0, schuin = a.b3_opp_dak_schuin || 0;
+                  // Ongeronde bronwaarden bewaren (Quantity Foundation v1):
+                  // de afgeronde d3-velden hieronder blijven voor weergave en
+                  // oudere code, de hoeveelheden rekenen met d3raw.
+                  var rawAttrs = {};
+                  ['b3_opp_dak_plat', 'b3_opp_dak_schuin', 'b3_opp_buitenmuur', 'b3_opp_grond', 'b3_opp_scheidingsmuur',
+                    'b3_bouwlagen', 'b3_dak_type', 'b3_h_dak_max', 'b3_h_maaiveld'].forEach(function (k) {
+                    if (a[k] != null) rawAttrs[k] = a[k];
+                  });
+                  d3RawCapture = {
+                    pandId: 'NL.IMBAG.Pand.' + p.identificatie,
+                    fetchedAt: new Date().toISOString(),
+                    attributes: rawAttrs,
+                  };
                   return {
                     dak: Math.round(plat + schuin), plat: Math.round(plat), schuin: Math.round(schuin),
                     gevel: Math.round(a.b3_opp_buitenmuur || 0), grond: Math.round(a.b3_opp_grond || 0),
@@ -341,6 +390,8 @@
                 opp: Math.round(best.opp),
                 omtrek: Math.round(best.omtrek),
                 units: units, unitsBron: units, d3: d3,
+                d3raw: d3 ? d3RawCapture : null,
+                bagRaw: { footprintM2: best.opp, omtrekM: best.omtrek, aantalVerblijfsobjecten: p.aantal_verblijfsobjecten != null ? p.aantal_verblijfsobjecten : null },
                 dakM2: dak, gevelM2: gevel,
                 werkhoogte: d3 && d3.hoogte ? Math.round(d3.hoogte) : 9,
               };
@@ -384,7 +435,7 @@
     { key: 'dakisolatie', naam: 'Dakisolatie na-isoleren', categorie: 'Dak', sfb: '47.2', type: 'dak', cyclus: 30, kengetal: 60, bron: 'dakM2', optioneel: true },
 
     { key: 'gevel-metselwerk', naam: 'Gevelreiniging en metselwerkherstel', categorie: 'Gevel', sfb: '21.1', type: 'gevel', cyclus: 15, kengetal: 26, bron: 'gevelM2' },
-    { key: 'schilderwerk-buiten', naam: 'Schilderwerk buitenkozijnen en gevelhoutwerk', categorie: 'Gevel', sfb: '31.2', type: 'gevel', cyclus: 6, kengetal: 22, bron: 'gevelM2' },
+    { key: 'schilderwerk-buiten', naam: 'Schilderwerk buitenkozijnen en gevelhoutwerk', categorie: 'Gevel', sfb: '31.2', type: 'gevel', cyclus: 6, kengetal: 22, bron: 'gevelM2', benadering: true },
     { key: 'kozijnen-onderhoud', naam: 'Onderhoud buitenkozijnen', categorie: 'Gevel', sfb: '31.1', type: 'kozijnen', cyclus: 6 },
     { key: 'steiger', naam: 'Steiger of hoogwerker', categorie: 'Gevel', sfb: '21', type: 'steiger', cyclus: 6, bron: 'gevelM2' },
     { key: 'voegwerk', naam: 'Voegwerk buitengevel', categorie: 'Gevel', sfb: '21.1', type: 'gevel', cyclus: 30, kengetal: 45, bron: 'gevelM2', optioneel: true },
@@ -464,13 +515,36 @@
     return 0;
   }
 
-  function scaleKozCounts(units) {
-    return [
-      Math.max(1, Math.round(units * 1)),
-      Math.max(0, Math.round(units * 0.25)),
-      Math.max(1, Math.round(units * 0.125)),
-      Math.max(0, Math.round(units * 0.125)),
-    ];
+  // Effectieve hoeveelheid van een post/kozijnrij — altijd via het
+  // hoeveelheidsobject (Quantity Foundation v1). De terugval op het oude
+  // kale getal is alleen voor een object dat (nog) niet gemigreerd is.
+  function qv(el) {
+    if (el && el.quantity) return el.quantity.value == null ? 0 : el.quantity.value;
+    return (el && el.hoeveelheid) || 0;
+  }
+  function kozAantal(k) {
+    if (k && k.quantity) return k.quantity.value == null ? 0 : k.quantity.value;
+    return (k && k.aantal) || 0;
+  }
+  function autoForEl(def, b) { return Q.autoFor(def.bron, b, { benadering: !!def.benadering }); }
+
+  // Zorgt dat een element (en elke kozijnrij) een geldig hoeveelheidsobject
+  // heeft. Oude opgeslagen plannen hebben alleen el.hoeveelheid/k.aantal:
+  // die worden hier eenmalig omgezet (Q.fromLegacy), zonder iets te
+  // verliezen — een afwijkend oud getal blijft als handmatige waarde staan.
+  function ensureQuantity(el, b) {
+    var def = libraryEntry(el.id);
+    if (def && def.bron && def.bron !== 'none' && !Q.isValid(el.quantity)) {
+      el.quantity = Q.fromLegacy(el.hoeveelheid, b ? autoForEl(def, b) : null);
+    }
+    if (el.type === 'kozijnen' && el.koz) {
+      el.koz.forEach(function (k, i) {
+        if (!Q.isValid(k.quantity)) k.quantity = Q.fromLegacy(k.aantal, (def && b && KOZ_DEF[i]) ? Q.autoKozijn(i, b) : null);
+      });
+    }
+    // Het kale getal is vervangen door het object; niet meer bijhouden.
+    delete el.hoeveelheid;
+    if (el.koz) el.koz.forEach(function (k) { delete k.aantal; });
   }
 
   function defaultBuilding() {
@@ -489,22 +563,18 @@
       type: def.type, cyclus: def.cyclus, bron: def.bron,
       laatsteBeurt: b.bouwjaar || (CURRENT_YEAR - def.cyclus), gebreken: [],
     };
+    if (def.bron && def.bron !== 'none') el.quantity = Q.create(autoForEl(def, b));
     if (def.type === 'kozijnen') {
-      var counts = scaleKozCounts(b.units);
       el.koz = KOZ_DEF.map(function (d, i) {
-        return { naam: d[0], tarief: d[1], aantal: counts[i], eigenTarief: null, materiaal: 'hout' };
+        return { naam: d[0], tarief: d[1], quantity: Q.create(Q.autoKozijn(i, b)), eigenTarief: null, materiaal: 'hout' };
       });
     } else if (def.type === 'dak' || def.type === 'gevel') {
-      el.hoeveelheid = bronWaarde(def.bron, b);
       el.kengetal = def.kengetal;
     } else if (def.type === 'steiger') {
-      el.hoeveelheid = bronWaarde(def.bron, b);
       el.werkhoogte = b.werkhoogte;
     } else if (def.type === 'per-unit') {
-      el.hoeveelheid = bronWaarde(def.bron, b);
       el.kengetal = def.kengetal;
     } else if (def.type === 'vast-variabel') {
-      el.hoeveelheid = bronWaarde(def.bron, b);
       el.basis = def.basis;
       el.perEenheid = def.perEenheid;
     }
@@ -589,8 +659,8 @@
     });
     return Object.keys(byCyclus).map(function (c) {
       var rows = byCyclus[c];
-      var bedrag = rows.reduce(function (a, k) { return a + k.aantal * kozTarief(k); }, 0);
-      var aantal = rows.reduce(function (a, k) { return a + k.aantal; }, 0);
+      var bedrag = rows.reduce(function (a, k) { return a + kozAantal(k) * kozTarief(k); }, 0);
+      var aantal = rows.reduce(function (a, k) { return a + kozAantal(k); }, 0);
       var materialen = rows.map(function (k) { return (KOZ_MATERIAAL[k.materiaal] || KOZ_MATERIAAL.hout).label; })
         .filter(function (v, i, arr) { return arr.indexOf(v) === i; });
       return { cyclus: +c, bedrag: bedrag, aantal: aantal, materialen: materialen };
@@ -656,12 +726,12 @@
 
   function elementCost(el, state) {
     switch (el.type) {
-      case 'dak': return el.hoeveelheid * el.kengetal;
-      case 'kozijnen': return el.koz.reduce(function (a, k) { return a + k.aantal * kozTarief(k); }, 0);
-      case 'gevel': return el.hoeveelheid * el.kengetal;
-      case 'steiger': return Math.round(el.hoeveelheid * (el.werkhoogte > 8 ? 11 : 6));
-      case 'per-unit': return el.hoeveelheid * el.kengetal;
-      case 'vast-variabel': return el.basis + el.hoeveelheid * el.perEenheid;
+      case 'dak': return qv(el) * el.kengetal;
+      case 'kozijnen': return el.koz.reduce(function (a, k) { return a + kozAantal(k) * kozTarief(k); }, 0);
+      case 'gevel': return qv(el) * el.kengetal;
+      case 'steiger': return Math.round(qv(el) * (el.werkhoogte > 8 ? 11 : 6));
+      case 'per-unit': return qv(el) * el.kengetal;
+      case 'vast-variabel': return el.basis + qv(el) * el.perEenheid;
       case 'custom': return indexeerBedrag(el.bedrag, el.basisjaar, el.jaar);
       default: return 0;
     }
@@ -669,14 +739,14 @@
 
   function elementMeta(el) {
     switch (el.type) {
-      case 'dak': return el.hoeveelheid + ' m² × ' + eur(el.kengetal);
+      case 'dak': return Q.formatNumber(qv(el)) + ' m² × ' + eur(el.kengetal);
       case 'kozijnen': return kozGroepen(el).map(function (g) {
         return g.aantal + ' × ' + g.materialen.join('/') + ' (' + g.cyclus + 'j)';
       }).join(', ');
-      case 'gevel': return el.hoeveelheid + ' m² buitenmuur × ' + eur(el.kengetal);
+      case 'gevel': return Q.formatNumber(qv(el)) + ' m² buitenmuur × ' + eur(el.kengetal);
       case 'steiger': return 'werkhoogte ' + el.werkhoogte + ' m';
-      case 'per-unit': return el.hoeveelheid + ' ' + meervoud(el.hoeveelheid, 'unit', 'units') + ' × ' + eur(el.kengetal);
-      case 'vast-variabel': return eur(el.basis) + ' vast + ' + el.hoeveelheid + ' × ' + eur(el.perEenheid);
+      case 'per-unit': return Q.formatNumber(qv(el)) + ' ' + meervoud(qv(el), 'unit', 'units') + ' × ' + eur(el.kengetal);
+      case 'vast-variabel': return eur(el.basis) + ' vast + ' + Q.formatNumber(qv(el)) + ' × ' + eur(el.perEenheid);
       case 'custom':
         var indexPct = cbsIndexatie ? cbsIndexatie.pct : Math.round(INDEXATIE_PCT * 1000) / 10;
         var indexBron = (cbsIndexatie && state.settings.toonCbsBron) ? ' (CBS-bouwkostenindex ' + cbsIndexatie.periode + ')' : '';
@@ -853,6 +923,7 @@
     offertes: {}, // elId -> [{id, naam, btw, regels:[{naam,bedrag}]}]
     bijvullen: {}, // elId -> bool
     addForm: null,
+    qtyFout: {}, // invoer-id -> { tekst, melding }: afgewezen hoeveelheids-/prijsinvoer (niet geraden)
     accountMenuOpen: false, // mini-menu (Account/Uitloggen) onder het gebruikersblok in de zijbalk
     buildingSwitcherOpen: false, // dropdown van de gebouwkiezer boven in de zijbalk
     accountSubTab: 'profiel', // links sub-menu binnen de samengevoegde Account-pagina (zie renderAccount())
@@ -958,11 +1029,13 @@
       // cyclus van elk element zonder gebrek daardoor niet mee, en bleef
       // "volgende beurt" op het oude, inmiddels foute jaar staan.
       el.laatsteBeurt = building.bouwjaar || (CURRENT_YEAR - def.cyclus);
-      if (def.bron && def.bron !== 'none') el.hoeveelheid = bronWaarde(def.bron, building);
+      ensureQuantity(el, building);
+      // Alleen de automatische waarde wordt bijgewerkt; een handmatige
+      // hoeveelheid blijft staan (Q.updateAuto overschrijft die nooit).
+      if (def.bron && def.bron !== 'none') Q.updateAuto(el.quantity, autoForEl(def, building));
       if (el.type === 'steiger') el.werkhoogte = building.werkhoogte;
       if (el.type === 'kozijnen') {
-        var counts = scaleKozCounts(building.units);
-        el.koz.forEach(function (k, i) { if (KOZ_DEF[i]) k.aantal = counts[i]; });
+        el.koz.forEach(function (k, i) { if (KOZ_DEF[i]) Q.updateAuto(k.quantity, Q.autoKozijn(i, building)); });
       }
     });
   }
@@ -1013,6 +1086,9 @@
     state.invul = blob.invul || { fonds: true, bijdrage: true };
     state.offertes = blob.offertes || {};
     state.bijvullen = blob.bijvullen || {};
+    // Plannen van vóór Quantity Foundation v1: kale hoeveelheden omzetten
+    // naar het hoeveelheidsobject (handmatige afwijkingen blijven staan).
+    state.elements.forEach(function (el) { ensureQuantity(el, state.building); });
   }
 
   // Zie de "werksessie herstellen"-restore hierboven bij het opzetten van
@@ -1966,6 +2042,7 @@
     var velden = [
       ['naam', 'Omschrijving van de post'], ['jaar', 'Jaar'], ['bedrag', 'Bedrag'],
       ['sfb', 'NL-SfB-code (mag leeg)'], ['conditie', 'Staat (mag leeg)'],
+      ['hoeveelheid', 'Hoeveelheid (mag leeg)'], ['eenheid', 'Eenheid, bijv. m2 of m1 (mag leeg)'],
     ];
     var html = '<div class="section"><div class="card pad">';
     velden.forEach(function (v, i) {
@@ -2019,6 +2096,8 @@
       html += '<div class="wiz-fields">';
       html += '<label class="wiz-field"><span>Jaar</span><input id="upload-regel-jaar-' + i + '" data-bind="upload-regel-jaar" data-i="' + i + '" inputmode="numeric" value="' + esc(r.jaar) + '" /></label>';
       html += '<label class="wiz-field"><span>Bedrag (prijspeil ' + basisjaar + ')</span><input id="upload-regel-bedrag-' + i + '" data-bind="upload-regel-bedrag" data-i="' + i + '" inputmode="numeric" value="' + esc(r.bedrag) + '" /></label>';
+      html += '<label class="wiz-field"><span>Hoeveelheid</span><input id="upload-regel-hoeveelheid-' + i + '" data-bind="upload-regel-hoeveelheid" data-i="' + i + '" inputmode="decimal" value="' + esc(r.hoeveelheid || '') + '" /></label>';
+      html += '<label class="wiz-field"><span>Eenheid</span><input id="upload-regel-eenheid-' + i + '" data-bind="upload-regel-eenheid" data-i="' + i + '" value="' + esc(r.eenheid || '') + '" /></label>';
       html += '<label class="wiz-field"><span>Herhaling in jaren (0 = eenmalig)</span><input id="upload-regel-cyclus-' + i + '" data-bind="upload-regel-cyclus" data-i="' + i + '" inputmode="numeric" value="' + esc(r.cyclus || 0) + '" /></label>';
       html += '</div>';
       html += '<div class="wiz-result">In het plan: ' + eur(geindexeerd) + ' <span>in ' + esc(r.jaar) + '</span></div>';
@@ -2859,15 +2938,21 @@
   // hoeveelheid oorspronkelijk uit de BAG.
   function elementOrigin(el) {
     var b = state.building;
-    if (el.type === 'custom') return { label: 'Aangepast door jou', cls: 'aangepast' };
-    if (el.gebreken && el.gebreken.length) return { label: 'Aangepast door jou', cls: 'aangepast' };
+    if (b && b.isVoorbeeld && el.type !== 'custom') return { label: 'Voorbeeld', cls: 'voorbeeld' };
+    var q = el.quantity;
     if (el.type === 'kozijnen') {
-      if (el.koz.some(function (k) { return k.eigenTarief != null; })) return { label: 'Aangepast door jou', cls: 'aangepast' };
-      return b.isVoorbeeld ? { label: 'Voorbeeld', cls: 'voorbeeld' } : { label: 'BAG', cls: 'bag' };
+      var handmatig = el.koz.some(function (k) { return k.quantity && k.quantity.status === Q.STATUS.USER_OVERRIDDEN; });
+      if (handmatig || el.koz.some(function (k) { return k.eigenTarief != null; })) return { label: 'Aangepast door jou', cls: 'aangepast' };
+      return { label: Q.SOURCE_LABELS.ESTIMATED, cls: 'schatting' };
     }
-    if (el.bron) {
-      if (el.hoeveelheid !== bronWaarde(el.bron, b)) return { label: 'Aangepast door jou', cls: 'aangepast' };
-      return b.isVoorbeeld ? { label: 'Voorbeeld', cls: 'voorbeeld' } : { label: 'BAG', cls: 'bag' };
+    if (el.type === 'custom') {
+      if (q && q.source === Q.SOURCES.IMPORTED_MJOP) return { label: Q.SOURCE_LABELS.IMPORTED_MJOP, cls: 'standaard' };
+      return { label: 'Aangepast door jou', cls: 'aangepast' };
+    }
+    if (q && q.source) {
+      if (q.status === Q.STATUS.USER_OVERRIDDEN) return { label: 'Aangepast door jou', cls: 'aangepast' };
+      var cls = q.source === Q.SOURCES.ESTIMATED ? 'schatting' : 'bag';
+      return { label: Q.SOURCE_LABELS[q.source] || q.source, cls: cls };
     }
     return { label: 'Standaardcyclus', cls: 'standaard' };
   }
@@ -3071,6 +3156,13 @@
     html += '<div class="input-row"><div class="label">Bedrag</div><input id="cb-bedrag-' + el.id + '" data-bind="el-bedrag" data-id="' + el.id + '" value="' + el.bedrag + '" /></div>';
     html += '<div class="input-row"><div class="label">Prijspeil van dit bedrag</div><input id="cb-basisjaar-' + el.id + '" data-bind="el-basisjaar" data-id="' + el.id + '" value="' + prijspeil + '" /></div>';
     html += '<div class="hint">Heb je inmiddels een offerte met een actueel bedrag? Vul dat bedrag in en zet het prijspeil op ' + CURRENT_YEAR + ', dan wordt het niet meer extra geïndexeerd.</div>';
+    if (el.quantity) {
+      var iq = el.quantity;
+      html += '<div class="divider"></div>';
+      html += '<div class="kv" data-import-quantity><div class="label">Hoeveelheid uit het MJOP</div><div>' + (iq.value != null ? Q.formatNumber(iq.value) + ' ' + esc(Q.unitLabel(iq.unit)) : 'niet leesbaar') + '</div></div>';
+      var ir = iq.auto && iq.auto.raw;
+      if (ir) html += '<div class="hint">Letterlijk in het bestand: "' + esc(ir.value || '') + '"' + (ir.parse_error ? ' — het getal is onduidelijk en daarom niet overgenomen.' : '') + ' Het bedrag hierboven komt uit het MJOP; de hoeveelheid wordt bewaard ter controle en telt niet mee in de berekening.</div>';
+    }
     html += '</div></div>';
     return html;
   }
@@ -3124,19 +3216,64 @@
     return html;
   }
 
+  // Hoeveelheidspaneel (Quantity Foundation v1): waarde, eenheid, herkomst,
+  // status, onderbouwing en ruwe bronwaarde, plus bevestigen / aanpassen /
+  // terug naar automatisch. De invoer wordt pas bij "change" (Enter of
+  // verlaten van het veld) gelezen, strikt: "312,6" wordt 312,6 en een
+  // onduidelijke invoer ("1.250") wordt geweigerd i.p.v. geraden.
+  function renderQuantityPanel(el, label) {
+    var q = el.quantity;
+    if (!q) return '';
+    var id = 'hv-' + el.id;
+    var fout = state.qtyFout && state.qtyFout[id];
+    var html = '<div class="qty-panel" data-qty-status="' + esc(q.status) + '" data-qty-source="' + esc(q.source || '') + '">';
+    html += '<div class="input-row" style="margin-top:0"><label class="label" for="' + id + '">' + label + ' (' + esc(Q.unitLabel(q.unit)) + ')</label>';
+    html += '<input id="' + id + '" data-change="qty-input" data-id="' + el.id + '" inputmode="decimal" value="' + esc(fout ? fout.tekst : Q.formatNumber(q.value)) + '"' + (fout ? ' aria-invalid="true"' : '') + ' /></div>';
+    if (fout) html += '<div class="notice error qty-fout">' + esc(fout.melding) + '</div>';
+    html += '<div class="qty-meta">';
+    html += '<span class="origin-tag origin-' + (q.source === Q.SOURCES.ESTIMATED ? 'schatting' : (q.source === Q.SOURCES.MANUAL ? 'aangepast' : 'bag')) + '" data-qty-source-label>' + esc(Q.SOURCE_LABELS[q.source] || 'Onbekend') + '</span> ';
+    html += '<span class="qty-status qty-status-' + esc(q.status.toLowerCase()) + '" data-qty-status-label>' + esc(Q.STATUS_LABELS[q.status]) + '</span>';
+    html += '</div>';
+    if (q.auto) {
+      html += '<div class="hint">' + esc(q.auto.basis) + '</div>';
+      if (q.manual) {
+        html += '<div class="hint">Automatische waarde: ' + Q.formatNumber(q.auto.value) + ' ' + esc(Q.unitLabel(q.auto.unit)) + ' (' + esc(Q.SOURCE_LABELS[q.auto.source] || '') + '). Die blijft bewaard maar wordt niet gebruikt zolang jouw waarde geldt.</div>';
+      }
+      var raw = q.auto.raw;
+      if (raw && (raw.field || raw.formula)) {
+        html += '<details class="ov-details qty-bron"><summary>Bron bekijken</summary><p>';
+        if (raw.field) html += 'Veld: <code>' + esc(raw.field) + '</code> = ' + esc(raw.value == null ? 'onbekend' : String(raw.value)) + '<br>';
+        if (raw.formula) html += 'Berekening: <code>' + esc(raw.formula) + '</code><br>';
+        (raw.inputs || []).forEach(function (inp) {
+          html += '<code>' + esc(inp.field) + '</code> = ' + esc(inp.value == null ? 'onbekend' : String(inp.value)) + '<br>';
+        });
+        if (raw.pand_id) html += 'Pand: ' + esc(raw.pand_id) + '<br>';
+        if (raw.fetched_at) html += 'Opgehaald: ' + esc(raw.fetched_at) + '<br>';
+        if (raw.rounded_in_legacy_plan) html += 'Let op: dit plan is eerder opgeslagen; de ruwe waarde was toen al afgerond.<br>';
+        if (raw.source_name) html += 'Bron: ' + esc(raw.source_name);
+        html += '</p></details>';
+      }
+    }
+    html += '<div class="qty-actions">';
+    if (q.status === Q.STATUS.PROPOSED && q.auto) html += '<button type="button" class="ov-btn secondary" data-act="qty-confirm" data-id="' + el.id + '">Hoeveelheid bevestigen</button>';
+    if (q.manual && q.auto) html += '<button type="button" class="ov-btn secondary" data-act="qty-reset" data-id="' + el.id + '">Terug naar automatische waarde</button>';
+    html += '</div></div>';
+    return html;
+  }
+
   function renderHoeveelheidKengetal(el) {
     var isPerUnit = el.type === 'per-unit';
-    var label = isPerUnit ? 'Aantal units' : 'Oppervlak in m²';
-    var eenheid = isPerUnit ? meervoud(el.hoeveelheid, 'unit', 'units') : 'm²';
+    var label = isPerUnit ? 'Aantal' : 'Oppervlak';
+    var eenheid = isPerUnit ? meervoud(qv(el), 'unit', 'units') : 'm²';
     var html = '<div class="section"><div class="card pad">';
-    html += '<div class="input-row" style="margin-top:0"><div class="label">' + label + '</div><input id="hv-' + el.id + '" data-bind="el-hoeveelheid" data-id="' + el.id + '" value="' + el.hoeveelheid + '" /></div>';
-    html += '<div class="input-row"><div class="label">Prijs per ' + (isPerUnit ? 'unit' : 'm²') + '</div><input id="kg-' + el.id + '" data-bind="el-kengetal" data-id="' + el.id + '" value="' + el.kengetal + '" /></div>';
+    html += renderQuantityPanel(el, label);
+    var kgId = 'kg-' + el.id;
+    var kgFout = state.qtyFout && state.qtyFout[kgId];
+    html += '<div class="input-row"><label class="label" for="' + kgId + '">Prijs per ' + (isPerUnit ? 'unit' : 'm²') + '</label><input id="' + kgId + '" data-change="el-kengetal" data-id="' + el.id + '" inputmode="decimal" value="' + esc(kgFout ? kgFout.tekst : Q.formatNumber(el.kengetal)) + '" /></div>';
+    if (kgFout) html += '<div class="notice error qty-fout">' + esc(kgFout.melding) + '</div>';
     // De rekenformule stond eerder in de Gebouw-lijst (bv. "11 m² × € 165")
     // — die is verplaatst naar hier, de detailpagina, samen met het resultaat.
-    html += '<div class="formula">' + el.hoeveelheid + ' ' + eenheid + ' × ' + eur(el.kengetal) + ' = ' + eur(elementCost(el, state)) + ' per keer</div>';
-    if (el.type === 'dak' && !state.building.isVoorbeeld) {
-      html += '<div class="hint">Dakoppervlak komt uit de 3D BAG (echt dakvlak, plat + schuin). Pas het aan als een offerte of opname iets anders laat zien.</div>';
-    }
+    html += '<div class="formula" data-qty-formula>' + Q.formatNumber(qv(el)) + ' ' + eenheid + ' × ' + eur(el.kengetal) + ' = ' + eur(elementCost(el, state)) + ' per keer</div>';
     html += '</div></div>';
     return html;
   }
@@ -3144,9 +3281,12 @@
   function renderSteiger(el) {
     var rate = el.werkhoogte > 8 ? 11 : 6;
     var html = '<div class="section"><div class="card pad">';
-    html += '<div class="input-row" style="margin-top:0"><div class="label">Buitenmuur in m²</div><input id="hv-' + el.id + '" data-bind="el-hoeveelheid" data-id="' + el.id + '" value="' + el.hoeveelheid + '" /></div>';
-    html += '<div class="input-row"><div class="label">Werkhoogte in m</div><input id="wh-' + el.id + '" data-bind="el-werkhoogte" data-id="' + el.id + '" value="' + el.werkhoogte + '" /></div>';
-    html += '<div class="formula">' + el.hoeveelheid + ' m² × ' + eur(rate) + ' = ' + eur(elementCost(el, state)) + ' per keer</div>';
+    html += renderQuantityPanel(el, 'Buitenmuur');
+    var whId = 'wh-' + el.id;
+    var whFout = state.qtyFout && state.qtyFout[whId];
+    html += '<div class="input-row"><label class="label" for="' + whId + '">Werkhoogte in m</label><input id="' + whId + '" data-change="el-werkhoogte" data-id="' + el.id + '" inputmode="decimal" value="' + esc(whFout ? whFout.tekst : Q.formatNumber(el.werkhoogte)) + '" /></div>';
+    if (whFout) html += '<div class="notice error qty-fout">' + esc(whFout.melding) + '</div>';
+    html += '<div class="formula">' + Q.formatNumber(qv(el)) + ' m² × ' + eur(rate) + ' = ' + eur(elementCost(el, state)) + ' per keer</div>';
     html += '<div class="hint">' + (el.werkhoogte > 8
       ? 'Boven 8 meter rekent de app met een hoogwerker of rolsteiger: € 11 per m² gevel.'
       : 'Tot 8 meter kan het met een lichte steiger: € 6 per m² gevel.') + '</div>';
@@ -3167,15 +3307,20 @@
         html += '<option value="' + mk + '"' + (k.materiaal === mk ? ' selected' : '') + '>' + KOZ_MATERIAAL[mk].label + '</option>';
       });
       html += '</select></div>';
-      html += '<div class="c2"><button data-act="koz-min" data-id="' + el.id + '" data-i="' + i + '">−</button><span class="val">' + k.aantal + '</span><button data-act="koz-plus" data-id="' + el.id + '" data-i="' + i + '">+</button></div>';
-      html += '<div class="c3"><input id="koz-tarief-' + el.id + '-' + i + '" data-bind="koz-tarief" data-id="' + el.id + '" data-i="' + i + '" value="' + tarief + '" />';
+      var kq = k.quantity;
+      html += '<div class="c2"><button data-act="koz-min" data-id="' + el.id + '" data-i="' + i + '">−</button><span class="val">' + Q.formatNumber(kozAantal(k)) + '</span><button data-act="koz-plus" data-id="' + el.id + '" data-i="' + i + '">+</button>';
+      if (kq && kq.manual) html += '<div class="hint">Door jou aangepast · <a href="#" data-act="koz-reset" data-id="' + el.id + '" data-i="' + i + '">schatting (' + Q.formatNumber(kq.auto ? kq.auto.value : null) + ')</a></div>';
+      else html += '<div class="hint">Schatting</div>';
+      html += '</div>';
+      html += '<div class="c3"><input id="koz-tarief-' + el.id + '-' + i + '" data-change="koz-tarief" data-id="' + el.id + '" data-i="' + i + '" inputmode="decimal" value="' + Q.formatNumber(tarief) + '" />';
       html += '<div class="hint">' + mat.label + ' · ' + mat.cyclus + 'j cyclus</div></div>';
-      html += '<div class="c4">' + eur(k.aantal * tarief) + '</div>';
+      html += '<div class="c4">' + eur(kozAantal(k) * tarief) + '</div>';
       html += '</div>';
     });
-    var totaalAantal = el.koz.reduce(function (a, k) { return a + k.aantal; }, 0);
+    var totaalAantal = el.koz.reduce(function (a, k) { return a + kozAantal(k); }, 0);
     html += '<div class="koz-total"><div class="label">Onderhoud kozijnen</div><div class="count">' + totaalAantal + ' kozijnen</div><div class="amount">' + eur(elementCost(el, state)) + '</div></div>';
     html += '</div>';
+    html += '<div class="info-block">De aantallen zijn een schatting op basis van het aantal appartementen (niet geteld). Pas ze aan zodra je de werkelijke aantallen weet.</div>';
     html += '<div class="info-block">Het materiaal bepaalt de onderhoudscyclus: hout vraagt periodiek schilderwerk, aluminium en kunststof vooral reiniging en afstellen. Kozijnen met verschillend materiaal worden apart in de tijd gezet. Tarieven zijn direct aanpasbaar; een offerte overschrijft het tarief.</div>';
     html += '</div>';
     return html;
@@ -3786,8 +3931,16 @@
       g[d.dim] = +d.val;
       render();
     },
-    'koz-min': function (d) { var el = findEl(d.id); if (!el) return; var k = el.koz[+d.i]; k.aantal = Math.max(0, k.aantal - 1); render(); },
-    'koz-plus': function (d) { var el = findEl(d.id); if (!el) return; var k = el.koz[+d.i]; k.aantal = k.aantal + 1; render(); },
+    'koz-min': function (d) { var el = findEl(d.id); if (!el) return; var k = el.koz[+d.i]; Q.override(k.quantity, Math.max(0, kozAantal(k) - 1)); render(); },
+    'koz-plus': function (d) { var el = findEl(d.id); if (!el) return; var k = el.koz[+d.i]; Q.override(k.quantity, kozAantal(k) + 1); render(); },
+    'koz-reset': function (d) { var el = findEl(d.id); if (!el) return; Q.resetToAuto(el.koz[+d.i].quantity); render(); },
+    'qty-confirm': function (d) { var el = findEl(d.id); if (!el || !el.quantity) return; Q.confirm(el.quantity); render(); },
+    'qty-reset': function (d) {
+      var el = findEl(d.id); if (!el || !el.quantity) return;
+      Q.resetToAuto(el.quantity);
+      if (state.qtyFout) delete state.qtyFout['hv-' + el.id];
+      render();
+    },
     'zet-advies': function (d) { state.bijdrage = clamp(+d.nodig, 10, 400); state.invul.bijdrage = true; render(); },
     'focus-bijdrage': function () {
       var f = document.getElementById('bijdrage-num');
@@ -4147,7 +4300,9 @@
         var bedrag = m.bedrag > -1 ? num(row[m.bedrag]) : 0;
         var sfb = m.sfb > -1 ? String(row[m.sfb] || '').trim() : '';
         var conditie = m.conditie > -1 ? String(row[m.conditie] || '').trim() : '';
-        return { naam: naam, jaar: jaar || (CURRENT_YEAR + 1), bedrag: bedrag, sfb: sfb, conditie: conditie, include: !!(naam && bedrag) };
+        var hoeveelheid = m.hoeveelheid > -1 ? String(row[m.hoeveelheid] == null ? '' : row[m.hoeveelheid]).trim() : '';
+        var eenheid = m.eenheid > -1 ? String(row[m.eenheid] == null ? '' : row[m.eenheid]).trim() : '';
+        return { naam: naam, jaar: jaar || (CURRENT_YEAR + 1), bedrag: bedrag, sfb: sfb, conditie: conditie, include: !!(naam && bedrag), hoeveelheid: hoeveelheid, eenheid: eenheid };
       }).filter(function (r) { return r.naam && !isOnvoorzienPost(r.naam); });
       state.upload = { stap: 'regels', bestandsnaam: u.bestandsnaam, regels: regels, basisjaar: String(CURRENT_YEAR - 1) };
       render();
@@ -4155,7 +4310,7 @@
     'upload-toggle-regel': function (d) { state.upload.regels[+d.i].include = !state.upload.regels[+d.i].include; render(); },
     'upload-del-regel': function (d) { state.upload.regels.splice(+d.i, 1); render(); },
     'upload-add-regel': function () {
-      state.upload.regels.push({ naam: '', jaar: CURRENT_YEAR + 1, bedrag: 0, cyclus: 0, sfb: '', conditie: '', include: true });
+      state.upload.regels.push({ naam: '', jaar: CURRENT_YEAR + 1, bedrag: 0, cyclus: 0, sfb: '', conditie: '', include: true, hoeveelheid: '', eenheid: '' });
       render();
     },
     'mjop-import-confirm': function () {
@@ -4167,6 +4322,7 @@
           cyclus: num(r.cyclus) || 0, jaar: num(r.jaar) || (CURRENT_YEAR + 1), bedrag: num(r.bedrag), basisjaar: basisjaar,
           sfb: r.sfb || undefined, gebreken: [],
           metaTekst: 'geïmporteerd uit ' + (bestandsnaam || 'bestand'),
+          quantity: importQuantity(r, bestandsnaam),
         });
       });
       state.upload = null;
@@ -4231,10 +4387,6 @@
       state.building.units = Math.max(1, num(t.value) || 1);
       rescaleElements(state.building);
     },
-    'el-hoeveelheid': function (t, d) { var el = findEl(d.id); if (el) el.hoeveelheid = num(t.value); },
-    'el-kengetal': function (t, d) { var el = findEl(d.id); if (el) el.kengetal = num(t.value); },
-    'el-werkhoogte': function (t, d) { var el = findEl(d.id); if (el) el.werkhoogte = num(t.value); },
-    'koz-tarief': function (t, d) { var el = findEl(d.id); if (el) el.koz[+d.i].eigenTarief = t.value === '' ? null : num(t.value); },
     'gb-naam': function (t, d) { var el = findEl(d.id); if (el && el.gebreken[+d.gi]) el.gebreken[+d.gi].omschrijving = t.value; },
     'el-jaar': function (t, d) { var el = findEl(d.id); if (el) el.jaar = num(t.value); },
     'el-cyclus': function (t, d) { var el = findEl(d.id); if (el) el.cyclus = num(t.value); },
@@ -4250,6 +4402,9 @@
     'upload-regel-naam': function (t, d) { state.upload.regels[+d.i].naam = t.value; },
     'upload-regel-jaar': function (t, d) { state.upload.regels[+d.i].jaar = t.value; },
     'upload-regel-bedrag': function (t, d) { state.upload.regels[+d.i].bedrag = t.value; },
+    // Letterlijke tekst bewaren; pas bij importeren strikt lezen (importQuantity).
+    'upload-regel-hoeveelheid': function (t, d) { state.upload.regels[+d.i].hoeveelheid = t.value; },
+    'upload-regel-eenheid': function (t, d) { state.upload.regels[+d.i].eenheid = t.value; },
     'upload-regel-cyclus': function (t, d) { state.upload.regels[+d.i].cyclus = t.value; },
     'upload-basisjaar': function (t) { state.upload.basisjaar = t.value; },
     'auth-email': function (t) { state.auth.email = t.value; },
@@ -4286,6 +4441,44 @@
   var CHANGES = {
     'bijdrage': function (t) { state.bijdrage = +t.value; state.invul.bijdrage = true; render(); },
     'bijdrage-bedrag': function (t) { state.bijdrage = clamp(num(t.value), 10, 400); state.invul.bijdrage = true; render(); },
+    // Hoeveelheid handmatig aanpassen: strikt lezen, nooit raden. Ongeldige
+    // invoer verandert niets en blijft met een melding in het veld staan.
+    'qty-input': function (t, d) {
+      var el = findEl(d.id); if (!el || !el.quantity) return;
+      var r = Q.parseQuantity(t.value);
+      state.qtyFout = state.qtyFout || {};
+      if (!r.ok) { state.qtyFout[t.id] = { tekst: t.value, melding: Q.parseErrorText(r.error) }; render(); return; }
+      delete state.qtyFout[t.id];
+      var huidig = el.quantity.manual ? el.quantity.manual.value : el.quantity.value;
+      if (r.value !== huidig) Q.override(el.quantity, r.value, t.value);
+      render();
+    },
+    'el-kengetal': function (t, d) {
+      var el = findEl(d.id); if (!el) return;
+      var r = Q.parseAmount(t.value);
+      state.qtyFout = state.qtyFout || {};
+      if (!r.ok) { state.qtyFout[t.id] = { tekst: t.value, melding: Q.parseErrorText(r.error) }; render(); return; }
+      delete state.qtyFout[t.id];
+      el.kengetal = r.value;
+      render();
+    },
+    'el-werkhoogte': function (t, d) {
+      var el = findEl(d.id); if (!el) return;
+      var r = Q.parseQuantity(t.value);
+      state.qtyFout = state.qtyFout || {};
+      if (!r.ok) { state.qtyFout[t.id] = { tekst: t.value, melding: Q.parseErrorText(r.error) }; render(); return; }
+      delete state.qtyFout[t.id];
+      el.werkhoogte = r.value;
+      render();
+    },
+    'koz-tarief': function (t, d) {
+      var el = findEl(d.id); if (!el) return;
+      var k = el.koz[+d.i];
+      if (t.value.trim() === '') { k.eigenTarief = null; render(); return; }
+      var r = Q.parseAmount(t.value);
+      if (r.ok) k.eigenTarief = r.value;
+      render();
+    },
     'koz-materiaal': function (t, d) { var el = findEl(d.id); if (el) el.koz[+d.i].materiaal = t.value; render(); },
     'upload-map': function (t, d) { state.upload.mapping[d.veld] = +t.value; render(); },
     'profiel-rol': function (t) { if (state.profile) { state.profile.rol = t.value; render(); } },
@@ -4351,10 +4544,12 @@
   }
 
   function exportCsv() {
-    var rows = [['Element', 'NL-SfB', 'Categorie', 'Conditiescore (NEN 2767)', 'Cyclus (jaar)', 'Volgende beurt', 'Kosten']];
+    var rows = [['Element', 'NL-SfB', 'Categorie', 'Conditiescore (NEN 2767)', 'Cyclus (jaar)', 'Volgende beurt', 'Kosten', 'Hoeveelheid', 'Eenheid', 'Bron hoeveelheid', 'Status hoeveelheid']];
     state.elements.forEach(function (el) {
       var score = conditionScore(el);
-      rows.push([el.naam, el.sfb || '', el.categorie, score == null ? 'onbekend' : score, el.cyclus || '', conditionYear(el), Math.round(elementCost(el, state))]);
+      var q = el.quantity;
+      rows.push([el.naam, el.sfb || '', el.categorie, score == null ? 'onbekend' : score, el.cyclus || '', conditionYear(el), Math.round(elementCost(el, state)),
+        q && q.value != null ? Q.formatNumber(q.value) : '', q ? Q.unitLabel(q.unit) : '', q && q.source ? (Q.SOURCE_LABELS[q.source] || q.source) : '', q ? Q.STATUS_LABELS[q.status] : '']);
     });
     var csv = rows.map(function (r) {
       return r.map(function (v) {
