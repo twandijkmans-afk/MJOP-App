@@ -173,6 +173,51 @@ sessiestate.
    gebouwen") volgt in een latere fase. Zonder configuratie (zie
    hierboven) blijft de rest van de app volledig anoniem bruikbaar.
 
+## Hoeveelheden (Quantity Foundation v1)
+
+Elke post heeft één hoeveelheidsobject (`src/quantity.js`, gebruikt door
+`src/app.js`), zie `mjop-learning/docs/quantity_engine_feasibility_v1.md`:
+
+- `value`/`unit`: de hoeveelheid waarmee gerekend wordt (hoeveelheid × kengetal);
+- `source`: `BAG`, `3D_BAG`, `GEOMETRY_DERIVED`, `ESTIMATED`, `IMPORTED_MJOP` of `MANUAL`;
+- `status`: `PROPOSED` (voorstel), `CONFIRMED` (bevestigd) of `USER_OVERRIDDEN` (aangepast);
+- `auto`: de automatisch bepaalde waarde met onderbouwing (`basis`) en de
+  ongeronde bronwaarde (`raw`, bijv. 3D BAG `b3_opp_dak_plat` = 312.64, pand-id,
+  ophaaldatum);
+- `manual`: een handmatige waarde (met de letterlijke invoer);
+- `history`: append-only log (voorgesteld, bevestigd, aangepast, teruggezet,
+  automatische waarde gewijzigd).
+
+Regels:
+- Een nieuwe automatische waarde (ander adres, ander aantal appartementen)
+  overschrijft nooit een handmatige waarde; alleen "Terug naar automatische
+  waarde" haalt die weg. Een bevestiging vervalt alleen als de automatische
+  waarde echt verandert.
+- Invoer wordt strikt gelezen: `312,6` = 312,6 (nooit 3126); een onduidelijk
+  getal als `1.250` wordt geweigerd met een melding, niet geraden.
+- Schattingen heten ook zo: kozijnaantallen (appartementen × vaste factor) en
+  de hele buitenmuur als schilderwerk-oppervlak zijn `ESTIMATED`, niet "BAG".
+- Bij een MJOP-import (csv/Excel/pdf) blijven hoeveelheid + eenheid bewaard
+  (`IMPORTED_MJOP`, met de letterlijke tekst); ze tellen niet mee in het bedrag,
+  dat uit het MJOP zelf komt.
+- Oudere opgeslagen plannen worden bij het openen omgezet; een oude
+  hoeveelheid die afwijkt van de automatische waarde blijft staan als
+  handmatige waarde.
+
+## Tests
+
+Er is geen build-stap of testrunner. Vanuit de projectroot:
+
+```
+node test/quantity.unit.spec.js          # puur Node, geen browser
+python3 -m http.server 8937 &            # voor de browsertests
+node test/quantity-flow.spec.js          # plat dak: 3D BAG -> voorstel -> bevestigen -> aanpassen -> reset -> kosten
+node test/reservefonds.spec.js
+```
+
+De browsertests gebruiken Playwright/Chromium; `quantity-flow.spec.js` bootst
+PDOK/BAG/3D BAG na met vaste antwoorden.
+
 ## Bronnen
 
 PDOK Locatieserver en BAG (Public Domain Mark 1.0), 3D BAG van de TU Delft

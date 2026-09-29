@@ -271,6 +271,16 @@ input[type=range]::-moz-range-thumb {
 .origin-tag.origin-standaard { background: var(--panel); color: var(--ink-60); }
 .origin-tag.origin-voorbeeld { background: var(--panel); color: var(--ink-60); }
 .origin-tag.origin-aangepast { background: var(--blue-tint); color: var(--blue); }
+.origin-tag.origin-schatting { background: var(--warn-bg); color: var(--warn-fg); }
+/* Quantity Foundation v1: hoeveelheidspaneel op de elementdetailpagina */
+.qty-panel { margin-bottom: 12px; }
+.qty-meta { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 8px 0 4px; }
+.qty-status { font-size: 12px; font-weight: 600; color: var(--ink-60); }
+.qty-status-confirmed { color: var(--good-fg); }
+.qty-status-user_overridden { color: var(--blue); }
+.qty-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+.qty-fout { margin: 6px 0; }
+.qty-bron p { font-size: 12.5px; line-height: 1.6; word-break: break-word; }
 
 .chev { font: 400 19px/1 var(--sans); color: var(--ink-28); flex: none; }
 
