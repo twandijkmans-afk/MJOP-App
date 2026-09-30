@@ -204,6 +204,30 @@ Regels:
   hoeveelheid die afwijkt van de automatische waarde blijft staan als
   handmatige waarde.
 
+### Meerdere bronnen (Quantity sources v1)
+
+Naast de automatische waarde kan een post meer bronnen hebben (`quantity.evidence`),
+bijvoorbeeld een historisch MJOP en 3D BAG uit mjop-learning, of een eerdere
+handmatige waarde. Het hoeveelheidspaneel toont ze naast elkaar met het feitelijke
+verschil t.o.v. de gekozen hoeveelheid; "Gebruik deze bron" maakt er de
+effectieve hoeveelheid van (status `CONFIRMED`), "Zelf aanpassen" legt een eigen
+waarde vast (die ook als bron bewaard blijft) en "Terug naar automatische waarde"
+zet de keuze terug. Er wordt nooit gemiddeld, niets automatisch gekozen en geen
+bronwaarde overschreven.
+
+Bronnen uit mjop-learning komen binnen via een bundel per VvE
+(`scripts/export_app_quantity_bundle.py` in mjop-learning), te importeren op het
+Gebouw-scherm. De bundel wordt alleen geaccepteerd voor exact het BAG-pand van het
+plan; historische gegevens van een VvE staan dus nooit in de publieke app-code.
+
+### Bedragen
+
+Offertebedragen en bedragen uit een MJOP-import worden gelezen zoals in
+mjop-learning (`nl_values`): `1.250,50`, `1250,50`, `1250.50` en `1,250.50` zijn
+1250,50. `1.250` is dubbelzinnig en telt alleen als 1250 als alle bedragen in
+dezelfde offerte (of hetzelfde importbestand) hele euro's zijn; anders verschijnt
+een melding en telt het bedrag niet mee. De ingevoerde tekst blijft ongewijzigd.
+
 ## Tests
 
 Er is geen build-stap of testrunner. Vanuit de projectroot:
@@ -212,6 +236,7 @@ Er is geen build-stap of testrunner. Vanuit de projectroot:
 node test/quantity.unit.spec.js          # puur Node, geen browser
 python3 -m http.server 8937 &            # voor de browsertests
 node test/quantity-flow.spec.js          # plat dak: 3D BAG -> voorstel -> bevestigen -> aanpassen -> reset -> kosten
+node test/quantity-sources.spec.js       # meerdere bronnen + bundelimport + offertebedragen
 node test/reservefonds.spec.js
 ```
 

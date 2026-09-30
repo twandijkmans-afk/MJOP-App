@@ -150,5 +150,66 @@ test('kozijnaantal is altijd ESTIMATED', function () {
   assert.strictEqual(a.value, 3);
 });
 
+// --- meerdere bronnen (v2) ----------------------------------------------------
+function histEv(v) { return { id: 'bundle:QE-1', source: 'IMPORTED_MJOP', method_class: 'SOURCE_REPORTED', value: v, unit: 'm2', basis: 'test', source_ref: { document_id: 'DOC-TEST' } }; }
+test('bron toevoegen overschrijft nooit (zelfde id)', function () {
+  var q = Q.create(dakAuto(312.64));
+  assert.strictEqual(Q.addEvidence(q, histEv(308)), true);
+  assert.strictEqual(Q.addEvidence(q, histEv(999)), false);
+  assert.strictEqual(Q.findEvidence(q, 'bundle:QE-1').value, 308);
+  assert.strictEqual(q.value, 312.64);                         // toevoegen kiest niets
+});
+test('bron kiezen -> CONFIRMED met waarde van die bron', function () {
+  var q = Q.create(dakAuto(312.64)); Q.addEvidence(q, histEv(308));
+  assert.deepStrictEqual(Q.selectEvidence(q, 'bundle:QE-1'), { ok: true });
+  assert.strictEqual(q.value, 308); assert.strictEqual(q.source, 'IMPORTED_MJOP'); assert.strictEqual(q.status, 'CONFIRMED');
+});
+test('bron met andere eenheid kan niet gekozen worden', function () {
+  var q = Q.create(dakAuto(312.64)); var e = histEv(84); e.id = 'x'; e.unit = 'm1'; Q.addEvidence(q, e);
+  assert.strictEqual(Q.selectEvidence(q, 'x').ok, false); assert.strictEqual(q.value, 312.64);
+});
+test('handmatig na gekozen bron: handmatige waarde wordt ook bron; andere bron kiezen bewaart hem', function () {
+  var q = Q.create(dakAuto(312.64)); Q.addEvidence(q, histEv(308)); Q.selectEvidence(q, 'bundle:QE-1');
+  Q.override(q, 311, '311');
+  assert.strictEqual(q.status, 'USER_OVERRIDDEN'); assert.strictEqual(q.value, 311);
+  Q.selectEvidence(q, 'bundle:QE-1');
+  assert.strictEqual(q.value, 308);
+  assert.ok(q.evidence.some(function (e) { return e.source === 'MANUAL' && e.value === 311; }));
+});
+test('reset na gekozen bron -> automatisch, bronnen blijven', function () {
+  var q = Q.create(dakAuto(312.64)); Q.addEvidence(q, histEv(308)); Q.selectEvidence(q, 'bundle:QE-1');
+  Q.resetToAuto(q);
+  assert.strictEqual(q.status, 'PROPOSED'); assert.strictEqual(q.value, 312.64); assert.strictEqual(q.evidence.length, 1);
+});
+test('verschil is feitelijk: absoluut en procent t.o.v. gekozen hoeveelheid', function () {
+  var q = Q.create(dakAuto(312.64));
+  assert.deepStrictEqual(Q.difference(q, 308), { absolute: -4.64, percentage: -1.5 });
+});
+test('v1-object zonder bronnenlijst blijft werken', function () {
+  var q = { auto: dakAuto(100), manual: null, confirmed: null, history: [] };
+  Q.refresh(q); assert.strictEqual(q.value, 100); assert.strictEqual(Q.selectEvidence(q, 'x').ok, false);
+});
+test('bundel: alleen eigen pand, één pand', function () {
+  var b = { bundle_version: 'mjop_app_quantity_bundle_v1', bag_pand_ids: ['1'], entries: [
+    { app_element_key: 'dak-plat', crosswalk_mapping_id: 'XW', evidence: { evidence_id: 'QE-1', source_type: 'MJOP_ELEMENT_OVERVIEW', method_class: 'SOURCE_REPORTED', value: '308.00', unit: 'm2', source_ref: { document_id: 'D' } } }] };
+  assert.strictEqual(Q.bundleEntries(b, { identificatie: '2' }).ok, false);
+  assert.strictEqual(Q.bundleEntries(Object.assign({}, b, { bag_pand_ids: ['1', '2'] }), { identificatie: '1' }).ok, false);
+  var r = Q.bundleEntries(b, { identificatie: '1' });
+  assert.strictEqual(r.ok, true); assert.strictEqual(r.entries[0].evidence.value, 308); assert.strictEqual(r.entries[0].evidence.source, 'IMPORTED_MJOP');
+});
+
+// --- offertebedragen -------------------------------------------------------------
+function amounts(list) { return Q.parseOfferteAmounts(list).map(function (p) { return p.ok ? p.value : p.error; }); }
+test('offerte: 1.250,50 / 1250,50 / 1250.50 / 1,250.50 -> 1250.5', function () {
+  assert.deepStrictEqual(amounts(['1.250,50', '1250,50', '1250.50', '1,250.50']), [1250.5, 1250.5, 1250.5, 1250.5]);
+});
+test('offerte: 1.250 alleen met hele-euro-bewijs als 1250, anders niet geraden', function () {
+  assert.deepStrictEqual(amounts(['1.250', '3.400', '500']), [1250, 3400, 500]);
+  assert.deepStrictEqual(amounts(['1.250', '99,50']), ['ambiguous_thousands_or_decimal', 99.5]);
+});
+test('offerte: leeg telt als 0, onzin wordt geweigerd', function () {
+  assert.deepStrictEqual(amounts(['', 'abc']), [0, 'not_a_number']);
+});
+
 if (fouten) { console.log('\n' + fouten + ' test(s) mislukt.'); process.exit(1); }
 console.log('\nAlle quantity-unit-tests geslaagd.');

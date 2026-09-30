@@ -125,17 +125,36 @@
   //   auto:   { value, unit, source, basis, raw:{...} } | null,
   //   manual: { value, unit, text, at } | null,
   //   confirmed: { value, at } | null,
+  //   evidence: [ { id, source, method_class, value, unit, basis, source_ref, origin, added_at } ]
+  //             alle andere bronnen (bijv. historisch MJOP, 3D BAG via mjop-learning, eerdere
+  //             handmatige waarden). Wordt nooit overschreven of verwijderd; alleen aangevuld.
+  //   selected: { evidenceId, at } | null   de door de gebruiker gekozen bron (v2)
   //   history: [ { at, event, value, source, note? } ]   (append-only)
   // }
+  //
+  // Effectieve waarde: handmatig > gekozen bron > automatisch. Er wordt nooit gemiddeld.
 
   function nowIso(at) { return at || new Date().toISOString(); }
 
+  function findEvidence(q, id) {
+    var list = (q && q.evidence) || [];
+    for (var i = 0; i < list.length; i++) if (list[i].id === id) return list[i];
+    return null;
+  }
+
+  function selectedEvidence(q) {
+    return (q.selected && q.selected.evidenceId) ? findEvidence(q, q.selected.evidenceId) : null;
+  }
+
   function refresh(q) {
-    var eff = q.manual || q.auto || { value: null, unit: null, source: null };
+    var sel = q.manual ? null : selectedEvidence(q);
+    var eff = q.manual || sel || q.auto || { value: null, unit: null, source: null };
     q.value = eff.value;
     q.unit = eff.unit || (q.auto && q.auto.unit) || null;
-    q.source = q.manual ? SOURCES.MANUAL : (q.auto ? q.auto.source : null);
+    q.source = q.manual ? SOURCES.MANUAL : (sel ? sel.source : (q.auto ? q.auto.source : null));
+    q.selectedEvidenceId = sel ? sel.id : null;
     if (q.manual) q.status = STATUS.USER_OVERRIDDEN;
+    else if (sel) q.status = STATUS.CONFIRMED;
     else if (q.confirmed && q.auto && q.confirmed.value === q.auto.value) q.status = STATUS.CONFIRMED;
     else q.status = STATUS.PROPOSED;
     return q;
@@ -181,17 +200,64 @@
 
   function override(q, value, text, at) {
     var t = nowIso(at);
-    var unit = (q.manual && q.manual.unit) || (q.auto && q.auto.unit) || null;
+    var unit = (q.manual && q.manual.unit) || q.unit || (q.auto && q.auto.unit) || null;
+    var previous = q.value;
     q.manual = { value: value, unit: unit, text: text == null ? String(value) : String(text), at: t };
-    q.history.push({ at: t, event: 'USER_OVERRIDDEN', value: value, source: SOURCES.MANUAL, previous: q.auto ? q.auto.value : null });
+    // De handmatige waarde blijft ook als bron bewaard, zodat hij na het kiezen
+    // van een andere bron niet verloren gaat.
+    q.evidence = q.evidence || [];
+    var n = q.evidence.filter(function (e) { return e.source === SOURCES.MANUAL; }).length + 1;
+    q.evidence.push({ id: 'manual-' + n, source: SOURCES.MANUAL, method_class: 'MANUAL', value: value, unit: unit,
+      basis: 'Door jou ingevuld (' + q.manual.text + ').', source_ref: { entered_text: q.manual.text }, origin: 'MANUAL', added_at: t });
+    q.selected = null;
+    q.history.push({ at: t, event: 'USER_OVERRIDDEN', value: value, source: SOURCES.MANUAL, previous: previous });
     return refresh(q);
   }
 
-  function resetToAuto(q, at) {
-    if (!q.manual) return refresh(q);
+  // Voegt een bron toe (bijv. uit een mjop-learning-bundel). Een bestaande bron
+  // (zelfde id) wordt nooit overschreven. Geeft true als er iets is toegevoegd.
+  function addEvidence(q, ev, at) {
+    q.evidence = q.evidence || [];
+    if (findEvidence(q, ev.id)) return false;
     var t = nowIso(at);
-    q.history.push({ at: t, event: 'RESET_TO_AUTO', value: q.auto ? q.auto.value : null, source: q.auto ? q.auto.source : null, previous: q.manual.value });
+    var copy = JSON.parse(JSON.stringify(ev));
+    copy.added_at = copy.added_at || t;
+    q.evidence.push(copy);
+    q.history.push({ at: t, event: 'EVIDENCE_ADDED', value: ev.value, source: ev.source, evidence_id: ev.id });
+    refresh(q);
+    return true;
+  }
+
+  // "Gebruik deze bron": de gekozen bron wordt de effectieve hoeveelheid
+  // (status CONFIRMED). Een handmatige waarde vervalt als keuze maar blijft als
+  // bron in de lijst staan. Een bron met een andere eenheid kan niet gekozen worden.
+  function selectEvidence(q, evidenceId, at) {
+    var ev = findEvidence(q, evidenceId);
+    if (!ev) return { ok: false, error: 'onbekende_bron' };
+    var unit = (q.auto && q.auto.unit) || q.unit;
+    if (unit && ev.unit && ev.unit !== unit) return { ok: false, error: 'andere_eenheid' };
+    if (ev.value == null || !isFinite(ev.value)) return { ok: false, error: 'geen_waarde' };
+    var t = nowIso(at);
     q.manual = null;
+    q.selected = { evidenceId: evidenceId, at: t };
+    q.history.push({ at: t, event: 'SOURCE_SELECTED', value: ev.value, source: ev.source, evidence_id: evidenceId });
+    refresh(q);
+    return { ok: true };
+  }
+
+  // Feitelijk verschil van een bron t.o.v. de effectieve hoeveelheid. Geen score.
+  function difference(q, value) {
+    if (value == null || q.value == null || !isFinite(value) || !isFinite(q.value)) return null;
+    var abs = Math.round((value - q.value) * 100) / 100;
+    return { absolute: abs, percentage: q.value !== 0 ? Math.round((value - q.value) / q.value * 1000) / 10 : null };
+  }
+
+  function resetToAuto(q, at) {
+    if (!q.manual && !q.selected) return refresh(q);
+    var t = nowIso(at);
+    q.history.push({ at: t, event: 'RESET_TO_AUTO', value: q.auto ? q.auto.value : null, source: q.auto ? q.auto.source : null, previous: q.value });
+    q.manual = null;
+    q.selected = null;
     q.confirmed = null;
     return refresh(q);
   }
@@ -342,12 +408,96 @@
       { formula: 'max(' + KOZ_MINIMA[i] + ', round(appartementen × ' + f + '))', inputs: [{ field: 'appartementen', value: b.units }] });
   }
 
+  // -------------------------------------------------------------------
+  // Offertebedragen (zelfde regels als mjop-learning scripts/nl_values.py)
+  // -------------------------------------------------------------------
+  //
+  // Generiek: "1250" en "1.250,50" en "1250,50" zijn eenduidig. "1250.50" en
+  // "1,250.50" zijn ook eenduidig (punt met 1-2 decimalen kan geen duizendtal
+  // zijn). "1.250" is dubbelzinnig (1250 of 1,25) en wordt alleen als 1250
+  // gelezen onder de expliciete profielregel "hele euro's": binnen dezelfde
+  // offerte staat geen enkel bedrag met decimalen. Anders: niet geraden.
+  var RE_INT = /^\d+$/, RE_NL_GROUPED = /^\d{1,3}(\.\d{3})+$/, RE_NL_DEC = /^(\d{1,3}(\.\d{3})+|\d+),(\d+)$/;
+  var RE_DOT_DEC = /^\d+\.\d{1,2}$/, RE_EN_GROUPED = /^\d{1,3}(,\d{3})+\.\d{1,2}$/;
+
+  function cleanAmount(text) {
+    return String(text == null ? '' : text).replace(/\u00a0/g, ' ').replace(/€/g, '').replace(/\s+/g, '');
+  }
+
+  function parseAmountGeneric(text) {
+    var t = cleanAmount(text);
+    if (!t) return { ok: true, value: 0, empty: true, profile: null };
+    if (RE_INT.test(t)) return { ok: true, value: Number(t), profile: 'generic' };
+    if (RE_NL_GROUPED.test(t)) return { ok: false, error: 'ambiguous_thousands_or_decimal' };
+    var m = RE_NL_DEC.exec(t);
+    if (m) return { ok: true, value: Number(m[1].replace(/\./g, '') + '.' + m[3]), profile: 'generic', hasDecimals: true };
+    if (RE_DOT_DEC.test(t)) return { ok: true, value: Number(t), profile: 'dot_decimal', hasDecimals: true };
+    if (RE_EN_GROUPED.test(t)) return { ok: true, value: Number(t.replace(/,/g, '')), profile: 'en_grouped', hasDecimals: true };
+    return { ok: false, error: 'not_a_number' };
+  }
+
+  // Leest alle regels van één offerte samen (de profielregel heeft het bewijs
+  // van de hele offerte nodig). Resultaat per regel: {ok, value, error, profile}.
+  function parseOfferteAmounts(texts) {
+    var parsed = texts.map(parseAmountGeneric);
+    var grouped = texts.filter(function (t) { return RE_NL_GROUPED.test(cleanAmount(t)); }).length;
+    var withDecimals = parsed.filter(function (p) { return p.ok && p.hasDecimals; }).length;
+    var other = parsed.filter(function (p) { return !p.ok && p.error === 'not_a_number'; }).length;
+    var wholeEuro = grouped > 0 && withDecimals === 0 && other === 0;
+    return parsed.map(function (p, i) {
+      if (p.ok || p.error !== 'ambiguous_thousands_or_decimal') return p;
+      if (wholeEuro) return { ok: true, value: Number(cleanAmount(texts[i]).replace(/\./g, '')), profile: 'whole_euro_dot_thousands' };
+      return p;
+    });
+  }
+
+  function amountErrorText(error) {
+    if (error === 'ambiguous_thousands_or_decimal') return 'Onduidelijk bedrag: 1.250 kan 1250 of 1,25 zijn. Schrijf 1250 of 1250,00.';
+    return 'Geen geldig bedrag.';
+  }
+
+  // -------------------------------------------------------------------
+  // Bundel met bronnen uit mjop-learning (scripts/export_app_quantity_bundle.py)
+  // -------------------------------------------------------------------
+  //
+  // Alleen voor het eigen gebouw: het BAG-pand van het plan moet exact in de
+  // bundel staan. Een bundel over meerdere panden wordt geweigerd (de app werkt
+  // per pand). Geeft {ok, errors, entries:[{app_element_key, evidence}]}.
+  function bundleEntries(bundle, building) {
+    var errors = [];
+    if (!bundle || bundle.bundle_version !== 'mjop_app_quantity_bundle_v1') errors.push('Dit is geen hoeveelhedenbundel uit mjop-learning (bundle_version).');
+    var pand = building && building.identificatie ? String(building.identificatie) : '';
+    var ids = (bundle && bundle.bag_pand_ids) || [];
+    if (!errors.length && ids.length !== 1) errors.push('De bundel gaat over ' + ids.length + ' panden; de app werkt per pand.');
+    if (!errors.length && (!pand || ids[0] !== pand)) errors.push('De bundel hoort bij pand ' + (ids[0] || '?') + ', dit plan bij pand ' + (pand || 'onbekend') + '.');
+    if (errors.length) return { ok: false, errors: errors, entries: [] };
+    var entries = (bundle.entries || []).map(function (e) {
+      var ev = e.evidence || {};
+      var src = ev.source_type === '3D_BAG' ? SOURCES.THREE_D_BAG : (ev.source_type === 'MJOP_ELEMENT_OVERVIEW' ? SOURCES.IMPORTED_MJOP : null);
+      return {
+        app_element_key: e.app_element_key,
+        evidence: {
+          id: 'bundle:' + ev.evidence_id, source: src, method_class: ev.method_class,
+          value: ev.value == null ? null : Number(ev.value), value_text: ev.value, unit: normalizeUnit(ev.unit) || ev.unit,
+          basis: src === SOURCES.IMPORTED_MJOP ? 'Historisch MJOP (' + (ev.source_ref && ev.source_ref.document_id) + '), zoals vermeld in het elementenoverzicht.'
+            : '3D BAG via mjop-learning (' + ((ev.source_ref && ev.source_ref.rule_id) || '') + ').',
+          source_ref: ev.source_ref || {}, source_cluster: ev.source_cluster || null,
+          same_object_document_ids: ev.same_object_document_ids || [], review_reasons: ev.review_reasons || [],
+          crosswalk_mapping_id: e.crosswalk_mapping_id, origin: 'MJOP_LEARNING_BUNDLE', evidence_status: ev.status,
+        },
+      };
+    }).filter(function (x) { return x.evidence.source && x.evidence.value != null; });
+    return { ok: true, errors: [], entries: entries };
+  }
+
   var api = {
     SOURCES: SOURCES, STATUS: STATUS, SOURCE_LABELS: SOURCE_LABELS, STATUS_LABELS: STATUS_LABELS,
     parseQuantity: parseQuantity, parseAmount: parseAmount, parseErrorText: parseErrorText,
     formatNumber: formatNumber, normalizeUnit: normalizeUnit, unitLabel: unitLabel,
     autoQuantity: autoQuantity, create: create, refresh: refresh, updateAuto: updateAuto,
     confirm: confirm, override: override, resetToAuto: resetToAuto, fromLegacy: fromLegacy, isValid: isValid,
+    addEvidence: addEvidence, selectEvidence: selectEvidence, findEvidence: findEvidence, difference: difference,
+    parseOfferteAmounts: parseOfferteAmounts, amountErrorText: amountErrorText, bundleEntries: bundleEntries,
     autoFor: autoFor, autoKozijn: autoKozijn, KOZ_FACTOREN: KOZ_FACTOREN,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
