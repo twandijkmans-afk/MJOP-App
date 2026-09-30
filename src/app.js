@@ -141,15 +141,20 @@
   // én gelezen), niet meer weggegooid.
   var STJ_CY_RE = new RegExp('([0-9]+(?:[.,][0-9]+)*)\\s*(' + PDF_EENHEID + ')\\.?\\s+(20[0-6][0-9])(?:\\s+([0-9]{1,3})\\b)?', 'i');
 
+  // Geeft de LETTERLIJKE bedragtekst terug (bijv. "1.234,56"), niet een getal:
+  // pas bij het importeren wordt de tekst gelezen met de regels van
+  // Q.parseOfferteAmounts over het hele document (zie mjop-import-confirm), zodat
+  // "1.234,56" niet meer 123456 wordt. De >= 100-drempel kijkt alleen naar de
+  // cijfers vóór een decimaalteken.
   function eersteBedragNa(tekst) {
     var amountRe = /[0-9]{1,3}(?:[.,][0-9]{3})+(?:[.,][0-9]{2})?|[0-9]+(?:[.,][0-9]{2})|[0-9]{3,}/g;
     var m;
     while ((m = amountRe.exec(tekst))) {
       if (/^20[0-9]{2}$/.test(m[0])) continue; // sluit een ander kaal jaartal uit (bv. "MJOP 2019-2029")
-      var bedrag = num(m[0]);
-      if (bedrag >= 100) return bedrag;
+      var heel = m[0].replace(/[.,][0-9]{1,2}$/, '').replace(/[.,]/g, '');
+      if (Number(heel) >= 100) return m[0];
     }
-    return 0;
+    return '';
   }
 
   // Zoekt regels met een hoeveelheid+eenheid+jaar (het patroon van
@@ -187,7 +192,7 @@
       // omschrijving die op haar eigen regel wrapt (komt vaak voor in
       // pdf-tabellen) hoort bij de net gevonden regel.
       if (isVervolgregel(rawLines[i + 1])) { naam = (naam + ' ' + rawLines[i + 1]).trim(); i++; }
-      if (naam && naam.length >= 3 && bedrag >= 100 && !isOnvoorzienPost(naam)) {
+      if (naam && naam.length >= 3 && bedrag && !isOnvoorzienPost(naam)) {
         out.push({ naam: naam, jaar: jaar, bedrag: bedrag, cyclus: cyclus, sfb: '', conditie: '', include: true,
           hoeveelheid: hoeveelheidTekst, eenheid: eenheidTekst, bronRegel: line });
       }
@@ -924,6 +929,7 @@
     bijvullen: {}, // elId -> bool
     addForm: null,
     qtyFout: {}, // invoer-id -> { tekst, melding }: afgewezen hoeveelheids-/prijsinvoer (niet geraden)
+    bundleUi: null, // { fout } | { melding }: resultaat van het importeren van een bronnenbundel
     accountMenuOpen: false, // mini-menu (Account/Uitloggen) onder het gebruikersblok in de zijbalk
     buildingSwitcherOpen: false, // dropdown van de gebouwkiezer boven in de zijbalk
     accountSubTab: 'profiel', // links sub-menu binnen de samengevoegde Account-pagina (zie renderAccount())
@@ -2085,8 +2091,10 @@
     if (!u.regels.length) {
       html += '<div class="row" style="border-top:none"><div class="grow meta">Geen regels herkend. Voeg ze hieronder zelf toe, of gebruik de ruwe tekst om ze over te nemen.</div></div>';
     }
+    var importBedragen = Q.parseOfferteAmounts(u.regels.map(function (r) { return r.bedrag; }));
     u.regels.forEach(function (r, i) {
-      var geindexeerd = indexeerBedrag(num(r.bedrag), basisjaar, num(r.jaar));
+      var pb = importBedragen[i];
+      var geindexeerd = indexeerBedrag(pb.ok ? pb.value : 0, basisjaar, num(r.jaar));
       html += '<div class="wiz-regel">';
       html += '<div class="wiz-regel-kop">';
       html += '<input type="checkbox" data-act="upload-toggle-regel" data-i="' + i + '"' + (r.include ? ' checked' : '') + ' aria-label="Regel opnemen in het plan" />';
@@ -2100,6 +2108,7 @@
       html += '<label class="wiz-field"><span>Eenheid</span><input id="upload-regel-eenheid-' + i + '" data-bind="upload-regel-eenheid" data-i="' + i + '" value="' + esc(r.eenheid || '') + '" /></label>';
       html += '<label class="wiz-field"><span>Herhaling in jaren (0 = eenmalig)</span><input id="upload-regel-cyclus-' + i + '" data-bind="upload-regel-cyclus" data-i="' + i + '" inputmode="numeric" value="' + esc(r.cyclus || 0) + '" /></label>';
       html += '</div>';
+      if (!pb.ok) html += '<div class="hint" style="color:var(--bad-fg)" data-import-bedrag-fout="' + i + '">' + esc(Q.amountErrorText(pb.error)) + '</div>';
       html += '<div class="wiz-result">In het plan: ' + eur(geindexeerd) + ' <span>in ' + esc(r.jaar) + '</span></div>';
       html += '</div>';
     });
@@ -3038,6 +3047,7 @@
     html += '</div>';
 
     if (state.addForm) html += renderAddElementForm();
+    if (!b.isVoorbeeld) html += renderBundleImport();
 
     html += '</div></div>';
     return html;
@@ -3254,11 +3264,96 @@
         html += '</p></details>';
       }
     }
+    html += renderQuantitySources(el);
+    var fout2 = state.qtyFout && state.qtyFout['bron-' + el.id];
+    if (fout2) html += '<div class="notice error qty-fout">' + esc(fout2.melding) + '</div>';
     html += '<div class="qty-actions">';
     if (q.status === Q.STATUS.PROPOSED && q.auto) html += '<button type="button" class="ov-btn secondary" data-act="qty-confirm" data-id="' + el.id + '">Hoeveelheid bevestigen</button>';
-    if (q.manual && q.auto) html += '<button type="button" class="ov-btn secondary" data-act="qty-reset" data-id="' + el.id + '">Terug naar automatische waarde</button>';
+    html += '<button type="button" class="ov-btn secondary" data-act="qty-edit" data-id="' + el.id + '">Zelf aanpassen</button>';
+    if ((q.manual || q.selected) && q.auto) html += '<button type="button" class="ov-btn secondary" data-act="qty-reset" data-id="' + el.id + '">Terug naar automatische waarde</button>';
     html += '</div></div>';
     return html;
+  }
+
+  // Alle bronnen naast elkaar (automatisch, geïmporteerd, eerdere handmatige
+  // waarden) met het feitelijke verschil t.o.v. de gekozen hoeveelheid. Geen
+  // score en geen gemiddelde: de gebruiker kiest zelf één bron.
+  function renderQuantitySources(el) {
+    var q = el.quantity;
+    var rows = [];
+    if (q.auto) rows.push({ id: null, source: q.auto.source, value: q.auto.value, unit: q.auto.unit, basis: q.auto.basis, auto: true,
+      ref: q.auto.raw || {}, effective: !q.manual && !q.selectedEvidenceId });
+    (q.evidence || []).forEach(function (ev) {
+      rows.push({ id: ev.id, source: ev.source, value: ev.value, unit: ev.unit, basis: ev.basis, ref: ev.source_ref || {}, ev: ev,
+        effective: q.manual ? false : q.selectedEvidenceId === ev.id });
+    });
+    if (rows.length < 2 && !(q.evidence || []).length) return '';
+    var html = '<div class="qty-sources" data-qty-sources><div class="label" style="margin-top:12px">Bronnen</div>';
+    rows.forEach(function (r) {
+      var isManualNow = q.manual && r.source === Q.SOURCES.MANUAL && r.value === q.manual.value && r.id === lastManualId(q);
+      var effective = r.effective || isManualNow;
+      var d = effective ? null : Q.difference(q, r.value);
+      html += '<div class="qty-source' + (effective ? ' is-effective' : '') + '" data-qty-source-row="' + esc(r.id || 'auto') + '" data-source="' + esc(r.source || '') + '">';
+      html += '<div class="qty-source-head"><span class="qty-source-label">' + esc((r.auto ? 'Automatisch: ' : '') + (Q.SOURCE_LABELS[r.source] || r.source)) + '</span>';
+      html += '<span class="qty-source-value" data-qty-source-value>' + Q.formatNumber(r.value) + ' ' + esc(Q.unitLabel(r.unit)) + '</span></div>';
+      var det = [];
+      if (r.ref.document_id) det.push('document ' + r.ref.document_id + (r.ref.page ? ', p. ' + r.ref.page : ''));
+      if (r.ref.text_fragment) det.push('"' + r.ref.text_fragment + '"');
+      if (r.ref.field) det.push(r.ref.field);
+      if (r.ref.pand_id || r.ref.bag_pand_id) det.push('pand ' + (r.ref.pand_id || r.ref.bag_pand_id));
+      if (r.ref.fetched_at) det.push('opgehaald ' + String(r.ref.fetched_at).slice(0, 10));
+      if (r.ev && r.ev.source_cluster) det.push('bron-cluster ' + r.ev.source_cluster);
+      if (r.ev && r.ev.same_object_document_ids && r.ev.same_object_document_ids.length) det.push('ook in ' + r.ev.same_object_document_ids.join(', ') + ' (geen onafhankelijke bevestiging)');
+      if (r.ev && r.ev.added_at && r.source === Q.SOURCES.MANUAL) det.push('ingevuld ' + String(r.ev.added_at).slice(0, 10));
+      if (r.ev && r.ev.review_reasons && r.ev.review_reasons.length) det.push('let op: ' + r.ev.review_reasons.join(', '));
+      if (det.length) html += '<div class="hint" data-qty-source-detail>' + esc(det.join(' · ')) + '</div>';
+      if (effective) html += '<div class="hint qty-source-effective">Gebruikt voor de berekening</div>';
+      else {
+        if (d) html += '<div class="hint" data-qty-source-diff>Verschil met gekozen hoeveelheid: ' + (d.absolute > 0 ? '+' : '') + Q.formatNumber(d.absolute) + ' ' + esc(Q.unitLabel(r.unit)) + (d.percentage != null ? ' (' + (d.percentage > 0 ? '+' : '') + Q.formatNumber(d.percentage) + '%)' : '') + '</div>';
+        html += r.auto
+          ? '<button type="button" class="linkish" data-act="qty-reset" data-id="' + el.id + '">Gebruik deze bron</button>'
+          : '<button type="button" class="linkish" data-act="qty-select" data-id="' + el.id + '" data-ev="' + esc(r.id) + '">Gebruik deze bron</button>';
+      }
+      html += '</div>';
+    });
+    html += '</div>';
+    return html;
+  }
+
+  function lastManualId(q) {
+    var m = (q.evidence || []).filter(function (e) { return e.source === Q.SOURCES.MANUAL; });
+    return m.length ? m[m.length - 1].id : null;
+  }
+
+  // Bronnen uit mjop-learning importeren (bundel per VvE, zie
+  // scripts/export_app_quantity_bundle.py). Alleen voor het eigen pand; niets
+  // wordt overschreven of automatisch gekozen.
+  function renderBundleImport() {
+    var b = state.building || {};
+    var ui = state.bundleUi || {};
+    var html = '<section class="ov-card qty-bundle" style="margin-top:16px;padding:16px">';
+    html += '<h2 class="section-title" style="margin:0 0 6px">Hoeveelheden uit oude MJOP\'s</h2>';
+    html += '<p class="hint" style="margin:0 0 10px">Importeer een bronnenbestand (mjop-learning) voor dit pand' + (b.identificatie ? ' (' + esc(b.identificatie) + ')' : '') + '. De bronnen komen naast de huidige hoeveelheid te staan; jij kiest welke gebruikt wordt.</p>';
+    html += '<input type="file" id="qty-bundle-input" accept=".json,application/json" />';
+    if (ui.fout) html += '<div class="notice error" data-bundle-fout style="margin-top:8px">' + esc(ui.fout) + '</div>';
+    if (ui.melding) html += '<div class="notice" data-bundle-melding style="margin-top:8px">' + esc(ui.melding) + '</div>';
+    html += '</section>';
+    return html;
+  }
+
+  function importQuantityBundle(bundle) {
+    var res = Q.bundleEntries(bundle, state.building);
+    if (!res.ok) { state.bundleUi = { fout: res.errors.join(' ') }; return; }
+    var toegevoegd = 0, alAanwezig = 0, overgeslagen = [];
+    res.entries.forEach(function (e) {
+      var el = findEl(e.app_element_key);
+      if (!el || !el.quantity) { overgeslagen.push(e.app_element_key + ' (niet in dit plan)'); return; }
+      var unit = (el.quantity.auto && el.quantity.auto.unit) || el.quantity.unit;
+      if (unit && e.evidence.unit !== unit) { overgeslagen.push(e.app_element_key + ' (andere eenheid ' + e.evidence.unit + ')'); return; }
+      if (Q.addEvidence(el.quantity, e.evidence)) toegevoegd++; else alAanwezig++;
+    });
+    state.bundleUi = { melding: toegevoegd + ' ' + meervoud(toegevoegd, 'bron', 'bronnen') + ' toegevoegd' +
+      (alAanwezig ? ', ' + alAanwezig + ' al aanwezig' : '') + (overgeslagen.length ? '; overgeslagen: ' + overgeslagen.join(', ') : '') + '.' };
   }
 
   function renderHoeveelheidKengetal(el) {
@@ -3336,8 +3431,8 @@
       html += '<div class="row" style="border-top:none"><div class="grow meta" style="font-size:12.5px">Nog geen offertes toegevoegd voor deze post.</div></div>';
     }
     offs.forEach(function (o, oi) {
-      var totaal = o.regels.reduce(function (a, r) { return a + num(r.bedrag); }, 0);
-      if (o.btw) totaal = totaal * 1.21;
+      var bedragen = offerteBedragen(o);
+      var totaal = offerteTotal(o);
       html += '<div class="row" style="align-items:flex-start' + (oi === 0 ? ';border-top:none' : '') + '">';
       html += '<div class="grow">';
       html += '<div class="name" style="font-weight:500">' + esc(o.naam) + '</div>';
@@ -3347,6 +3442,9 @@
         html += '<input id="of-' + o.id + '-bedrag-' + ri + '" data-bind="of-regel-bedrag" data-oid="' + o.id + '" data-ri="' + ri + '" value="' + esc(r.bedrag) + '" style="width:80px;border:1px solid var(--ink-14);border-radius:8px;padding:5px 7px;text-align:right;font:500 13px var(--sans)" placeholder="€" />';
         html += '<button data-act="of-del-regel" data-oid="' + o.id + '" data-ri="' + ri + '" style="border:none;background:none;color:var(--ink-45);cursor:pointer">×</button>';
         html += '</div>';
+        var pb = bedragen[ri];
+        if (!pb.ok) html += '<div class="hint of-bedrag-fout" data-of-fout="' + o.id + '-' + ri + '" style="color:var(--bad-fg)">' + esc(Q.amountErrorText(pb.error)) + ' Telt nu niet mee.</div>';
+        else if (pb.profile === 'whole_euro_dot_thousands') html += '<div class="hint" data-of-profiel="' + o.id + '-' + ri + '">Gelezen als ' + eur(pb.value) + ' (alle bedragen in deze offerte zijn hele euro\'s).</div>';
       });
       html += '<div style="margin-top:8px" class="linkish" data-act="of-add-regel" data-oid="' + o.id + '">+ regel toevoegen</div>';
       html += '<div class="toggle-row" style="margin-top:9px" data-act="of-toggle-btw" data-oid="' + o.id + '">';
@@ -3367,8 +3465,16 @@
     return html;
   }
 
+  // Offertebedragen lezen zoals mjop-learning (nl_values): "1.250,50" en
+  // "1250.50" zijn 1250,50 (vroeger werd dat 125050); "1.250" telt alleen als
+  // 1250 als alle bedragen in de offerte hele euro's zijn, anders niet geraden.
+  // De ingevoerde tekst zelf wordt nooit aangepast.
+  function offerteBedragen(o) {
+    return Q.parseOfferteAmounts(o.regels.map(function (r) { return r.bedrag; }));
+  }
+
   function offerteTotal(o) {
-    var t = o.regels.reduce(function (a, r) { return a + num(r.bedrag); }, 0);
+    var t = offerteBedragen(o).reduce(function (a, p) { return a + (p.ok ? p.value : 0); }, 0);
     return o.btw ? t * 1.21 : t;
   }
 
@@ -3377,8 +3483,10 @@
     offs.forEach(function (o) { o.regels.forEach(function (r) { if (r.naam && regelNamen.indexOf(r.naam) < 0) regelNamen.push(r.naam); }); });
 
     function cellValue(o, naam) {
-      var r = o.regels.filter(function (x) { return x.naam === naam; })[0];
-      if (r) return num(r.bedrag);
+      var bedragen = offerteBedragen(o);
+      for (var i = 0; i < o.regels.length; i++) {
+        if (o.regels[i].naam === naam) return bedragen[i].ok ? bedragen[i].value : null;
+      }
       return null;
     }
     // "kengetal" fallback for a missing line = average of the other quotes' value for that line.
@@ -3935,6 +4043,15 @@
     'koz-plus': function (d) { var el = findEl(d.id); if (!el) return; var k = el.koz[+d.i]; Q.override(k.quantity, kozAantal(k) + 1); render(); },
     'koz-reset': function (d) { var el = findEl(d.id); if (!el) return; Q.resetToAuto(el.koz[+d.i].quantity); render(); },
     'qty-confirm': function (d) { var el = findEl(d.id); if (!el || !el.quantity) return; Q.confirm(el.quantity); render(); },
+    'qty-select': function (d) {
+      var el = findEl(d.id); if (!el || !el.quantity) return;
+      var r = Q.selectEvidence(el.quantity, d.ev);
+      state.qtyFout = state.qtyFout || {};
+      if (!r.ok) state.qtyFout['bron-' + el.id] = { melding: r.error === 'andere_eenheid' ? 'Deze bron heeft een andere eenheid en kan niet gekozen worden.' : 'Deze bron kan niet gekozen worden.' };
+      else { delete state.qtyFout['bron-' + el.id]; delete state.qtyFout['hv-' + el.id]; }
+      render();
+    },
+    'qty-edit': function (d) { var inp = document.getElementById('hv-' + d.id); if (inp) { inp.focus(); inp.select(); } },
     'qty-reset': function (d) {
       var el = findEl(d.id); if (!el || !el.quantity) return;
       Q.resetToAuto(el.quantity);
@@ -4297,12 +4414,13 @@
       var regels = u.dataRijen.map(function (row) {
         var naam = m.naam > -1 ? String(row[m.naam] || '').trim() : '';
         var jaar = m.jaar > -1 ? num(row[m.jaar]) : 0;
-        var bedrag = m.bedrag > -1 ? num(row[m.bedrag]) : 0;
+        // Letterlijke tekst bewaren; lezen gebeurt bij importeren (Q.parseOfferteAmounts).
+        var bedrag = m.bedrag > -1 ? String(row[m.bedrag] == null ? '' : row[m.bedrag]).trim() : '';
         var sfb = m.sfb > -1 ? String(row[m.sfb] || '').trim() : '';
         var conditie = m.conditie > -1 ? String(row[m.conditie] || '').trim() : '';
         var hoeveelheid = m.hoeveelheid > -1 ? String(row[m.hoeveelheid] == null ? '' : row[m.hoeveelheid]).trim() : '';
         var eenheid = m.eenheid > -1 ? String(row[m.eenheid] == null ? '' : row[m.eenheid]).trim() : '';
-        return { naam: naam, jaar: jaar || (CURRENT_YEAR + 1), bedrag: bedrag, sfb: sfb, conditie: conditie, include: !!(naam && bedrag), hoeveelheid: hoeveelheid, eenheid: eenheid };
+        return { naam: naam, jaar: jaar || (CURRENT_YEAR + 1), bedrag: bedrag, sfb: sfb, conditie: conditie, include: !!(naam && bedrag && bedrag !== '0'), hoeveelheid: hoeveelheid, eenheid: eenheid };
       }).filter(function (r) { return r.naam && !isOnvoorzienPost(r.naam); });
       state.upload = { stap: 'regels', bestandsnaam: u.bestandsnaam, regels: regels, basisjaar: String(CURRENT_YEAR - 1) };
       render();
@@ -4316,10 +4434,14 @@
     'mjop-import-confirm': function () {
       var bestandsnaam = state.upload.bestandsnaam;
       var basisjaar = num(state.upload.basisjaar) || CURRENT_YEAR;
-      (state.upload.regels || []).filter(function (r) { return r.include && r.naam; }).forEach(function (r) {
+      var alleRegels = state.upload.regels || [];
+      var bedragen = Q.parseOfferteAmounts(alleRegels.map(function (r) { return r.bedrag; }));
+      alleRegels.filter(function (r) { return r.include && r.naam; }).forEach(function (r) {
+        var pb = bedragen[alleRegels.indexOf(r)];
         state.elements.push({
           id: uid('import'), naam: r.naam, categorie: guessCategorie(r.naam, r.sfb), type: 'custom',
-          cyclus: num(r.cyclus) || 0, jaar: num(r.jaar) || (CURRENT_YEAR + 1), bedrag: num(r.bedrag), basisjaar: basisjaar,
+          cyclus: num(r.cyclus) || 0, jaar: num(r.jaar) || (CURRENT_YEAR + 1), bedrag: pb.ok ? pb.value : 0, basisjaar: basisjaar,
+          bedragTekst: String(r.bedrag == null ? '' : r.bedrag), bedragOnduidelijk: !pb.ok,
           sfb: r.sfb || undefined, gebreken: [],
           metaTekst: 'geïmporteerd uit ' + (bestandsnaam || 'bestand'),
           quantity: importQuantity(r, bestandsnaam),
@@ -4691,6 +4813,16 @@
       if (handler) { handler(t, t.dataset); render(); }
     });
     root.addEventListener('change', function (e) {
+      if (e.target && e.target.id === 'qty-bundle-input') {
+        var bf = e.target.files && e.target.files[0];
+        if (bf) readFileAsText(bf).then(function (txt) {
+          var parsed;
+          try { parsed = JSON.parse(txt); } catch (err) { state.bundleUi = { fout: 'Dit bestand is geen geldige JSON.' }; render(); return; }
+          importQuantityBundle(parsed);
+          render();
+        }).catch(function () { state.bundleUi = { fout: 'Bestand kon niet gelezen worden.' }; render(); });
+        return;
+      }
       if (e.target && e.target.id === 'mjop-file-input') {
         var file = e.target.files && e.target.files[0];
         if (file) handleUploadFile(file);

@@ -1,0 +1,79 @@
+{
+ "bundle_version": "mjop_app_quantity_bundle_v1",
+ "building_id": "BAG:0363100012345678",
+ "bag_pand_ids": [
+  "0363100012345678"
+ ],
+ "tenant_note": "Bevat historische hoeveelheden van één VvE; alleen importeren in het plan van die VvE.",
+ "entries": [
+  {
+   "app_element_key": "dak-plat",
+   "crosswalk_mapping_id": "XW-dak-plat-4711-m2",
+   "crosswalk_decision_id": "XWD-00002",
+   "subject_key": "ROOF_FLAT_AREA",
+   "evidence": {
+    "evidence_id": "QE-a7e68466c45293ef",
+    "source_type": "MJOP_ELEMENT_OVERVIEW",
+    "method_class": "SOURCE_REPORTED",
+    "value": "308.00",
+    "unit": "m2",
+    "status": "PROPOSED",
+    "review_reasons": [],
+    "scope_caveats": [],
+    "source_cluster": "SC-DOC-005+DOC-006",
+    "same_object_document_ids": [
+     "DOC-006"
+    ],
+    "source_ref": {
+     "document_id": "DOC-005",
+     "quantity_observation_id": "QO-DOC-005-EL-001",
+     "page": 6,
+     "text_fragment": "4711 Dakbedekking bitumen 308.00m2",
+     "quantity_as_stated": "308,00",
+     "bag_pand_id": null,
+     "fields": null,
+     "raw_inputs": null,
+     "fetched_at": null,
+     "rule_id": null,
+     "rule_version": null
+    }
+   }
+  },
+  {
+   "app_element_key": "dak-plat",
+   "crosswalk_mapping_id": "XW-dak-plat-4711-m2",
+   "crosswalk_decision_id": "XWD-00002",
+   "subject_key": "ROOF_FLAT_AREA",
+   "evidence": {
+    "evidence_id": "QE-be5fe52d1797d28e",
+    "source_type": "3D_BAG",
+    "method_class": "DIRECT_MEASURED",
+    "value": "312.64",
+    "unit": "m2",
+    "status": "PROPOSED",
+    "review_reasons": [],
+    "scope_caveats": [],
+    "source_cluster": null,
+    "same_object_document_ids": [],
+    "source_ref": {
+     "document_id": null,
+     "quantity_observation_id": null,
+     "page": null,
+     "text_fragment": null,
+     "quantity_as_stated": null,
+     "bag_pand_id": "0363100012345678",
+     "fields": [
+      "b3_opp_dak_plat"
+     ],
+     "raw_inputs": {
+      "b3_opp_dak_plat": 312.64
+     },
+     "fetched_at": "2026-10-01T10:00:00Z",
+     "rule_id": "bag3d.roof_flat_area",
+     "rule_version": "1.0.0"
+    }
+   }
+  }
+ ],
+ "test_fixture_note": "SYNTHETISCHE TESTDATA voor test/quantity-flow.spec.js: gegenereerd met mjop-learning scripts/export_app_quantity_bundle.py op zelfgemaakte API-antwoorden en een test-reviewer. Geen echt gebouw."
+}
