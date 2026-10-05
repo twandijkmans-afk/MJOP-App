@@ -32,9 +32,12 @@ duidelijke melding op het "Inloggen"-tabblad. Om het aan te zetten:
 1. Maak een gratis project aan op [supabase.com](https://supabase.com).
 2. Zet in **Authentication → URL Configuration** de **Site URL** en voeg
    bij **Redirect URLs** het adres toe waar de app draait — voor de live
-   versie `https://<gebruiker>.github.io/<repo>/`, voor lokaal draaien
-   erbij `http://localhost:<poort>/index.html`. Zonder dit op de
-   redirect-lijst weigert Supabase de inloglink.
+   versie `https://<gebruiker>.github.io/<repo>/` (hier:
+   `https://twandijkmans-afk.github.io/MJOP-App/`), voor lokaal draaien
+   erbij `http://localhost:<poort>/`. De app stuurt als terugkeer-adres
+   altijd de map van de pagina mee (`…/index.html` wordt `…/`), dus één
+   regel per omgeving volstaat. Staat het adres niet op de lijst, dan
+   stuurt Supabase de link naar de Site URL.
 3. Kopieer de **Project URL** en de **publishable/anon key** (Project
    Settings → API) naar `src/config.js`. Die sleutel is bedoeld om
    publiek te zijn; zet er nooit de *secret*/*service role*-sleutel in.
@@ -42,6 +45,24 @@ duidelijke melding op het "Inloggen"-tabblad. Om het aan te zetten:
    "Magic Link"-e-mailsjabloon (met een link, geen code) — de body
    daarvan is dan niet aan te passen. Dat is precies waarom deze app een
    link verwacht in plaats van een in te typen code.
+
+### Als inloggen niet lukt (diagnostiek)
+
+De app toont bij een mislukte inlogpoging een melding met een foutcode
+(attribuut `data-auth-error-code`, zie `src/auth-diagnostics.js`):
+`CONFIG_MISSING`, `SDK_NOT_LOADED`, `NETWORK_ERROR` (de browser kreeg geen
+antwoord van de Supabase-host: DNS, gepauzeerd/verwijderd project, CORS,
+adblocker of offline — vroeger verscheen hier de kale tekst "Failed to
+fetch"), `SUPABASE_AUTH_ERROR`, `REDIRECT_CONFIGURATION_ERROR` of
+`UNKNOWN_AUTH_ERROR`. Details (actie, host, `error.name`, `error.message`,
+nooit sleutels of tokens) gaan naar de console op `localhost`, met
+`?debug=auth` in de URL, of met `localStorage['mjop-debug-auth'] = '1'`.
+
+Health check zonder in te loggen: open `debug/auth-health.html` (niet
+gelinkt vanuit de app) en klik op **Controleer**. Die controleert of de
+SDK geladen is, of de configuratie geldig is, welk terugkeer-adres de app
+gebruikt en of de browser `<project>/auth/v1/health` bereikt (één GET,
+geen login, geen database-write).
 
 ### Marketing-homepage en login-gate (desktop)
 
@@ -234,14 +255,20 @@ Er is geen build-stap of testrunner. Vanuit de projectroot:
 
 ```
 node test/quantity.unit.spec.js          # puur Node, geen browser
+node test/auth-diagnostics.unit.spec.js  # puur Node: foutcodes, config-, redirect- en health-check
 python3 -m http.server 8937 &            # voor de browsertests
 node test/quantity-flow.spec.js          # plat dak: 3D BAG -> voorstel -> bevestigen -> aanpassen -> reset -> kosten
 node test/quantity-sources.spec.js       # meerdere bronnen + bundelimport + offertebedragen
 node test/quantity-multipand.spec.js     # bundel v2: VvE-scope met meerdere BAG-panden (som + pandwaarden)
 node test/quantity-related.spec.js       # bundel v3: verwant maar ander onderwerp (historische dakbedekking) als niet-kiesbare context
 node test/quantity-maldenhof-real.spec.js # ECHTE Maldenhof-bundel v3 (15 panden) door de importflow; zie test/fixtures/real/README.md
+node test/auth.spec.js                   # inloglink met de echte Supabase-SDK; Supabase-netwerk nagebootst
 node test/reservefonds.spec.js
 ```
+
+`auth.spec.js` laadt de Supabase-SDK standaard van de CDN. Zonder internettoegang: zet
+`MJOP_SUPABASE_SDK=/pad/naar/supabase.js` (het bestand `dist/umd/supabase.js` uit
+`npm pack @supabase/supabase-js@2.116.0`; de SRI-hash in `index.html` moet blijven kloppen).
 
 De browsertests gebruiken Playwright/Chromium; `quantity-flow.spec.js` bootst
 PDOK/BAG/3D BAG na met vaste antwoorden.
