@@ -1335,9 +1335,48 @@
   // door — inloggen toont dan een duidelijke "nog niet geconfigureerd"
   // melding in plaats van te crashen.
   // ---------------------------------------------------------------------
-  var sb = (window.supabase && window.SUPABASE_CONFIG && window.SUPABASE_CONFIG.url && window.SUPABASE_CONFIG.anonKey)
-    ? window.supabase.createClient(window.SUPABASE_CONFIG.url, window.SUPABASE_CONFIG.anonKey)
-    : null;
+  //
+  // Waarom er (geen) client is, staat in authInit (src/auth-diagnostics.js):
+  // CONFIG_MISSING (geen/ongeldige URL of publieke sleutel, of per ongeluk een
+  // geheime sleutel) of SDK_NOT_LOADED (CDN-script niet geladen).
+  var AD = window.MJOPAuthDiagnostics;
+  var authInit = AD.initStatus(window);
+  var sb = authInit.ok ? window.supabase.createClient(window.SUPABASE_CONFIG.url, window.SUPABASE_CONFIG.anonKey) : null;
+  if (!authInit.ok) AD.log(window, AD.forCode(authInit.code, { action: 'init', host: authInit.config.host }));
+
+  // Een auth-fout indelen (NETWORK_ERROR, SUPABASE_AUTH_ERROR, …) en een
+  // begrijpelijke melding zetten i.p.v. de kale browsertekst ("Failed to
+  // fetch"). Logt alleen in development/test, nooit sleutels of tokens.
+  function authFail(target, action, err) {
+    var r = err && err.code && AD.MESSAGES[err.code] && !err.name ? err : AD.classifyAuthError(err, { action: action, host: authInit.config.host });
+    AD.log(window, r);
+    target.fout = r.message;
+    target.foutCode = r.code;
+    target.foutVoor = r.message;
+  }
+
+  // De terugkeer-URL voor inlog-/bevestigings-/resetlinks (zie AD.redirectUrlFor).
+  function authRedirect(target, action) {
+    var rd = AD.redirectUrlFor(window.location);
+    if (!rd.ok) { authFail(target, action, AD.forCode(rd.code, { action: action, host: authInit.config.host })); return null; }
+    return rd.url;
+  }
+
+  function authErrorNotice(a, marginTop) {
+    if (!a.fout) return '';
+    var code = a.foutVoor === a.fout ? (a.foutCode || '') : '';
+    return '<div class="notice error" data-auth-error' + (code ? ' data-auth-error-code="' + esc(code) + '"' : '') +
+      ' style="margin-top:' + marginTop + '">' + esc(a.fout) + '</div>';
+  }
+
+  // Waarom inloggen niet beschikbaar is (geen client).
+  function authUnavailableNotice() {
+    var code = authInit.code || AD.CODES.CONFIG_MISSING;
+    var tekst = code === AD.CODES.SDK_NOT_LOADED ? AD.MESSAGES.SDK_NOT_LOADED
+      : 'Inloggen is nog niet geconfigureerd. Vul de Supabase-projectgegevens (URL en publieke sleutel) in <code>src/config.js</code> in.' +
+        (authInit.config.problems.length ? ' (' + esc(authInit.config.problems.join('; ')) + ')' : '');
+    return '<div class="notice error" data-auth-error data-auth-error-code="' + code + '" style="margin-top:0">' + tekst + '</div>';
+  }
 
   // ---------------------------------------------------------------------
   // Rendering
@@ -1888,34 +1927,34 @@
 
     html += '<div class="ov-card entry-card">';
     if (!sb) {
-      html += '<div class="notice error" style="margin-top:0">Inloggen is nog niet geconfigureerd. Vul de Supabase-projectgegevens (URL en anon-sleutel) in <code>src/config.js</code> in.</div>';
+      html += authUnavailableNotice();
     } else if (a.stap === 'recovery') {
       html += '<label class="entry-label" for="auth-password">Nieuw wachtwoord</label>';
       html += '<input id="auth-password" class="entry-input" data-bind="auth-password" type="password" value="' + esc(a.password) + '" placeholder="Minstens 6 tekens" autocomplete="new-password" />';
       html += '<label class="entry-label" style="margin-top:12px" for="auth-password2">Herhaal wachtwoord</label>';
       html += '<input id="auth-password2" class="entry-input" data-bind="auth-password2" type="password" value="' + esc(a.password2) + '" placeholder="Nogmaals" autocomplete="new-password" />';
-      if (a.fout) html += '<div class="notice error" style="margin-top:12px">' + esc(a.fout) + '</div>';
+      html += authErrorNotice(a, '12px');
       html += '<button type="button" class="ov-btn entry-submit" data-act="set-new-password">' + (a.bezig ? 'Bezig…' : 'Wachtwoord instellen') + '</button>';
     } else if (a.stap === 'sent') {
       html += '<p class="entry-sent">Naar <strong>' + esc(a.email) + '</strong>. Open de e-mail en klik op de link, dan kom je hier terug en ben je ingelogd. Geen mail ontvangen? Controleer de spamfolder.</p>';
-      if (a.fout) html += '<div class="notice error" style="margin-top:12px">' + esc(a.fout) + '</div>';
+      html += authErrorNotice(a, '12px');
       html += '<div class="entry-links"><span class="entry-link" data-act="auth-mode-magic">Ander e-mailadres of opnieuw versturen</span></div>';
     } else if (a.stap === 'signup-sent') {
       html += '<p class="entry-sent">We hebben een bevestigingsmail gestuurd naar <strong>' + esc(a.email) + '</strong>. Klik op de link daarin om je account te activeren, dan kun je meteen inloggen.</p>';
-      if (a.fout) html += '<div class="notice error" style="margin-top:12px">' + esc(a.fout) + '</div>';
+      html += authErrorNotice(a, '12px');
       html += '<div class="entry-links"><span class="entry-link" data-act="auth-mode-password">Naar inloggen</span></div>';
     } else if (a.stap === 'reset-sent') {
       html += '<p class="entry-sent">Naar <strong>' + esc(a.email) + '</strong>. Open de e-mail en klik op de link om een nieuw wachtwoord te kiezen. Geen mail ontvangen? Controleer de spamfolder.</p>';
-      if (a.fout) html += '<div class="notice error" style="margin-top:12px">' + esc(a.fout) + '</div>';
+      html += authErrorNotice(a, '12px');
       html += '<div class="entry-links"><span class="entry-link" data-act="auth-mode-reset">Opnieuw versturen</span><span class="entry-link" data-act="auth-mode-password">Terug naar inloggen</span></div>';
     } else if (a.stap === 'reset') {
       html += authEmailField(a);
-      if (a.fout) html += '<div class="notice error" style="margin-top:12px">' + esc(a.fout) + '</div>';
+      html += authErrorNotice(a, '12px');
       html += '<button type="button" class="ov-btn entry-submit" data-act="reset-password-request">' + (a.bezig ? 'Bezig…' : 'Verstuur resetlink') + '</button>';
       html += '<div class="entry-links"><span class="entry-link" data-act="auth-mode-password">Terug naar inloggen</span></div>';
     } else if (a.stap === 'magic') {
       html += authEmailField(a);
-      if (a.fout) html += '<div class="notice error" style="margin-top:12px">' + esc(a.fout) + '</div>';
+      html += authErrorNotice(a, '12px');
       html += '<button type="button" class="ov-btn entry-submit" data-act="login-request">' + (a.bezig ? 'Bezig…' : 'Verstuur inloglink') + '</button>';
       html += '<div class="entry-links"><span class="entry-link" data-act="auth-mode-password">Terug naar wachtwoord</span></div>';
     } else if (a.stap === 'signup') {
@@ -1924,14 +1963,14 @@
       html += '<input id="auth-password" class="entry-input" data-bind="auth-password" type="password" value="' + esc(a.password) + '" placeholder="Minstens 6 tekens" autocomplete="new-password" />';
       html += '<label class="entry-label" style="margin-top:12px" for="auth-password2">Herhaal wachtwoord</label>';
       html += '<input id="auth-password2" class="entry-input" data-bind="auth-password2" type="password" value="' + esc(a.password2) + '" placeholder="Nogmaals" autocomplete="new-password" />';
-      if (a.fout) html += '<div class="notice error" style="margin-top:12px">' + esc(a.fout) + '</div>';
+      html += authErrorNotice(a, '12px');
       html += '<button type="button" class="ov-btn entry-submit" data-act="signup-password">' + (a.bezig ? 'Bezig…' : 'Account aanmaken') + '</button>';
       html += '<div class="entry-links"><span class="entry-link" data-act="auth-mode-password">Heb je al een account? Inloggen</span></div>';
     } else {
       html += authEmailField(a);
       html += '<label class="entry-label" style="margin-top:12px" for="auth-password">Wachtwoord</label>';
       html += '<input id="auth-password" class="entry-input" data-bind="auth-password" type="password" value="' + esc(a.password) + '" placeholder="Je wachtwoord" autocomplete="current-password" />';
-      if (a.fout) html += '<div class="notice error" style="margin-top:12px">' + esc(a.fout) + '</div>';
+      html += authErrorNotice(a, '12px');
       html += '<button type="button" class="ov-btn entry-submit" data-act="login-password">' + (a.bezig ? 'Bezig…' : 'Inloggen') + '</button>';
       html += '<div class="entry-links"><span class="entry-link" data-act="auth-mode-reset">Wachtwoord vergeten?</span><span class="entry-link" data-act="auth-mode-signup">Account aanmaken</span></div>';
       html += '<div class="entry-links"><span class="entry-link" data-act="auth-mode-magic">Liever een inloglink per mail</span></div>';
@@ -2339,7 +2378,7 @@
 
   function renderAcctProfiel() {
     if (!sb) {
-      return '<div class="notice error">Inloggen is nog niet geconfigureerd. Vul de Supabase-projectgegevens (URL en anon-sleutel) in <code>src/config.js</code> in.</div>';
+      return authUnavailableNotice();
     }
     var a = state.auth;
     if (!state.session) {
@@ -2355,35 +2394,35 @@
         html += '<div style="font:500 13.5px/1.35 var(--sans)">Kies een nieuw wachtwoord</div>';
         html += '<div class="input-row" style="margin-top:14px"><div class="label">Nieuw wachtwoord</div><input id="auth-password" data-bind="auth-password" type="password" value="' + esc(a.password) + '" class="wide" placeholder="Minstens 6 tekens" style="width:200px;text-align:left" autocomplete="new-password" /></div>';
         html += '<div class="input-row"><div class="label">Herhaal wachtwoord</div><input id="auth-password2" data-bind="auth-password2" type="password" value="' + esc(a.password2) + '" class="wide" placeholder="Nogmaals" style="width:200px;text-align:left" autocomplete="new-password" /></div>';
-        if (a.fout) html += '<div class="notice error" style="margin-top:10px">' + esc(a.fout) + '</div>';
+        html += authErrorNotice(a, '10px');
         html += '<div class="btn-row"><div class="primary-btn" data-act="set-new-password">' + (a.bezig ? 'Bezig…' : 'Wachtwoord instellen') + '</div></div>';
       } else if (a.stap === 'sent') {
         html += '<div style="font:500 13.5px/1.35 var(--sans)">Inloglink verstuurd naar ' + esc(a.email) + '</div>';
         html += '<div class="hint" style="margin-top:6px">Open de e-mail en klik op de link — je komt dan hier terug, automatisch ingelogd. De link is eenmalig geldig; kom je op een foutmelding uit, vraag dan hieronder een nieuwe aan.</div>';
-        if (a.fout) html += '<div class="notice error" style="margin-top:10px">' + esc(a.fout) + '</div>';
+        html += authErrorNotice(a, '10px');
         html += '<div class="btn-row"><div class="ghost-btn" data-act="login-change-email">Andere e-mail / opnieuw versturen</div></div>';
       } else if (a.stap === 'signup-sent') {
         html += '<div style="font:500 13.5px/1.35 var(--sans)">Bevestig je e-mailadres</div>';
         html += '<div class="hint" style="margin-top:6px">We hebben een bevestigingsmail gestuurd naar ' + esc(a.email) + '. Klik op de link daarin om je account te activeren, dan kun je meteen inloggen.</div>';
-        if (a.fout) html += '<div class="notice error" style="margin-top:10px">' + esc(a.fout) + '</div>';
+        html += authErrorNotice(a, '10px');
         html += '<div class="btn-row"><div class="ghost-btn" data-act="auth-mode-password">Naar inloggen</div></div>';
       } else if (a.stap === 'reset-sent') {
         html += '<div style="font:500 13.5px/1.35 var(--sans)">Resetlink verstuurd naar ' + esc(a.email) + '</div>';
         html += '<div class="hint" style="margin-top:6px">Open de e-mail en klik op de link om een nieuw wachtwoord te kiezen.</div>';
-        if (a.fout) html += '<div class="notice error" style="margin-top:10px">' + esc(a.fout) + '</div>';
+        html += authErrorNotice(a, '10px');
         html += '<div class="btn-row"><div class="ghost-btn" data-act="auth-mode-password">Terug naar inloggen</div></div>';
       } else if (a.stap === 'reset') {
         html += '<div style="font:500 13.5px/1.35 var(--sans)">Wachtwoord vergeten</div>';
         html += '<div class="hint" style="margin-top:6px">Vul je e-mailadres in, dan sturen we een link om een nieuw wachtwoord te kiezen.</div>';
         html += '<div class="input-row" style="margin-top:14px"><div class="label">E-mailadres</div><input id="auth-email" data-bind="auth-email" value="' + esc(a.email) + '" class="wide" placeholder="naam@voorbeeld.nl" style="width:200px;text-align:left" autocomplete="email" /></div>';
-        if (a.fout) html += '<div class="notice error" style="margin-top:10px">' + esc(a.fout) + '</div>';
+        html += authErrorNotice(a, '10px');
         html += '<div class="btn-row"><div class="primary-btn" data-act="reset-password-request">' + (a.bezig ? 'Bezig…' : 'Verstuur resetlink') + '</div></div>';
         html += '<div class="hint" style="margin-top:10px"><span class="linkish" data-act="auth-mode-password">Terug naar inloggen</span></div>';
       } else if (a.stap === 'magic') {
         html += '<div style="font:500 13.5px/1.35 var(--sans)">Inloggen met e-mail</div>';
         html += '<div class="hint" style="margin-top:6px">Je krijgt een eenmalige inloglink per e-mail toegestuurd.</div>';
         html += '<div class="input-row" style="margin-top:14px"><div class="label">E-mailadres</div><input id="auth-email" data-bind="auth-email" value="' + esc(a.email) + '" class="wide" placeholder="naam@voorbeeld.nl" style="width:200px;text-align:left" autocomplete="email" /></div>';
-        if (a.fout) html += '<div class="notice error" style="margin-top:10px">' + esc(a.fout) + '</div>';
+        html += authErrorNotice(a, '10px');
         html += '<div class="btn-row"><div class="primary-btn" data-act="login-request">' + (a.bezig ? 'Bezig…' : 'Stuur inloglink') + '</div></div>';
         html += '<div class="hint" style="margin-top:10px"><span class="linkish" data-act="auth-mode-password">Terug naar wachtwoord</span></div>';
       } else if (a.stap === 'signup') {
@@ -2391,14 +2430,14 @@
         html += '<div class="input-row" style="margin-top:14px"><div class="label">E-mailadres</div><input id="auth-email" data-bind="auth-email" value="' + esc(a.email) + '" class="wide" placeholder="naam@voorbeeld.nl" style="width:200px;text-align:left" autocomplete="email" /></div>';
         html += '<div class="input-row"><div class="label">Wachtwoord</div><input id="auth-password" data-bind="auth-password" type="password" value="' + esc(a.password) + '" class="wide" placeholder="Minstens 6 tekens" style="width:200px;text-align:left" autocomplete="new-password" /></div>';
         html += '<div class="input-row"><div class="label">Herhaal wachtwoord</div><input id="auth-password2" data-bind="auth-password2" type="password" value="' + esc(a.password2) + '" class="wide" placeholder="Nogmaals" style="width:200px;text-align:left" autocomplete="new-password" /></div>';
-        if (a.fout) html += '<div class="notice error" style="margin-top:10px">' + esc(a.fout) + '</div>';
+        html += authErrorNotice(a, '10px');
         html += '<div class="btn-row"><div class="primary-btn" data-act="signup-password">' + (a.bezig ? 'Bezig…' : 'Account aanmaken') + '</div></div>';
         html += '<div class="hint" style="margin-top:10px"><span class="linkish" data-act="auth-mode-password">Heb je al een account? Inloggen</span></div>';
       } else {
         html += '<div style="font:500 13.5px/1.35 var(--sans)">Inloggen</div>';
         html += '<div class="input-row" style="margin-top:14px"><div class="label">E-mailadres</div><input id="auth-email" data-bind="auth-email" value="' + esc(a.email) + '" class="wide" placeholder="naam@voorbeeld.nl" style="width:200px;text-align:left" autocomplete="email" /></div>';
         html += '<div class="input-row"><div class="label">Wachtwoord</div><input id="auth-password" data-bind="auth-password" type="password" value="' + esc(a.password) + '" class="wide" placeholder="Je wachtwoord" style="width:200px;text-align:left" autocomplete="current-password" /></div>';
-        if (a.fout) html += '<div class="notice error" style="margin-top:10px">' + esc(a.fout) + '</div>';
+        html += authErrorNotice(a, '10px');
         html += '<div class="btn-row"><div class="primary-btn" data-act="login-password">' + (a.bezig ? 'Bezig…' : 'Inloggen') + '</div></div>';
         html += '<div class="hint" style="margin-top:10px">';
         html += '<span class="linkish" data-act="auth-mode-reset">Wachtwoord vergeten?</span> · ';
@@ -2515,7 +2554,7 @@
   // rapport (zie renderRapport()/renderPrintReport()).
   function renderAcctOrganisatie() {
     if (!sb) {
-      return '<div class="notice error">Inloggen is nog niet geconfigureerd. Vul de Supabase-projectgegevens (URL en anon-sleutel) in <code>src/config.js</code> in.</div>';
+      return authUnavailableNotice();
     }
     if (!state.session) {
       return '<div class="hint" style="margin-top:0">Log eerst in om organisatiegegevens vast te leggen.</div>';
@@ -4187,19 +4226,21 @@
       if (!sb || !a.email.trim()) return;
       a.bezig = true; a.fout = '';
       render();
-      // emailRedirectTo = de huidige pagina zonder query/hash, zodat dit
-      // zowel lokaal (elke dev-poort) als op het echte GitHub Pages-adres
-      // vanzelf naar de juiste plek terugstuurt. Moet wel voorkomen op de
-      // "Redirect URLs"-lijst in Supabase (Authentication -> URL
-      // Configuration), anders weigert Supabase de link.
-      var redirectTo = window.location.origin + window.location.pathname;
+      // emailRedirectTo = de huidige pagina zonder query/hash (en zonder
+      // 'index.html', zie AD.redirectUrlFor), zodat dit zowel lokaal (elke
+      // dev-poort) als op het echte GitHub Pages-adres vanzelf naar de juiste
+      // plek terugstuurt. Moet wel voorkomen op de "Redirect URLs"-lijst in
+      // Supabase (Authentication -> URL Configuration); anders valt Supabase
+      // terug op de Site URL.
+      var redirectTo = authRedirect(a, 'signInWithOtp');
+      if (!redirectTo) { a.bezig = false; render(); return; }
       sb.auth.signInWithOtp({ email: a.email.trim(), options: { emailRedirectTo: redirectTo } }).then(function (res) {
         a.bezig = false;
-        if (res.error) { a.fout = res.error.message; render(); return; }
+        if (res.error) { authFail(a, 'signInWithOtp', res.error); render(); return; }
         a.stap = 'sent';
         render();
-      }).catch(function () {
-        a.bezig = false; a.fout = 'Kon geen verbinding maken. Probeer het opnieuw.'; render();
+      }).catch(function (err) {
+        a.bezig = false; authFail(a, 'signInWithOtp', err); render();
       });
     },
     'login-change-email': function () {
@@ -4221,7 +4262,7 @@
       render();
       sb.auth.signInWithPassword({ email: a.email.trim(), password: a.password }).then(function (res) {
         a.bezig = false;
-        if (res.error) { a.fout = res.error.message; render(); return; }
+        if (res.error) { authFail(a, 'signInWithPassword', res.error); render(); return; }
         // onAuthStateChange hierboven zet state.session zodra Supabase de
         // sessie bevestigt; hier alleen het wachtwoord uit het geheugen
         // halen (hoeft niet in de state te blijven staan) en, anders dan
@@ -4231,8 +4272,8 @@
         a.password = '';
         state.screen = state.building ? 'app' : 'onboarding';
         render();
-      }).catch(function () {
-        a.bezig = false; a.fout = 'Kon geen verbinding maken. Probeer het opnieuw.'; render();
+      }).catch(function (err) {
+        a.bezig = false; authFail(a, 'signInWithPassword', err); render();
       });
     },
     'signup-password': function () {
@@ -4242,11 +4283,12 @@
       if (a.password !== a.password2) { a.fout = 'De wachtwoorden komen niet overeen.'; render(); return; }
       a.bezig = true; a.fout = '';
       render();
-      var redirectTo = window.location.origin + window.location.pathname;
+      var redirectTo = authRedirect(a, 'signUp');
+      if (!redirectTo) { a.bezig = false; render(); return; }
       sb.auth.signUp({ email: a.email.trim(), password: a.password, options: { emailRedirectTo: redirectTo } }).then(function (res) {
         a.bezig = false;
         a.password = ''; a.password2 = '';
-        if (res.error) { a.fout = res.error.message; render(); return; }
+        if (res.error) { authFail(a, 'signUp', res.error); render(); return; }
         // Met "confirm email" uit (projectinstelling) geeft signUp meteen een
         // echte sessie terug — dan hoeft niemand nog op een mail te wachten
         // en gaan we net als bij login-password meteen door. Staat
@@ -4255,8 +4297,8 @@
         if (res.data && res.data.session) { state.screen = state.building ? 'app' : 'onboarding'; }
         else { a.stap = 'signup-sent'; }
         render();
-      }).catch(function () {
-        a.bezig = false; a.fout = 'Kon geen verbinding maken. Probeer het opnieuw.'; render();
+      }).catch(function (err) {
+        a.bezig = false; authFail(a, 'signUp', err); render();
       });
     },
     'reset-password-request': function () {
@@ -4264,14 +4306,15 @@
       if (!sb || !a.email.trim()) return;
       a.bezig = true; a.fout = '';
       render();
-      var redirectTo = window.location.origin + window.location.pathname;
+      var redirectTo = authRedirect(a, 'resetPasswordForEmail');
+      if (!redirectTo) { a.bezig = false; render(); return; }
       sb.auth.resetPasswordForEmail(a.email.trim(), { redirectTo: redirectTo }).then(function (res) {
         a.bezig = false;
-        if (res.error) { a.fout = res.error.message; render(); return; }
+        if (res.error) { authFail(a, 'resetPasswordForEmail', res.error); render(); return; }
         a.stap = 'reset-sent';
         render();
-      }).catch(function () {
-        a.bezig = false; a.fout = 'Kon geen verbinding maken. Probeer het opnieuw.'; render();
+      }).catch(function (err) {
+        a.bezig = false; authFail(a, 'resetPasswordForEmail', err); render();
       });
     },
     // Alleen bereikbaar met een geldige (tijdelijke) sessie uit een
@@ -4287,12 +4330,12 @@
       sb.auth.updateUser({ password: a.password }).then(function (res) {
         a.bezig = false;
         a.password = ''; a.password2 = '';
-        if (res.error) { a.fout = res.error.message; render(); return; }
+        if (res.error) { authFail(a, 'updateUser(password)', res.error); render(); return; }
         a.stap = 'password';
         state.screen = state.building ? 'app' : 'onboarding';
         render();
-      }).catch(function () {
-        a.bezig = false; a.fout = 'Kon geen verbinding maken. Probeer het opnieuw.'; render();
+      }).catch(function (err) {
+        a.bezig = false; authFail(a, 'updateUser(password)', err); render();
       });
     },
     // state.auth.stap resetten voorkomt dat iemand die opnieuw wil
@@ -4365,11 +4408,11 @@
       render();
       sb.auth.updateUser({ email: nieuw }).then(function (res) {
         e.bezig = false;
-        if (res.error) { e.fout = res.error.message; render(); return; }
+        if (res.error) { authFail(e, 'updateUser(email)', res.error); render(); return; }
         e.verstuurd = true;
         render();
-      }).catch(function () {
-        e.bezig = false; e.fout = 'Kon geen verbinding maken. Probeer het opnieuw.'; render();
+      }).catch(function (err) {
+        e.bezig = false; authFail(e, 'updateUser(email)', err); render();
       });
     },
     'toggle-theme': function () {

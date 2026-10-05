@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>MJOP Live — auth health check (debug)</title>
+<style>
+  :root { --bg: #fafaf8; --fg: #161816; --muted: #5d625d; --ok: #1f7a3f; --bad: #b42318; --line: #d9dbd7; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #121412; --fg: #ecedea; --muted: #a4a8a2; --ok: #5fcf8a; --bad: #ff8a80; --line: #33372f; } }
+  body { margin: 0; padding: 24px 16px; background: var(--bg); color: var(--fg); font: 15px/1.5 system-ui, sans-serif; }
+  main { max-width: 760px; margin: 0 auto; }
+  table { width: 100%; border-collapse: collapse; margin-top: 16px; }
+  td, th { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--line); vertical-align: top; overflow-wrap: anywhere; }
+  .ok { color: var(--ok); font-weight: 600; } .bad { color: var(--bad); font-weight: 600; }
+  .muted { color: var(--muted); } button { font: inherit; padding: 8px 14px; cursor: pointer; }
+  code { font-size: 13px; }
+</style>
+</head>
+<body>
+<main>
+<h1>Auth health check</h1>
+<p class="muted">Debugpagina, niet gelinkt vanuit de app. Controleert alleen: Supabase-SDK geladen, configuratie aanwezig,
+project-URL geldig, terugkeer-URL, en of de browser de Supabase-host bereikt (één <code>GET /auth/v1/health</code>).
+<strong>Geen login, geen database-write.</strong> Er worden geen sleutels getoond.</p>
+<button type="button" id="run">Controleer</button>
+<div id="out"></div>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js" integrity="sha384-iLddHTLokph6Omwoyid4XKxHaWa6w41BnoEj0q5oOrzmYPpHIKt1wyjReA7s//pP" crossorigin="anonymous"></script>
+<script src="../src/config.js"></script>
+<script src="../src/auth-diagnostics.js"></script>
+<script>
+  (function () {
+    var AD = window.MJOPAuthDiagnostics;
+    function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+    // De terugkeer-URL hoort bij de app-pagina (één map hoger), niet bij deze debugpagina.
+    var appLoc = new URL('../', window.location.href);
+    var winForCheck = { supabase: window.supabase, SUPABASE_CONFIG: window.SUPABASE_CONFIG, location: appLoc };
+    document.getElementById('run').addEventListener('click', function () {
+      var out = document.getElementById('out');
+      out.innerHTML = '<p class="muted">Bezig…</p>';
+      AD.healthCheck(winForCheck, window.fetch.bind(window)).then(function (r) {
+        var html = '<p id="summary" data-health-ok="' + r.ok + '" data-health-code="' + esc(r.code || '') + '">' +
+          (r.ok ? '<span class="ok">Alles in orde.</span>' : '<span class="bad">Probleem: ' + esc(r.code) + '</span>') +
+          (r.host ? ' Supabase-host: <code>' + esc(r.host) + '</code>' : '') + '</p>';
+        html += '<table><thead><tr><th>Controle</th><th>Resultaat</th><th>Details</th></tr></thead><tbody>';
+        r.steps.forEach(function (s) {
+          html += '<tr data-step="' + esc(s.id) + '" data-ok="' + s.ok + '"><td><code>' + esc(s.id) + '</code></td><td class="' + (s.ok ? 'ok' : 'bad') + '">' +
+            (s.ok ? 'OK' : 'NIET OK') + '</td><td>' + esc(s.info) + '</td></tr>';
+        });
+        out.innerHTML = html + '</tbody></table>';
+      });
+    });
+  })();
+</script>
+</body>
+</html>
