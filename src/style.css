@@ -283,6 +283,7 @@ input[type=range]::-moz-range-thumb {
 .qty-bron p { font-size: 12.5px; line-height: 1.6; word-break: break-word; }
 .qty-sources { margin-top: 4px; }
 .qty-source { border: 1px solid var(--ink-14); border-radius: 10px; padding: 8px 10px; margin-top: 6px; }
+.qty-source-related { border-style: dashed; background: transparent; }
 .qty-source.is-effective { border-color: var(--good-fg); background: var(--good-bg); }
 .qty-source-head { display: flex; justify-content: space-between; gap: 8px; font-size: 13.5px; }
 .qty-source-label { font-weight: 600; }

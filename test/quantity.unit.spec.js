@@ -263,5 +263,65 @@ test('v2: importeren kiest niets en middelt niets; verschil alleen op hetzelfde 
   assert.deepStrictEqual(bewaard.evidence.filter(function (e) { return e.source === '3D_BAG'; })[0].components.length, 3);
 });
 
+// --- Related Quantity Sources v1: bundel v3 met verwant maar ander onderwerp ------------
+var V3 = JSON.parse(require('fs').readFileSync(require('path').join(__dirname, 'fixtures', 'quantity-bundle-related.test.json'), 'utf8'));
+
+test('v3-bundel: hoofdonderwerp kiesbaar, historische dakbedekking als niet-kiesbare context', function () {
+  var r = Q.bundleEntries(V3, { identificatie: '0363100012345680' });
+  assert.strictEqual(r.ok, true);
+  assert.strictEqual(r.scope.pand_count, 3);
+  var prim = r.entries.filter(function (e) { return !Q.isRelatedContext(e.evidence); });
+  var ctx = r.entries.filter(function (e) { return Q.isRelatedContext(e.evidence); });
+  assert.strictEqual(prim.length, 1);
+  assert.strictEqual(prim[0].evidence.subject_key, 'ROOF_FLAT_AREA');
+  assert.strictEqual(prim[0].evidence.value, 463.39);
+  assert.strictEqual(prim[0].evidence.components.length, 3);
+  assert.strictEqual(ctx.length, 1);
+  var c = ctx[0].evidence;
+  assert.strictEqual(c.subject_key, 'ROOF_COVERING_REPORTED_AREA');
+  assert.strictEqual(c.selectable, false);
+  assert.strictEqual(c.relation.relation, 'RELATED_NOT_EQUIVALENT');
+  assert.strictEqual(c.relation.resolvable_as_same_quantity, false);
+  assert.strictEqual(c.primary_subject_key, 'ROOF_FLAT_AREA');
+  assert.strictEqual(c.value, 520);
+  assert.strictEqual(c.scope_level, 'COMPLEX');
+  assert.ok(/ander onderwerp/i.test(c.basis) && /niet kiesbaar/.test(c.basis));
+});
+
+test('v3: context kan niet gekozen worden; geen automatische keuze, geen gemiddelde', function () {
+  var q = Q.create(Q.autoQuantity(312.64, 'm2', '3D_BAG', 'plan-pand', null), '2026-10-05T10:00:00Z');
+  Q.bundleEntries(V3, { identificatie: '0363100012345678' }).entries.forEach(function (e) { Q.addEvidence(q, e.evidence); });
+  assert.ok(!q.selected);
+  assert.strictEqual(q.value, 312.64);
+  assert.strictEqual(q.status, 'PROPOSED');
+  var ctx = q.evidence.filter(Q.isRelatedContext)[0];
+  assert.deepStrictEqual(Q.selectEvidence(q, ctx.id), { ok: false, error: 'ander_onderwerp' });
+  assert.strictEqual(q.value, 312.64);
+  assert.ok(!q.selected);
+  assert.ok(q.history.every(function (h) { return h.event !== 'SOURCE_SELECTED'; }));
+  // het bronverschil is ten opzichte van de 3D BAG-som op hetzelfde (complex)niveau, als andere definitie
+  var d = Q.sourceDifference(q, ctx);
+  assert.strictEqual(d.absolute, 56.61);
+  assert.strictEqual(d.percentage, 12.2);
+  assert.strictEqual(d.reference.subject_key, 'ROOF_FLAT_AREA');
+  assert.ok([312.64, 463.39, 520].indexOf(q.value) !== -1 && q.value !== (463.39 + 520) / 2);
+  // het hoofdonderwerp blijft expliciet kiesbaar
+  var bag = q.evidence.filter(function (e) { return e.subject_key === 'ROOF_FLAT_AREA'; })[0];
+  assert.deepStrictEqual(Q.selectEvidence(q, bag.id), { ok: true });
+  assert.strictEqual(q.value, 463.39);
+  var bewaard = JSON.parse(JSON.stringify(q));                              // opslaan/herladen
+  assert.strictEqual(Q.isRelatedContext(bewaard.evidence.filter(function (e) { return e.subject_key === 'ROOF_COVERING_REPORTED_AREA'; })[0]), true);
+});
+
+test('v3: inconsistente scope of plan-pand buiten de scope wordt geweigerd; v1/v2 ongewijzigd', function () {
+  assert.strictEqual(Q.bundleEntries(V3, { identificatie: '0363100099999999' }).ok, false);
+  var kapot = JSON.parse(JSON.stringify(V3)); kapot.building_scope.bag_pand_ids.pop();
+  assert.strictEqual(Q.bundleEntries(kapot, { identificatie: '0363100012345678' }).ok, false);
+  var v2 = Q.bundleEntries(V2, { identificatie: '0363100012345678' });
+  assert.ok(v2.ok && v2.entries.every(function (e) { return !Q.isRelatedContext(e.evidence); }));
+  var v1 = Q.bundleEntries(V1, { identificatie: V1.bag_pand_ids[0] });
+  assert.ok(v1.ok && v1.entries.every(function (e) { return !Q.isRelatedContext(e.evidence); }));
+});
+
 if (fouten) { console.log('\n' + fouten + ' test(s) mislukt.'); process.exit(1); }
 console.log('\nAlle quantity-unit-tests geslaagd.');

@@ -238,6 +238,7 @@ python3 -m http.server 8937 &            # voor de browsertests
 node test/quantity-flow.spec.js          # plat dak: 3D BAG -> voorstel -> bevestigen -> aanpassen -> reset -> kosten
 node test/quantity-sources.spec.js       # meerdere bronnen + bundelimport + offertebedragen
 node test/quantity-multipand.spec.js     # bundel v2: VvE-scope met meerdere BAG-panden (som + pandwaarden)
+node test/quantity-related.spec.js       # bundel v3: verwant maar ander onderwerp (historische dakbedekking) als niet-kiesbare context
 node test/reservefonds.spec.js
 ```
 
