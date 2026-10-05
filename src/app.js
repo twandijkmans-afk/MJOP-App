@@ -3306,7 +3306,7 @@
       html += '<div class="qty-source' + (effective ? ' is-effective' : '') + '" data-qty-source-row="' + esc(r.id || 'auto') + '" data-source="' + esc(r.source || '') + '"' +
         ' data-scope-level="' + esc(level) + '"' + (r.ev && r.ev.method_class ? ' data-method="' + esc(r.ev.method_class) + '"' : '') + '>';
       html += '<div class="qty-source-head"><span class="qty-source-label" data-qty-source-label>' + esc(label) + '</span>';
-      html += '<span class="qty-source-value" data-qty-source-value>' + Q.formatNumber(r.value) + ' ' + esc(Q.unitLabel(r.unit)) + '</span></div>';
+      html += '<span class="qty-source-value" data-qty-source-value>' + (r.ev ? Q.formatSourceValue(r.ev) : Q.formatNumber(r.value)) + ' ' + esc(Q.unitLabel(r.unit)) + '</span></div>';
       var det = [];
       if (r.ref.document_id) det.push('document ' + r.ref.document_id + (r.ref.page ? ', p. ' + r.ref.page : ''));
       if (r.ref.text_fragment) det.push('"' + r.ref.text_fragment + '"');
@@ -3317,9 +3317,10 @@
       if (r.ev && r.ev.same_object_document_ids && r.ev.same_object_document_ids.length) det.push('ook in ' + r.ev.same_object_document_ids.join(', ') + ' (geen onafhankelijke bevestiging)');
       if (r.ev && r.ev.added_at && r.source === Q.SOURCES.MANUAL) det.push('ingevuld ' + String(r.ev.added_at).slice(0, 10));
       if (r.ev && r.ev.review_reasons && r.ev.review_reasons.length) det.push('let op: ' + r.ev.review_reasons.join(', '));
-      if (r.ev && r.ev.subject_label) det.push('onderwerp: ' + r.ev.subject_label.toLowerCase());
+      if (r.ev && r.ev.subject_label) det.push('onderwerp: ' + lcFirst(r.ev.subject_label));
       if (complex) det.push('complexniveau: hele VvE-scope van ' + r.ev.scope.pand_count + ' panden (niet over panden verdeeld)');
       if (r.ev && r.ev.method_class === 'GEOMETRY_DERIVED') det.push('berekend (GEOMETRY_DERIVED)');
+      if (r.ev && r.ev.evidence_status === 'PROPOSED' && !effective) det.push('voorstel (PROPOSED) — nog niet bevestigd');
       if (r.ev && r.ev.method_class === 'SOURCE_REPORTED') det.push('zoals vermeld in de bron (SOURCE_REPORTED)');
       if (det.length) html += '<div class="hint" data-qty-source-detail>' + esc(det.join(' · ')) + '</div>';
       if (complex && level !== effLevel) html += '<div class="hint" data-qty-scope-note>Geldt voor de hele VvE-scope, niet alleen voor pand ' + esc((state.building && state.building.identificatie) || '') + '; daarom geen verschil met de huidige hoeveelheid.</div>';
@@ -3359,9 +3360,9 @@
         ' data-selectable="false" data-subject="' + esc(ev.subject_key || '') + '" data-scope-level="' + esc(Q.scopeLevel(ev)) + '"' +
         (ev.method_class ? ' data-method="' + esc(ev.method_class) + '"' : '') + '>';
       html += '<div class="qty-source-head"><span class="qty-source-label" data-qty-source-label>' + esc((Q.SOURCE_LABELS[ev.source] || ev.source) + (complex ? ' — complexniveau' : '')) + '</span>';
-      html += '<span class="qty-source-value" data-qty-source-value>' + Q.formatNumber(ev.value) + ' ' + esc(Q.unitLabel(ev.unit)) + '</span></div>';
-      html += '<div class="hint" data-qty-related-subject>Onderwerp: ' + esc((ev.subject_label || ev.subject_key || '').toLowerCase()) + '</div>';
-      html += '<div class="hint" data-qty-related-definition>Definitie wijkt mogelijk af van ' + esc((ev.primary_subject_label || 'de hoeveelheid van deze post').toLowerCase()) +
+      html += '<span class="qty-source-value" data-qty-source-value>' + Q.formatSourceValue(ev) + ' ' + esc(Q.unitLabel(ev.unit)) + '</span></div>';
+      html += '<div class="hint" data-qty-related-subject>Onderwerp: ' + esc(lcFirst(ev.subject_label || ev.subject_key || '')) + '</div>';
+      html += '<div class="hint" data-qty-related-definition>Definitie wijkt mogelijk af van ' + esc(lcFirst(ev.primary_subject_label || 'de hoeveelheid van deze post')) +
         '. Dit is geen meting van dezelfde hoeveelheid en kan niet gekozen worden.</div>';
       var det = [];
       if (ref.document_id) det.push('document ' + ref.document_id + (ref.page ? ', p. ' + ref.page : ''));
@@ -3382,6 +3383,9 @@
     html += '</div>';
     return html;
   }
+
+  // Alleen de eerste letter klein ("Door bron/MJOP …" -> "door bron/MJOP …"), afkortingen blijven intact.
+  function lcFirst(text) { return text ? text.charAt(0).toLowerCase() + text.slice(1) : ''; }
 
   function lastManualId(q) {
     var m = (q.evidence || []).filter(function (e) { return e.source === Q.SOURCES.MANUAL; });

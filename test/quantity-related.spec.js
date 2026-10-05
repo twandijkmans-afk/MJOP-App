@@ -146,7 +146,7 @@ async function main() {
   check('Historische bron apart: 520 m², oud MJOP, complexniveau, SOURCE_REPORTED', rel.length === 1 && /520/.test(hist.value) &&
     hist.source === 'IMPORTED_MJOP' && hist.level === 'COMPLEX' && hist.method === 'SOURCE_REPORTED' && /Uit oud MJOP/.test(hist.label), JSON.stringify(hist));
   check('Onderwerp: gerapporteerde dakbedekkingsoppervlakte', hist.subject === 'ROOF_COVERING_REPORTED_AREA' &&
-    /door bron\/mjop gerapporteerde oppervlakte dakbedekking/.test(hist.subjectText), hist.subjectText);
+    /door bron\/MJOP gerapporteerde oppervlakte dakbedekking/.test(hist.subjectText), hist.subjectText);
   check('Definitie wijkt mogelijk af; niet kiesbaar', /Definitie wijkt mogelijk af van plat dakoppervlak/.test(hist.definition) &&
     hist.selectable === 'false' && hist.buttons === 0, hist.definition);
   check('Bronverschil als andere definitie: +56,61 m² (+12,2%) t.o.v. 3D BAG-som', /Bronverschil t\.o\.v\. 3D BAG — som van 3 panden: \+56,61 m² \(\+12,2%\) — andere definitie/.test(hist.diff), hist.diff);

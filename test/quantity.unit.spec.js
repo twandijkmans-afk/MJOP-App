@@ -323,5 +323,13 @@ test('v3: inconsistente scope of plan-pand buiten de scope wordt geweigerd; v1/v
   assert.ok(v1.ok && v1.entries.every(function (e) { return !Q.isRelatedContext(e.evidence); }));
 });
 
+test('bronwaarde houdt de precisie van de bron (425.80 -> 425,80), zonder brontekst gewoon formatNumber', function () {
+  assert.strictEqual(Q.formatSourceValue({ value: 425.8, value_text: '425.80' }), '425,80');
+  assert.strictEqual(Q.formatSourceValue({ value: 190.65, value_text: '190.65' }), '190,65');
+  assert.strictEqual(Q.formatSourceValue({ value: 1415.57, value_text: '1415.57' }), '1.415,57');
+  assert.strictEqual(Q.formatSourceValue({ value: 12.5 }), '12,5');
+  assert.strictEqual(Q.formatSourceValue({ value: 3, value_text: 'drie' }), '3');
+});
+
 if (fouten) { console.log('\n' + fouten + ' test(s) mislukt.'); process.exit(1); }
 console.log('\nAlle quantity-unit-tests geslaagd.');

@@ -101,6 +101,16 @@
     return Number(v).toLocaleString('nl-NL', { maximumFractionDigits: 2 });
   }
 
+  // Bronwaarde met de precisie zoals de bron haar opgaf ("425.80" -> "425,80"), zodat een
+  // bronvermelding niet stilletjes verandert; zonder brontekst gewoon formatNumber.
+  function formatSourceValue(ev) {
+    var t = ev && ev.value_text != null ? String(ev.value_text) : '';
+    var m = /^\d+(?:\.(\d{1,4}))?$/.exec(t);
+    if (!m || ev.value == null || !isFinite(ev.value)) return formatNumber(ev ? ev.value : null);
+    var dec = m[1] ? m[1].length : 0;
+    return Number(ev.value).toLocaleString('nl-NL', { minimumFractionDigits: dec, maximumFractionDigits: dec });
+  }
+
   function normalizeUnit(text) {
     var s = String(text == null ? '' : text).toLowerCase().replace(/[.\s]/g, '').replace('²', '2').replace('³', '3');
     if (s === 'm2' || s === 'm²') return 'm2';
@@ -597,7 +607,7 @@
   var api = {
     SOURCES: SOURCES, STATUS: STATUS, SOURCE_LABELS: SOURCE_LABELS, STATUS_LABELS: STATUS_LABELS,
     parseQuantity: parseQuantity, parseAmount: parseAmount, parseErrorText: parseErrorText,
-    formatNumber: formatNumber, normalizeUnit: normalizeUnit, unitLabel: unitLabel,
+    formatNumber: formatNumber, formatSourceValue: formatSourceValue, normalizeUnit: normalizeUnit, unitLabel: unitLabel,
     autoQuantity: autoQuantity, create: create, refresh: refresh, updateAuto: updateAuto,
     confirm: confirm, override: override, resetToAuto: resetToAuto, fromLegacy: fromLegacy, isValid: isValid,
     addEvidence: addEvidence, selectEvidence: selectEvidence, findEvidence: findEvidence, difference: difference,
