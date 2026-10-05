@@ -284,6 +284,7 @@ Er is geen build-stap of testrunner. Vanuit de projectroot:
 ```
 node test/quantity.unit.spec.js          # puur Node, geen browser
 node test/auth-diagnostics.unit.spec.js  # puur Node: foutcodes, config-, redirect- en health-check
+node test/scaffold-pricing.unit.spec.js  # puur Node: steigerkosten (één pand, één/meerdere tariefklassen, ontbrekende hoogte)
 python3 -m http.server 8937 &            # voor de browsertests
 node test/quantity-flow.spec.js          # plat dak: 3D BAG -> voorstel -> bevestigen -> aanpassen -> reset -> kosten
 node test/quantity-sources.spec.js       # meerdere bronnen + bundelimport + offertebedragen
@@ -292,6 +293,8 @@ node test/quantity-related.spec.js       # bundel v3: verwant maar ander onderwe
 node test/quantity-maldenhof-real.spec.js # ECHTE Maldenhof-bundel v3 (15 panden) door de importflow; zie test/fixtures/real/README.md
 node test/quantity-doc012-real.spec.js    # ECHTE DOC-012-bundel v3 (Meppelweg, 1 pand) door dezelfde importflow
 node test/quantity-maldenhof-expanded-real.spec.js # ECHTE uitgebreide Maldenhof-bundel: dak-plat + dak-hellend (historische dakpannen als context)
+node test/quantity-geometry-real.spec.js  # ECHTE geometriebundels: steiger met werkhoogte per pand (Maldenhof 15 panden, DOC-012 1 pand)
+node test/facade-scaffold.spec.js         # gevel-metselwerk/voegwerk als benadering; steigerkosten per pand/tariefklasse; ontbrekende werkhoogte
 node test/auth.spec.js                   # inloglink met de echte Supabase-SDK; Supabase-netwerk nagebootst
 node test/quantity-missingness.spec.js    # MISSING != 0: ontbrekend 3D BAG-veld -> niet beschikbaar, kosten onbekend (geen € 0)
 node test/reservefonds.spec.js
