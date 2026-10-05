@@ -234,6 +234,9 @@
   function selectEvidence(q, evidenceId, at) {
     var ev = findEvidence(q, evidenceId);
     if (!ev) return { ok: false, error: 'onbekende_bron' };
+    // Context van een verwant maar ander onderwerp (bijv. gerapporteerde dakbedekking naast plat
+    // dakoppervlak) is geen meting van dezelfde hoeveelheid en kan dus niet gekozen worden.
+    if (isRelatedContext(ev)) return { ok: false, error: 'ander_onderwerp' };
     var unit = (q.auto && q.auto.unit) || q.unit;
     if (unit && ev.unit && ev.unit !== unit) return { ok: false, error: 'andere_eenheid' };
     if (ev.value == null || !isFinite(ev.value)) return { ok: false, error: 'geen_waarde' };
@@ -467,17 +470,30 @@
   //       complexniveau (scope_level COMPLEX): het 3D BAG-totaal is een som van de
   //       panden (components), de historische waarde gaat over de hele scope.
   //       Niets wordt over panden verdeeld; pandwaarden zijn geen losse bronnen.
+  //   v3  als v1/v2 (building_scope altijd aanwezig; 1 pand = pandniveau), plus
+  //       regels met role RELATED_CONTEXT: een verwant maar ANDER onderwerp
+  //       (bijv. historische 'gerapporteerde dakbedekking' naast 3D BAG 'plat
+  //       dakoppervlak', relatie RELATED_NOT_EQUIVALENT). Die worden getoond met
+  //       het verschil als bronverschil/andere definitie, maar zijn niet kiesbaar.
   // Geeft {ok, errors, scope, entries:[{app_element_key, evidence}]}. Er wordt
   // nooit een bron gekozen of gemiddeld; dat doet de gebruiker.
-  var BUNDLE_V1 = 'mjop_app_quantity_bundle_v1', BUNDLE_V2 = 'mjop_app_quantity_bundle_v2';
+  var BUNDLE_V1 = 'mjop_app_quantity_bundle_v1', BUNDLE_V2 = 'mjop_app_quantity_bundle_v2', BUNDLE_V3 = 'mjop_app_quantity_bundle_v3';
 
   function bundleEntries(bundle, building) {
     var errors = [];
     var version = bundle && bundle.bundle_version;
-    if (version !== BUNDLE_V1 && version !== BUNDLE_V2) errors.push('Dit is geen hoeveelhedenbundel uit mjop-learning (bundle_version).');
+    if (version !== BUNDLE_V1 && version !== BUNDLE_V2 && version !== BUNDLE_V3) errors.push('Dit is geen hoeveelhedenbundel uit mjop-learning (bundle_version).');
     var pand = building && building.identificatie ? String(building.identificatie) : '';
     var ids = (bundle && bundle.bag_pand_ids) || [];
     var scope = null;
+    if (!errors.length && version === BUNDLE_V3) {
+      var bs3 = bundle.building_scope || {};
+      if ((bs3.bag_pand_ids || []).map(String).join('+') !== ids.map(String).join('+') || bs3.building_id !== bundle.building_id) {
+        errors.push('De gebouwscope van de bundel is niet consistent (building_scope).');
+      } else {
+        version = ids.length > 1 ? BUNDLE_V2 : BUNDLE_V1; // zelfde scopecontrole als v1/v2
+      }
+    }
     if (!errors.length && version === BUNDLE_V1) {
       if (ids.length !== 1) errors.push('De bundel gaat over ' + ids.length + ' panden; een v1-bundel hoort bij één pand.');
       else if (!pand || ids[0] !== pand) errors.push('De bundel hoort bij pand ' + (ids[0] || '?') + ', dit plan bij pand ' + (pand || 'onbekend') + '.');
@@ -502,8 +518,13 @@
           unit: normalizeUnit(c.unit) || c.unit, evidence_id: c.evidence_id, method_class: c.method_class, rule_id: c.rule_id,
           snapshot_id: c.snapshot_id, fetched_at: c.fetched_at };
       }) : [];
+      var context = e.role === 'RELATED_CONTEXT' || e.selectable === false;
       var basis;
-      if (src === SOURCES.IMPORTED_MJOP) {
+      if (context) {
+        basis = (src === SOURCES.IMPORTED_MJOP ? 'Historisch MJOP (' + (ev.source_ref && ev.source_ref.document_id) + ')' : 'Bron') +
+          ': ' + (e.subject_label_nl || e.subject_key) + '. Ander onderwerp dan ' + (e.primary_subject_label_nl || e.primary_subject_key || 'de hoeveelheid van deze post') +
+          ' — de definitie wijkt mogelijk af; alleen ter vergelijking, niet kiesbaar' + (scope ? ' (complexniveau, niet over panden verdeeld).' : '.');
+      } else if (src === SOURCES.IMPORTED_MJOP) {
         basis = 'Historisch MJOP (' + (ev.source_ref && ev.source_ref.document_id) + '), zoals vermeld in het elementenoverzicht' +
           (scope ? ', op complexniveau (hele VvE-scope van ' + scope.pand_count + ' panden; niet over panden verdeeld).' : '.');
       } else if (scope && comps.length) {
@@ -519,6 +540,15 @@
         same_object_document_ids: ev.same_object_document_ids || [], review_reasons: ev.review_reasons || [],
         crosswalk_mapping_id: e.crosswalk_mapping_id, origin: 'MJOP_LEARNING_BUNDLE', evidence_status: ev.status,
       };
+      if (e.subject_key) { out.subject_key = e.subject_key; out.subject_label = e.subject_label_nl || null; }
+      if (context) {
+        out.role = 'RELATED_CONTEXT';
+        out.selectable = false;
+        out.primary_subject_key = e.primary_subject_key || null;
+        out.primary_subject_label = e.primary_subject_label_nl || null;
+        out.relation = { relation_id: (e.subject_relation || {}).relation_id || null, relation: (e.subject_relation || {}).relation || 'RELATED_NOT_EQUIVALENT',
+          resolvable_as_same_quantity: false };
+      }
       if (scope) {
         out.scope_level = 'COMPLEX';
         out.scope = { building_id: scope.building_id, bag_pand_ids: scope.bag_pand_ids.slice(), pand_count: scope.pand_count };
@@ -543,6 +573,27 @@
     return sel ? scopeLevel(sel) : 'PAND';
   }
 
+  // Verwant maar ander onderwerp (RELATED_NOT_EQUIVALENT): tonen, nooit kiezen of middelen.
+  function isRelatedContext(ev) { return !!ev && (ev.role === 'RELATED_CONTEXT' || ev.selectable === false); }
+
+  // Bronverschil van een context-bron t.o.v. de kiesbare bron van het hoofdonderwerp op hetzelfde
+  // niveau (zelfde VvE-scope), als (context - referentie), percentage t.o.v. de referentie.
+  // Een verschil tussen twee definities, geen fout van één bron en geen score.
+  function sourceDifference(q, ev) {
+    if (!isRelatedContext(ev) || ev.value == null || !isFinite(ev.value)) return null;
+    var scopeId = ev.scope ? ev.scope.building_id : null;
+    var ref = null;
+    (q.evidence || []).forEach(function (r) {
+      if (ref || isRelatedContext(r) || r.value == null || !isFinite(r.value)) return;
+      if (ev.primary_subject_key && r.subject_key !== ev.primary_subject_key) return;
+      if ((r.scope ? r.scope.building_id : null) !== scopeId || r.unit !== ev.unit) return;
+      ref = r;
+    });
+    if (!ref) return null;
+    var abs = Math.round((ev.value - ref.value) * 100) / 100;
+    return { absolute: abs, percentage: ref.value !== 0 ? Math.round((ev.value - ref.value) / ref.value * 1000) / 10 : null, reference: ref };
+  }
+
   var api = {
     SOURCES: SOURCES, STATUS: STATUS, SOURCE_LABELS: SOURCE_LABELS, STATUS_LABELS: STATUS_LABELS,
     parseQuantity: parseQuantity, parseAmount: parseAmount, parseErrorText: parseErrorText,
@@ -552,6 +603,7 @@
     addEvidence: addEvidence, selectEvidence: selectEvidence, findEvidence: findEvidence, difference: difference,
     parseOfferteAmounts: parseOfferteAmounts, amountErrorText: amountErrorText, bundleEntries: bundleEntries,
     scopeLevel: scopeLevel, effectiveScopeLevel: effectiveScopeLevel,
+    isRelatedContext: isRelatedContext, sourceDifference: sourceDifference,
     autoFor: autoFor, autoKozijn: autoKozijn, KOZ_FACTOREN: KOZ_FACTOREN,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

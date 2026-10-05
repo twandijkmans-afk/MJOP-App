@@ -3283,7 +3283,10 @@
     var rows = [];
     if (q.auto) rows.push({ id: null, source: q.auto.source, value: q.auto.value, unit: q.auto.unit, basis: q.auto.basis, auto: true,
       ref: q.auto.raw || {}, effective: !q.manual && !q.selectedEvidenceId });
+    var related = [];
     (q.evidence || []).forEach(function (ev) {
+      // Verwant maar ander onderwerp: apart tonen, niet als kiesbare bron (zie renderRelatedSources).
+      if (Q.isRelatedContext(ev)) { related.push(ev); return; }
       rows.push({ id: ev.id, source: ev.source, value: ev.value, unit: ev.unit, basis: ev.basis, ref: ev.source_ref || {}, ev: ev,
         effective: q.manual ? false : q.selectedEvidenceId === ev.id });
     });
@@ -3314,6 +3317,7 @@
       if (r.ev && r.ev.same_object_document_ids && r.ev.same_object_document_ids.length) det.push('ook in ' + r.ev.same_object_document_ids.join(', ') + ' (geen onafhankelijke bevestiging)');
       if (r.ev && r.ev.added_at && r.source === Q.SOURCES.MANUAL) det.push('ingevuld ' + String(r.ev.added_at).slice(0, 10));
       if (r.ev && r.ev.review_reasons && r.ev.review_reasons.length) det.push('let op: ' + r.ev.review_reasons.join(', '));
+      if (r.ev && r.ev.subject_label) det.push('onderwerp: ' + r.ev.subject_label.toLowerCase());
       if (complex) det.push('complexniveau: hele VvE-scope van ' + r.ev.scope.pand_count + ' panden (niet over panden verdeeld)');
       if (r.ev && r.ev.method_class === 'GEOMETRY_DERIVED') det.push('berekend (GEOMETRY_DERIVED)');
       if (r.ev && r.ev.method_class === 'SOURCE_REPORTED') det.push('zoals vermeld in de bron (SOURCE_REPORTED)');
@@ -3335,6 +3339,44 @@
           ? '<button type="button" class="linkish" data-act="qty-reset" data-id="' + el.id + '">Gebruik deze bron</button>'
           : '<button type="button" class="linkish" data-act="qty-select" data-id="' + el.id + '" data-ev="' + esc(r.id) + '">Gebruik deze bron</button>';
       }
+      html += '</div>';
+    });
+    html += renderRelatedSources(q, related);
+    html += '</div>';
+    return html;
+  }
+
+  // Historische context van een verwant maar ANDER onderwerp (RELATED_NOT_EQUIVALENT), bijv.
+  // 'gerapporteerde dakbedekking' (oud MJOP) naast 'plat dakoppervlak' (3D BAG). Naast elkaar en met
+  // het verschil als bronverschil/andere definitie; nooit kiesbaar, nooit gemiddeld, geen winnaar.
+  function renderRelatedSources(q, related) {
+    if (!related.length) return '';
+    var html = '<div class="qty-related" data-qty-related><div class="label" style="margin-top:12px">Historische bron — ander onderwerp (ter vergelijking)</div>';
+    related.forEach(function (ev) {
+      var ref = ev.source_ref || {};
+      var complex = ev.scope_level === 'COMPLEX' && ev.scope;
+      html += '<div class="qty-source qty-source-related" data-qty-related-row="' + esc(ev.id) + '" data-source="' + esc(ev.source || '') + '"' +
+        ' data-selectable="false" data-subject="' + esc(ev.subject_key || '') + '" data-scope-level="' + esc(Q.scopeLevel(ev)) + '"' +
+        (ev.method_class ? ' data-method="' + esc(ev.method_class) + '"' : '') + '>';
+      html += '<div class="qty-source-head"><span class="qty-source-label" data-qty-source-label>' + esc((Q.SOURCE_LABELS[ev.source] || ev.source) + (complex ? ' — complexniveau' : '')) + '</span>';
+      html += '<span class="qty-source-value" data-qty-source-value>' + Q.formatNumber(ev.value) + ' ' + esc(Q.unitLabel(ev.unit)) + '</span></div>';
+      html += '<div class="hint" data-qty-related-subject>Onderwerp: ' + esc((ev.subject_label || ev.subject_key || '').toLowerCase()) + '</div>';
+      html += '<div class="hint" data-qty-related-definition>Definitie wijkt mogelijk af van ' + esc((ev.primary_subject_label || 'de hoeveelheid van deze post').toLowerCase()) +
+        '. Dit is geen meting van dezelfde hoeveelheid en kan niet gekozen worden.</div>';
+      var det = [];
+      if (ref.document_id) det.push('document ' + ref.document_id + (ref.page ? ', p. ' + ref.page : ''));
+      if (ref.text_fragment) det.push('"' + ref.text_fragment + '"');
+      if (ev.same_object_document_ids && ev.same_object_document_ids.length) det.push('ook in ' + ev.same_object_document_ids.join(', ') + ' (geen onafhankelijke bevestiging)');
+      if (complex) det.push('complexniveau: hele VvE-scope van ' + ev.scope.pand_count + ' panden (niet over panden verdeeld)');
+      if (ev.method_class === 'SOURCE_REPORTED') det.push('zoals vermeld in de bron (SOURCE_REPORTED)');
+      if (det.length) html += '<div class="hint" data-qty-source-detail>' + esc(det.join(' · ')) + '</div>';
+      var d = Q.sourceDifference(q, ev);
+      if (d) {
+        var refLabel = (Q.SOURCE_LABELS[d.reference.source] || d.reference.source) + ((d.reference.components || []).length ? ' — som van ' + d.reference.components.length + ' panden' : '');
+        html += '<div class="hint" data-qty-related-diff>Bronverschil t.o.v. ' + esc(refLabel) + ': ' + (d.absolute > 0 ? '+' : '') + Q.formatNumber(d.absolute) + ' ' + esc(Q.unitLabel(ev.unit)) +
+          (d.percentage != null ? ' (' + (d.percentage > 0 ? '+' : '') + Q.formatNumber(d.percentage) + '%)' : '') + ' — andere definitie, geen fout van één bron.</div>';
+      }
+      html += '<div class="hint" data-qty-related-status>Status: nog niet bevestigd · geen keuze, geen gemiddelde</div>';
       html += '</div>';
     });
     html += '</div>';
@@ -3366,15 +3408,16 @@
     var res = Q.bundleEntries(bundle, state.building);
     if (!res.ok) { state.bundleUi = { fout: res.errors.join(' ') }; return; }
     var scopeTekst = res.scope ? ' (VvE-scope van ' + res.scope.pand_count + ' panden; bronnen op complexniveau)' : '';
-    var toegevoegd = 0, alAanwezig = 0, overgeslagen = [];
+    var toegevoegd = 0, alAanwezig = 0, context = 0, overgeslagen = [];
     res.entries.forEach(function (e) {
       var el = findEl(e.app_element_key);
       if (!el || !el.quantity) { overgeslagen.push(e.app_element_key + ' (niet in dit plan)'); return; }
       var unit = (el.quantity.auto && el.quantity.auto.unit) || el.quantity.unit;
       if (unit && e.evidence.unit !== unit) { overgeslagen.push(e.app_element_key + ' (andere eenheid ' + e.evidence.unit + ')'); return; }
-      if (Q.addEvidence(el.quantity, e.evidence)) toegevoegd++; else alAanwezig++;
+      if (Q.addEvidence(el.quantity, e.evidence)) { toegevoegd++; if (Q.isRelatedContext(e.evidence)) context++; } else alAanwezig++;
     });
     state.bundleUi = { melding: toegevoegd + ' ' + meervoud(toegevoegd, 'bron', 'bronnen') + ' toegevoegd' +
+      (context ? ' (waarvan ' + context + ' ter vergelijking: ander onderwerp, niet kiesbaar)' : '') +
       (alAanwezig ? ', ' + alAanwezig + ' al aanwezig' : '') + (overgeslagen.length ? '; overgeslagen: ' + overgeslagen.join(', ') : '') + scopeTekst + '.' };
   }
 
@@ -4069,7 +4112,8 @@
       var el = findEl(d.id); if (!el || !el.quantity) return;
       var r = Q.selectEvidence(el.quantity, d.ev);
       state.qtyFout = state.qtyFout || {};
-      if (!r.ok) state.qtyFout['bron-' + el.id] = { melding: r.error === 'andere_eenheid' ? 'Deze bron heeft een andere eenheid en kan niet gekozen worden.' : 'Deze bron kan niet gekozen worden.' };
+      if (!r.ok) state.qtyFout['bron-' + el.id] = { melding: r.error === 'andere_eenheid' ? 'Deze bron heeft een andere eenheid en kan niet gekozen worden.' :
+        (r.error === 'ander_onderwerp' ? 'Deze bron gaat over een ander onderwerp (andere definitie) en kan niet gekozen worden.' : 'Deze bron kan niet gekozen worden.') };
       else { delete state.qtyFout['bron-' + el.id]; delete state.qtyFout['hv-' + el.id]; }
       render();
     },
