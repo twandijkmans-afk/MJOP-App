@@ -460,34 +460,87 @@
   // Bundel met bronnen uit mjop-learning (scripts/export_app_quantity_bundle.py)
   // -------------------------------------------------------------------
   //
-  // Alleen voor het eigen gebouw: het BAG-pand van het plan moet exact in de
-  // bundel staan. Een bundel over meerdere panden wordt geweigerd (de app werkt
-  // per pand). Geeft {ok, errors, entries:[{app_element_key, evidence}]}.
+  // Twee versies (backwards-compatible):
+  //   v1  precies één BAG-pand; dat pand moet het pand van het plan zijn (ongewijzigd).
+  //   v2  een VvE-/gebouwscope met meerdere panden (building_scope). Het pand van
+  //       het plan moet één van de panden van de scope zijn. Bronnen staan op
+  //       complexniveau (scope_level COMPLEX): het 3D BAG-totaal is een som van de
+  //       panden (components), de historische waarde gaat over de hele scope.
+  //       Niets wordt over panden verdeeld; pandwaarden zijn geen losse bronnen.
+  // Geeft {ok, errors, scope, entries:[{app_element_key, evidence}]}. Er wordt
+  // nooit een bron gekozen of gemiddeld; dat doet de gebruiker.
+  var BUNDLE_V1 = 'mjop_app_quantity_bundle_v1', BUNDLE_V2 = 'mjop_app_quantity_bundle_v2';
+
   function bundleEntries(bundle, building) {
     var errors = [];
-    if (!bundle || bundle.bundle_version !== 'mjop_app_quantity_bundle_v1') errors.push('Dit is geen hoeveelhedenbundel uit mjop-learning (bundle_version).');
+    var version = bundle && bundle.bundle_version;
+    if (version !== BUNDLE_V1 && version !== BUNDLE_V2) errors.push('Dit is geen hoeveelhedenbundel uit mjop-learning (bundle_version).');
     var pand = building && building.identificatie ? String(building.identificatie) : '';
     var ids = (bundle && bundle.bag_pand_ids) || [];
-    if (!errors.length && ids.length !== 1) errors.push('De bundel gaat over ' + ids.length + ' panden; de app werkt per pand.');
-    if (!errors.length && (!pand || ids[0] !== pand)) errors.push('De bundel hoort bij pand ' + (ids[0] || '?') + ', dit plan bij pand ' + (pand || 'onbekend') + '.');
-    if (errors.length) return { ok: false, errors: errors, entries: [] };
+    var scope = null;
+    if (!errors.length && version === BUNDLE_V1) {
+      if (ids.length !== 1) errors.push('De bundel gaat over ' + ids.length + ' panden; een v1-bundel hoort bij één pand.');
+      else if (!pand || ids[0] !== pand) errors.push('De bundel hoort bij pand ' + (ids[0] || '?') + ', dit plan bij pand ' + (pand || 'onbekend') + '.');
+    }
+    if (!errors.length && version === BUNDLE_V2) {
+      var bs = bundle.building_scope || {};
+      var sids = (bs.bag_pand_ids || []).map(String);
+      if (!sids.length || sids.join('+') !== ids.map(String).join('+') || bs.building_id !== bundle.building_id) {
+        errors.push('De gebouwscope van de bundel is niet consistent (building_scope).');
+      } else if (!pand || sids.indexOf(pand) === -1) {
+        errors.push('De bundel hoort bij ' + sids.length + ' panden (' + sids.join(', ') + '); dit plan hoort bij pand ' + (pand || 'onbekend') + '.');
+      } else {
+        scope = { building_id: bs.building_id, bag_pand_ids: sids, pand_count: sids.length, plan_pand_id: pand };
+      }
+    }
+    if (errors.length) return { ok: false, errors: errors, entries: [], scope: null };
     var entries = (bundle.entries || []).map(function (e) {
       var ev = e.evidence || {};
       var src = ev.source_type === '3D_BAG' ? SOURCES.THREE_D_BAG : (ev.source_type === 'MJOP_ELEMENT_OVERVIEW' ? SOURCES.IMPORTED_MJOP : null);
-      return {
-        app_element_key: e.app_element_key,
-        evidence: {
-          id: 'bundle:' + ev.evidence_id, source: src, method_class: ev.method_class,
-          value: ev.value == null ? null : Number(ev.value), value_text: ev.value, unit: normalizeUnit(ev.unit) || ev.unit,
-          basis: src === SOURCES.IMPORTED_MJOP ? 'Historisch MJOP (' + (ev.source_ref && ev.source_ref.document_id) + '), zoals vermeld in het elementenoverzicht.'
-            : '3D BAG via mjop-learning (' + ((ev.source_ref && ev.source_ref.rule_id) || '') + ').',
-          source_ref: ev.source_ref || {}, source_cluster: ev.source_cluster || null,
-          same_object_document_ids: ev.same_object_document_ids || [], review_reasons: ev.review_reasons || [],
-          crosswalk_mapping_id: e.crosswalk_mapping_id, origin: 'MJOP_LEARNING_BUNDLE', evidence_status: ev.status,
-        },
+      var comps = scope ? (ev.components || []).map(function (c) {
+        return { bag_pand_id: String(c.bag_pand_id), value: c.value == null ? null : Number(c.value), value_text: c.value,
+          unit: normalizeUnit(c.unit) || c.unit, evidence_id: c.evidence_id, method_class: c.method_class, rule_id: c.rule_id,
+          snapshot_id: c.snapshot_id, fetched_at: c.fetched_at };
+      }) : [];
+      var basis;
+      if (src === SOURCES.IMPORTED_MJOP) {
+        basis = 'Historisch MJOP (' + (ev.source_ref && ev.source_ref.document_id) + '), zoals vermeld in het elementenoverzicht' +
+          (scope ? ', op complexniveau (hele VvE-scope van ' + scope.pand_count + ' panden; niet over panden verdeeld).' : '.');
+      } else if (scope && comps.length) {
+        basis = '3D BAG via mjop-learning: som van ' + comps.length + ' panden (' + (ev.formula || 'SUM') + ').';
+      } else {
+        basis = '3D BAG via mjop-learning (' + ((ev.source_ref && ev.source_ref.rule_id) || '') + ').';
+      }
+      var out = {
+        id: 'bundle:' + ev.evidence_id, source: src, method_class: ev.method_class,
+        value: ev.value == null ? null : Number(ev.value), value_text: ev.value, unit: normalizeUnit(ev.unit) || ev.unit,
+        basis: basis,
+        source_ref: ev.source_ref || {}, source_cluster: ev.source_cluster || null,
+        same_object_document_ids: ev.same_object_document_ids || [], review_reasons: ev.review_reasons || [],
+        crosswalk_mapping_id: e.crosswalk_mapping_id, origin: 'MJOP_LEARNING_BUNDLE', evidence_status: ev.status,
       };
+      if (scope) {
+        out.scope_level = 'COMPLEX';
+        out.scope = { building_id: scope.building_id, bag_pand_ids: scope.bag_pand_ids.slice(), pand_count: scope.pand_count };
+        out.aggregation = ev.aggregation || null;
+        out.formula = ev.formula || null;
+        out.components = comps;
+      }
+      return { app_element_key: e.app_element_key, evidence: out };
     }).filter(function (x) { return x.evidence.source && x.evidence.value != null; });
-    return { ok: true, errors: [], entries: entries };
+    return { ok: true, errors: [], entries: entries, scope: scope };
+  }
+
+  // Op welk niveau een bron/hoeveelheid geldt: 'COMPLEX' (VvE-scope met meerdere
+  // panden) of 'PAND' (de automatische 3D BAG-waarde van het plan, v1-bronnen,
+  // handmatige waarden). Een verschil tussen twee niveaus is niet zinvol en wordt
+  // niet getoond.
+  function scopeLevel(ev) { return (ev && ev.scope_level) || 'PAND'; }
+
+  function effectiveScopeLevel(q) {
+    if (q.manual) return 'PAND';
+    var sel = selectedEvidence(q);
+    return sel ? scopeLevel(sel) : 'PAND';
   }
 
   var api = {
@@ -498,6 +551,7 @@
     confirm: confirm, override: override, resetToAuto: resetToAuto, fromLegacy: fromLegacy, isValid: isValid,
     addEvidence: addEvidence, selectEvidence: selectEvidence, findEvidence: findEvidence, difference: difference,
     parseOfferteAmounts: parseOfferteAmounts, amountErrorText: amountErrorText, bundleEntries: bundleEntries,
+    scopeLevel: scopeLevel, effectiveScopeLevel: effectiveScopeLevel,
     autoFor: autoFor, autoKozijn: autoKozijn, KOZ_FACTOREN: KOZ_FACTOREN,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

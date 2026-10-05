@@ -1,0 +1,143 @@
+{
+ "bundle_version": "mjop_app_quantity_bundle_v2",
+ "building_id": "BAG:0363100012345678+0363100012345679+0363100012345680",
+ "bag_pand_ids": [
+  "0363100012345678",
+  "0363100012345679",
+  "0363100012345680"
+ ],
+ "building_scope": {
+  "building_id": "BAG:0363100012345678+0363100012345679+0363100012345680",
+  "kind": "MULTI_PAND_SCOPE",
+  "bag_pand_ids": [
+   "0363100012345678",
+   "0363100012345679",
+   "0363100012345680"
+  ],
+  "pand_count": 3
+ },
+ "tenant_note": "Bevat historische hoeveelheden van één VvE (meerdere panden); alleen importeren in een plan van die VvE.",
+ "entries": [
+  {
+   "app_element_key": "dak-plat",
+   "crosswalk_mapping_id": "XW-dak-plat-4711-m2",
+   "crosswalk_decision_id": "XWD-00002",
+   "subject_key": "ROOF_FLAT_AREA",
+   "evidence": {
+    "evidence_id": "QE-4e53279b7db2c730",
+    "source_type": "3D_BAG",
+    "method_class": "GEOMETRY_DERIVED",
+    "value": "463.39",
+    "unit": "m2",
+    "status": "PROPOSED",
+    "review_reasons": [],
+    "scope_caveats": [],
+    "source_cluster": null,
+    "same_object_document_ids": [],
+    "source_ref": {
+     "document_id": null,
+     "quantity_observation_id": null,
+     "page": null,
+     "text_fragment": null,
+     "quantity_as_stated": null,
+     "bag_pand_id": null,
+     "fields": null,
+     "raw_inputs": null,
+     "fetched_at": null,
+     "rule_id": null,
+     "rule_version": null
+    },
+    "scope_level": "COMPLEX",
+    "aggregation": "SUM_OVER_CONFIRMED_PANDEN",
+    "formula": "SUM(child_evidence.value)",
+    "components": [
+     {
+      "bag_pand_id": "0363100012345678",
+      "evidence_id": "QE-f08f6f01efdf530b",
+      "value": "312.64",
+      "unit": "m2",
+      "method_class": "DIRECT_MEASURED",
+      "rule_id": "bag3d.roof_flat_area",
+      "fields": [
+       "b3_opp_dak_plat"
+      ],
+      "raw_inputs": {
+       "b3_opp_dak_plat": 312.64
+      },
+      "snapshot_id": "BAGSNAP-8e43c2d057fa213e",
+      "fetched_at": "2026-10-05T10:00:00Z"
+     },
+     {
+      "bag_pand_id": "0363100012345679",
+      "evidence_id": "QE-2c35eea596a676ed",
+      "value": "100.25",
+      "unit": "m2",
+      "method_class": "DIRECT_MEASURED",
+      "rule_id": "bag3d.roof_flat_area",
+      "fields": [
+       "b3_opp_dak_plat"
+      ],
+      "raw_inputs": {
+       "b3_opp_dak_plat": 100.25
+      },
+      "snapshot_id": "BAGSNAP-8e43c2d057fa213e",
+      "fetched_at": "2026-10-05T10:00:00Z"
+     },
+     {
+      "bag_pand_id": "0363100012345680",
+      "evidence_id": "QE-2ae560bb312a7e5b",
+      "value": "50.5",
+      "unit": "m2",
+      "method_class": "DIRECT_MEASURED",
+      "rule_id": "bag3d.roof_flat_area",
+      "fields": [
+       "b3_opp_dak_plat"
+      ],
+      "raw_inputs": {
+       "b3_opp_dak_plat": 50.5
+      },
+      "snapshot_id": "BAGSNAP-8e43c2d057fa213e",
+      "fetched_at": "2026-10-05T10:00:00Z"
+     }
+    ]
+   }
+  },
+  {
+   "app_element_key": "dak-plat",
+   "crosswalk_mapping_id": "XW-dak-plat-4711-m2",
+   "crosswalk_decision_id": "XWD-00002",
+   "subject_key": "ROOF_FLAT_AREA",
+   "evidence": {
+    "evidence_id": "QE-80fb06490650a230",
+    "source_type": "MJOP_ELEMENT_OVERVIEW",
+    "method_class": "SOURCE_REPORTED",
+    "value": "520.00",
+    "unit": "m2",
+    "status": "PROPOSED",
+    "review_reasons": [],
+    "scope_caveats": [
+     "SAME_IN_RELATED_DOCUMENT"
+    ],
+    "source_cluster": "SC-DOC-T01",
+    "same_object_document_ids": [],
+    "source_ref": {
+     "document_id": "DOC-T01",
+     "quantity_observation_id": "QO-DOC-T01-EL-025",
+     "page": 7,
+     "text_fragment": "4711 Dakbedekking APP Platte dak",
+     "quantity_as_stated": "520,00",
+     "bag_pand_id": null,
+     "fields": null,
+     "raw_inputs": null,
+     "fetched_at": null,
+     "rule_id": null,
+     "rule_version": null
+    },
+    "scope_level": "COMPLEX",
+    "aggregation": null,
+    "formula": null,
+    "components": []
+   }
+  }
+ ]
+}
