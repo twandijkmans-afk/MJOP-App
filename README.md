@@ -262,6 +262,7 @@ node test/quantity-sources.spec.js       # meerdere bronnen + bundelimport + off
 node test/quantity-multipand.spec.js     # bundel v2: VvE-scope met meerdere BAG-panden (som + pandwaarden)
 node test/quantity-related.spec.js       # bundel v3: verwant maar ander onderwerp (historische dakbedekking) als niet-kiesbare context
 node test/quantity-maldenhof-real.spec.js # ECHTE Maldenhof-bundel v3 (15 panden) door de importflow; zie test/fixtures/real/README.md
+node test/quantity-doc012-real.spec.js    # ECHTE DOC-012-bundel v3 (Meppelweg, 1 pand) door dezelfde importflow
 node test/auth.spec.js                   # inloglink met de echte Supabase-SDK; Supabase-netwerk nagebootst
 node test/reservefonds.spec.js
 ```
