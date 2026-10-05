@@ -403,7 +403,8 @@
                 d3raw: d3 ? d3RawCapture : null,
                 bagRaw: { footprintM2: best.opp, omtrekM: best.omtrek, aantalVerblijfsobjecten: p.aantal_verblijfsobjecten != null ? p.aantal_verblijfsobjecten : null },
                 dakM2: dak, gevelM2: gevel,
-                werkhoogte: d3 && d3.hoogte ? Math.round(d3.hoogte) : 9,
+                // Geen 3D BAG-hoogte = werkhoogte onbekend (null): geen willekeurige 9 m.
+                werkhoogte: d3 && d3.hoogte != null ? Q.workHeightFromBuildingHeight(d3.hoogte) : null,
               };
             });
           });
@@ -444,11 +445,11 @@
     { key: 'dak-hellend', naam: 'Dakbedekking hellend dak (pannen)', categorie: 'Dak', sfb: '27.2', type: 'dak', cyclus: 40, kengetal: 95, bron: 'dakSchuinM2', optioneel: true },
     { key: 'dakisolatie', naam: 'Dakisolatie na-isoleren', categorie: 'Dak', sfb: '47.2', type: 'dak', cyclus: 30, kengetal: 60, bron: 'dakM2', optioneel: true },
 
-    { key: 'gevel-metselwerk', naam: 'Gevelreiniging en metselwerkherstel', categorie: 'Gevel', sfb: '21.1', type: 'gevel', cyclus: 15, kengetal: 26, bron: 'gevelM2' },
+    { key: 'gevel-metselwerk', naam: 'Gevelreiniging en metselwerkherstel', categorie: 'Gevel', sfb: '21.1', type: 'gevel', cyclus: 15, kengetal: 26, bron: 'gevelM2', benadering: true },
     { key: 'schilderwerk-buiten', naam: 'Schilderwerk buitenkozijnen en gevelhoutwerk', categorie: 'Gevel', sfb: '31.2', type: 'gevel', cyclus: 6, kengetal: 22, bron: 'gevelM2', benadering: true },
     { key: 'kozijnen-onderhoud', naam: 'Onderhoud buitenkozijnen', categorie: 'Gevel', sfb: '31.1', type: 'kozijnen', cyclus: 6 },
     { key: 'steiger', naam: 'Steiger of hoogwerker', categorie: 'Gevel', sfb: '21', type: 'steiger', cyclus: 6, bron: 'gevelM2' },
-    { key: 'voegwerk', naam: 'Voegwerk buitengevel', categorie: 'Gevel', sfb: '21.1', type: 'gevel', cyclus: 30, kengetal: 45, bron: 'gevelM2', optioneel: true },
+    { key: 'voegwerk', naam: 'Voegwerk buitengevel', categorie: 'Gevel', sfb: '21.1', type: 'gevel', cyclus: 30, kengetal: 45, bron: 'gevelM2', benadering: true, optioneel: true },
     { key: 'balkonhekken', naam: 'Balkonhekken en borstweringen', categorie: 'Gevel', sfb: '34.1', type: 'per-unit', cyclus: 20, kengetal: 210, bron: 'units', optioneel: true },
 
     { key: 'intercom', naam: 'Intercom en video-deuropener', categorie: 'Installaties', sfb: '66', type: 'per-unit', cyclus: 20, kengetal: 575, bron: 'units' },
@@ -551,6 +552,14 @@
     var def = libraryEntry(el.id);
     if (def && def.bron && def.bron !== 'none' && !Q.isValid(el.quantity)) {
       el.quantity = Q.fromLegacy(el.hoeveelheid, b ? autoForEl(def, b) : null);
+    }
+    // Gevel-metselwerk/voegwerk rekenen met het bruto buitenmuuroppervlak als benadering (schatting).
+    // Een opgeslagen plan van vóór die markering heeft hetzelfde getal nog als '3D BAG': alleen het
+    // label/de bron wordt bijgewerkt, de waarde (en dus de kosten) blijft gelijk.
+    if (def && def.benadering && b && !b.isVoorbeeld && Q.isValid(el.quantity) && el.quantity.auto &&
+        el.quantity.auto.source === Q.SOURCES.THREE_D_BAG) {
+      var herzien = autoForEl(def, b);
+      if (herzien && herzien.value === el.quantity.auto.value) Q.updateAuto(el.quantity, herzien);
     }
     if (el.type === 'kozijnen' && el.koz) {
       el.koz.forEach(function (k, i) {
@@ -747,7 +756,8 @@
       case 'dak': return qv(el) * el.kengetal;
       case 'kozijnen': return el.koz.reduce(function (a, k) { return a + kozAantal(k) * kozTarief(k); }, 0);
       case 'gevel': return qv(el) * el.kengetal;
-      case 'steiger': return Math.round(qv(el) * (el.werkhoogte > 8 ? 11 : 6));
+      case 'steiger': return el.quantity ? Q.scaffoldPricing(el.quantity, el.werkhoogte).cost
+        : (Q.scaffoldRate(el.werkhoogte) == null ? null : Math.round(qv(el) * Q.scaffoldRate(el.werkhoogte)));
       case 'per-unit': return qv(el) * el.kengetal;
       case 'vast-variabel': return el.basis + qv(el) * el.perEenheid;
       case 'custom': return indexeerBedrag(el.bedrag, el.basisjaar, el.jaar);
@@ -765,7 +775,11 @@
         return g.aantal + ' × ' + g.materialen.join('/') + ' (' + g.cyclus + 'j)';
       }).join(', ');
       case 'gevel': return Q.formatNumber(qv(el)) + ' m² buitenmuur × ' + eur(el.kengetal);
-      case 'steiger': return 'werkhoogte ' + el.werkhoogte + ' m';
+      case 'steiger':
+        var sp = el.quantity ? Q.scaffoldPricing(el.quantity, el.werkhoogte) : null;
+        if (sp && (sp.mode === 'SCOPE_UNIFORM' || sp.mode === 'SCOPE_PER_PAND')) return 'werkhoogte per pand (' + sp.rows.length + ' panden)';
+        if (sp && sp.reason === 'werkhoogte_per_pand_ontbreekt') return 'werkhoogte per pand onbekend — kosten niet berekend';
+        return el.werkhoogte == null ? 'werkhoogte onbekend — vul zelf in' : 'werkhoogte ' + el.werkhoogte + ' m';
       case 'per-unit': return Q.formatNumber(qv(el)) + ' ' + meervoud(qv(el), 'unit', 'units') + ' × ' + eur(el.kengetal);
       case 'vast-variabel': return eur(el.basis) + ' vast + ' + Q.formatNumber(qv(el)) + ' × ' + eur(el.perEenheid);
       case 'custom':
@@ -3536,20 +3550,49 @@
   }
 
   function renderSteiger(el) {
-    var rate = el.werkhoogte > 8 ? 11 : 6;
+    var sp = Q.scaffoldPricing(el.quantity, el.werkhoogte);
+    var scope = sp.mode === 'SCOPE_UNIFORM' || sp.mode === 'SCOPE_PER_PAND' || sp.reason === 'werkhoogte_per_pand_ontbreekt';
     var html = '<div class="section"><div class="card pad">';
-    html += renderQuantityPanel(el, 'Buitenmuur');
-    var whId = 'wh-' + el.id;
-    var whFout = state.qtyFout && state.qtyFout[whId];
-    html += '<div class="input-row"><label class="label" for="' + whId + '">Werkhoogte in m</label><input id="' + whId + '" data-change="el-werkhoogte" data-id="' + el.id + '" inputmode="decimal" value="' + esc(whFout ? whFout.tekst : Q.formatNumber(el.werkhoogte)) + '" /></div>';
-    if (whFout) html += '<div class="notice error qty-fout">' + esc(whFout.melding) + '</div>';
-    html += qv(el) == null
-      ? '<div class="formula" data-cost-unknown>Hoeveelheid onbekend — kosten niet berekend (vul de hoeveelheid zelf in)</div>'
-      : '<div class="formula">' + Q.formatNumber(qv(el)) + ' m² × ' + eur(rate) + ' = ' + eur(elementCost(el, state)) + ' per keer</div>';
-    html += '<div class="hint">' + (el.werkhoogte > 8
-      ? 'Boven 8 meter rekent de app met een hoogwerker of rolsteiger: € 11 per m² gevel.'
-      : 'Tot 8 meter kan het met een lichte steiger: € 6 per m² gevel.') + '</div>';
-    html += '</div></div>';
+    html += renderQuantityPanel(el, 'Bruto buitenmuuroppervlak');
+    html += '<div data-steiger-pricing="' + esc(sp.mode) + '"' + (sp.reason ? ' data-steiger-reason="' + esc(sp.reason) + '"' : '') + '>';
+    if (!scope) {
+      var whId = 'wh-' + el.id;
+      var whFout = state.qtyFout && state.qtyFout[whId];
+      html += '<div class="input-row"><label class="label" for="' + whId + '">Werkhoogte in m</label><input id="' + whId + '" data-change="el-werkhoogte" data-id="' + el.id + '" inputmode="decimal" value="' +
+        esc(whFout ? whFout.tekst : (el.werkhoogte == null ? '' : Q.formatNumber(el.werkhoogte))) + '"' + (el.werkhoogte == null ? ' placeholder="Onbekend — vul zelf in"' : '') + ' /></div>';
+      if (whFout) html += '<div class="notice error qty-fout">' + esc(whFout.melding) + '</div>';
+    }
+    if (sp.mode === 'PAND') {
+      html += '<div class="formula" data-qty-formula>' + Q.formatNumber(qv(el)) + ' m² × ' + eur(sp.rate) + ' = ' + eur(sp.cost) + ' per keer</div>';
+      html += '<div class="hint">' + (sp.rate === Q.SCAFFOLD_RATE_HIGH
+        ? 'Boven 8 meter rekent de app met een hoogwerker of rolsteiger: € 11 per m² gevel.'
+        : 'Tot 8 meter kan het met een lichte steiger: € 6 per m² gevel.') + '</div>';
+    } else if (sp.mode === 'SCOPE_UNIFORM') {
+      html += '<div class="formula" data-qty-formula>' + Q.formatNumber(qv(el)) + ' m² × ' + eur(sp.rate) + ' = ' + eur(sp.cost) + ' per keer</div>';
+      html += '<div class="hint" data-steiger-note>Alle ' + sp.rows.length + ' panden vallen in dezelfde tariefklasse (werkhoogte ' +
+        (sp.rate === Q.SCAFFOLD_RATE_HIGH ? 'boven 8 m: € 11' : 'tot 8 m: € 6') + ' per m²). De werkhoogte per pand komt uit 3D BAG; de werkhoogte van dit plan (' +
+        (el.werkhoogte == null ? 'onbekend' : Q.formatNumber(el.werkhoogte) + ' m') + ') wordt niet voor de hele scope gebruikt.</div>';
+    } else if (sp.mode === 'SCOPE_PER_PAND') {
+      html += '<div class="formula" data-qty-formula>Som per pand = ' + eur(sp.cost) + ' per keer</div>';
+      html += '<div class="hint" data-steiger-note>Kosten per pand berekend op basis van eigen werkhoogte. De panden vallen in verschillende tariefklassen; er is geen gemiddelde of hoogste werkhoogte op de hele scope toegepast.</div>';
+    } else if (sp.reason === 'werkhoogte_per_pand_ontbreekt') {
+      html += '<div class="formula" data-qty-formula data-cost-unknown>Kosten niet berekend: de werkhoogte ontbreekt voor ' + esc((sp.missing || []).join(', ') || 'één of meer panden') + ' (controle nodig).</div>';
+      html += '<div class="hint" data-steiger-note>Er wordt geen willekeurige werkhoogte aangenomen. Kies een andere bron of vul de hoeveelheid zelf in (dan geldt de werkhoogte van dit plan).</div>';
+    } else if (sp.reason === 'werkhoogte_onbekend') {
+      html += '<div class="formula" data-qty-formula data-cost-unknown>Werkhoogte onbekend — kosten niet berekend (vul de werkhoogte zelf in)</div>';
+    } else {
+      html += '<div class="formula" data-qty-formula data-cost-unknown>Hoeveelheid onbekend — kosten niet berekend (vul de hoeveelheid zelf in)</div>';
+    }
+    if (sp.rows.length) {
+      html += '<details class="qty-components" data-steiger-rows><summary>Werkhoogte en tarief per pand (' + sp.rows.length + ' panden)</summary><ul>';
+      sp.rows.forEach(function (r) {
+        html += '<li data-steiger-row="' + esc(r.bag_pand_id) + '" data-band="' + esc(r.band || '') + '">' + esc(r.bag_pand_id) + ': ' +
+          (r.area == null ? '?' : Q.formatNumber(r.area)) + ' m² · werkhoogte ' + (r.werkhoogte == null ? 'onbekend' : r.werkhoogte + ' m') +
+          (r.rate == null ? '' : ' · ' + eur(r.rate) + '/m² = € ' + Q.formatNumber(Math.round(r.cost * 100) / 100)) + '</li>';
+      });
+      html += '</ul></details>';
+    }
+    html += '</div></div></div>';
     return html;
   }
 

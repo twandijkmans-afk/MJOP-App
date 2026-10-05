@@ -142,11 +142,17 @@ async function main() {
   check('Printrapport: Dakinspectie "kosten onbekend" (geen € 0), met melding; dakoppervlak niet als 3D BAG gepresenteerd',
     /kosten onbekend$/.test(printRow.row) && printRow.notice && printRow.bouw, JSON.stringify(printRow));
 
-  // Gevel: echte gemeten 0
+  // Gevel: echte gemeten 0. De steiger gebruikt het bruto buitenmuuroppervlak direct (3D BAG); gevel-metselwerk
+  // gebruikt hetzelfde getal als benadering (Facade Quantity Semantics v1). In beide gevallen geen terugval op de
+  // omtrekschatting.
+  await openEl(page, 'steiger');
+  p = await panel(page);
+  check('Steiger: b3_opp_buitenmuur = 0 is een geldige 0 m² uit 3D BAG (geen schatting)', p.value === '0' && p.source === '3D_BAG' &&
+    p.status === 'PROPOSED' && !p.formulaUnknown, JSON.stringify({ v: p.value, s: p.source, st: p.status }));
   await openEl(page, 'gevel-metselwerk');
   p = await panel(page);
-  check('Gevel: b3_opp_buitenmuur = 0 is een geldige 0 m² uit 3D BAG (geen schatting)', p.value === '0' && p.source === '3D_BAG' &&
-    p.status === 'PROPOSED' && !p.formulaUnknown, JSON.stringify({ v: p.value, s: p.source, st: p.status }));
+  check('Gevel-metselwerk: dezelfde gemeten 0 als benadering (geen omtrekschatting)', p.value === '0' && p.source === 'ESTIMATED' &&
+    /^Benadering: het hele buitenmuuroppervlak uit 3D BAG/.test(p.hint) && !p.formulaUnknown, JSON.stringify({ v: p.value, s: p.source, h: p.hint }));
 
   // Plat dak: aanwezig
   await openEl(page, 'dak-plat');

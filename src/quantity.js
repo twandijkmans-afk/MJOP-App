@@ -605,6 +605,18 @@
         out.relation = { relation_id: (e.subject_relation || {}).relation_id || null, relation: (e.subject_relation || {}).relation || 'RELATED_NOT_EQUIVALENT',
           resolvable_as_same_quantity: false };
       }
+      // Prijscontext per pand (bijv. BUILDING_HEIGHT voor de werkhoogte van de steiger): alleen
+      // context bij de kostenberekening, nooit een kiesbare bron of een hoeveelheid.
+      var pc = e.pricing_context;
+      if (pc && Array.isArray(pc.rows)) {
+        out.pricing_context = { context_subject_key: pc.context_subject_key || null, purpose: pc.purpose || null,
+          rows: pc.rows.map(function (r) {
+            var h = r.value == null || r.status !== 'AVAILABLE' ? null : Number(r.value);
+            return { bag_pand_id: String(r.bag_pand_id), quantity_evidence_id: r.quantity_evidence_id || null,
+              context_evidence_id: r.context_evidence_id || null, height: (h != null && isFinite(h)) ? h : null,
+              height_text: r.value == null ? null : String(r.value), unit: r.unit || 'm', status: r.status || 'MISSING' };
+          }) };
+      }
       if (scope) {
         out.scope_level = 'COMPLEX';
         out.scope = { building_id: scope.building_id, bag_pand_ids: scope.bag_pand_ids.slice(), pand_count: scope.pand_count };
@@ -650,6 +662,72 @@
     return { absolute: abs, percentage: ref.value !== 0 ? Math.round((ev.value - ref.value) / ref.value * 1000) / 10 : null, reference: ref };
   }
 
+  // -------------------------------------------------------------------
+  // Steiger: kosten per m² bruto buitenmuur, tarief op basis van de werkhoogte
+  // -------------------------------------------------------------------
+  //
+  // De bestaande tarieven van de app (geen nieuwe): werkhoogte > 8 m -> € 11/m²
+  // (hoogwerker/rolsteiger), anders € 6/m². De werkhoogte is de gebouwhoogte
+  // (3D BAG b3_h_dak_max - b3_h_maaiveld), op 0,1 m en daarna op hele meters
+  // afgerond — dezelfde afronding als bij het ophalen van het gebouw.
+  //
+  // Generieke regel (ook voor een VvE-scope met meerdere panden):
+  //   PAND            hoeveelheid van één pand (automatisch, handmatig, bron op
+  //                   pandniveau): hoeveelheid × tarief(werkhoogte van het plan).
+  //   SCOPE_UNIFORM   som over panden die ALLEMAAL in dezelfde tariefklasse vallen:
+  //                   scopetotaal × dat gemeenschappelijke tarief.
+  //   SCOPE_PER_PAND  panden in verschillende tariefklassen: SOM(pand-m² × tarief(eigen
+  //                   werkhoogte)). Nooit één werkhoogte voor de hele scope, geen
+  //                   gemiddelde hoogte, geen max-hoogte op alle m².
+  //   UNKNOWN         hoeveelheid of (per-pand) werkhoogte ontbreekt: kosten onbekend
+  //                   (null) — nooit € 0 en nooit een willekeurige hoogte.
+  var SCAFFOLD_RATE_LOW = 6, SCAFFOLD_RATE_HIGH = 11, SCAFFOLD_HEIGHT_THRESHOLD = 8;
+
+  function workHeightFromBuildingHeight(h) {
+    if (h == null || !isFinite(h)) return null;
+    return Math.round(Math.round(h * 10) / 10);
+  }
+
+  function scaffoldRate(werkhoogte) {
+    if (werkhoogte == null || !isFinite(werkhoogte)) return null;
+    return werkhoogte > SCAFFOLD_HEIGHT_THRESHOLD ? SCAFFOLD_RATE_HIGH : SCAFFOLD_RATE_LOW;
+  }
+
+  function scaffoldBand(rate) { return rate === SCAFFOLD_RATE_HIGH ? 'GT_8M' : (rate === SCAFFOLD_RATE_LOW ? 'LE_8M' : null); }
+
+  function scaffoldPricing(q, planWerkhoogte) {
+    if (!isKnown(q)) return { mode: 'UNKNOWN', cost: null, reason: 'hoeveelheid_onbekend', rows: [] };
+    var sel = q.manual ? null : selectedEvidence(q);
+    if (sel && scopeLevel(sel) === 'COMPLEX') {
+      var comps = sel.components || [];
+      var pc = sel.pricing_context;
+      if (!comps.length || !pc || !Array.isArray(pc.rows)) {
+        return { mode: 'UNKNOWN', cost: null, reason: 'werkhoogte_per_pand_ontbreekt', missing: comps.map(function (c) { return c.bag_pand_id; }), rows: [] };
+      }
+      var rows = [], missing = [];
+      comps.forEach(function (c) {
+        var r = pc.rows.filter(function (x) { return x.bag_pand_id === String(c.bag_pand_id); })[0];
+        var wh = r ? workHeightFromBuildingHeight(r.height) : null;
+        var rate = scaffoldRate(wh);
+        if (rate == null || c.value == null || !isFinite(c.value)) missing.push(String(c.bag_pand_id));
+        rows.push({ bag_pand_id: String(c.bag_pand_id), area: c.value, height: r ? r.height : null, werkhoogte: wh, rate: rate,
+          band: scaffoldBand(rate), context_evidence_id: r ? r.context_evidence_id : null,
+          cost: rate == null || c.value == null ? null : Math.round(c.value * 100) * rate / 100 });
+      });
+      if (missing.length) return { mode: 'UNKNOWN', cost: null, reason: 'werkhoogte_per_pand_ontbreekt', missing: missing, rows: rows };
+      var rates = rows.map(function (r) { return r.rate; }).filter(function (r, i, a) { return a.indexOf(r) === i; });
+      if (rates.length === 1) {
+        return { mode: 'SCOPE_UNIFORM', rate: rates[0], band: scaffoldBand(rates[0]), rows: rows,
+          cost: Math.round(Math.round(q.value * 100) * rates[0] / 100) };
+      }
+      var cents = rows.reduce(function (s, r) { return s + Math.round(r.area * 100) * r.rate; }, 0);
+      return { mode: 'SCOPE_PER_PAND', rate: null, band: null, rows: rows, cost: Math.round(cents / 100) };
+    }
+    var rateP = scaffoldRate(planWerkhoogte);
+    if (rateP == null) return { mode: 'UNKNOWN', cost: null, reason: 'werkhoogte_onbekend', rows: [] };
+    return { mode: 'PAND', rate: rateP, band: scaffoldBand(rateP), rows: [], cost: Math.round(q.value * rateP) };
+  }
+
   var api = {
     SOURCES: SOURCES, STATUS: STATUS, SOURCE_LABELS: SOURCE_LABELS, STATUS_LABELS: STATUS_LABELS,
     parseQuantity: parseQuantity, parseAmount: parseAmount, parseErrorText: parseErrorText,
@@ -661,6 +739,8 @@
     scopeLevel: scopeLevel, effectiveScopeLevel: effectiveScopeLevel,
     isRelatedContext: isRelatedContext, sourceDifference: sourceDifference,
     autoFor: autoFor, autoKozijn: autoKozijn, KOZ_FACTOREN: KOZ_FACTOREN,
+    scaffoldRate: scaffoldRate, scaffoldPricing: scaffoldPricing, workHeightFromBuildingHeight: workHeightFromBuildingHeight,
+    SCAFFOLD_RATE_LOW: SCAFFOLD_RATE_LOW, SCAFFOLD_RATE_HIGH: SCAFFOLD_RATE_HIGH, SCAFFOLD_HEIGHT_THRESHOLD: SCAFFOLD_HEIGHT_THRESHOLD,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.MJOPQuantity = api;
