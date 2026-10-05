@@ -331,5 +331,108 @@ test('bronwaarde houdt de precisie van de bron (425.80 -> 425,80), zonder bronte
   assert.strictEqual(Q.formatSourceValue({ value: 3, value_text: 'drie' }), '3');
 });
 
+// --- Quantity Missingness Safety v1: MISSING != 0 ---------------------------------
+function gebouw(attrs) {
+  return { identificatie: '0363100012345678', opp: 300, omtrek: 70, units: 12, unitsBron: 12,
+    bagRaw: { footprintM2: 300.4, omtrekM: 70.2 }, d3: {},
+    d3raw: { pandId: 'NL.IMBAG.Pand.0363100012345678', fetchedAt: '2026-10-05T10:00:00Z', attributes: attrs } };
+}
+
+test('A. b3_opp_dak_schuin = 0 aanwezig -> 0 is geldig, bron 3D BAG', function () {
+  var a = Q.autoFor('dakSchuinM2', gebouw({ b3_opp_dak_plat: 120, b3_opp_dak_schuin: 0 }));
+  assert.strictEqual(a.value, 0);
+  assert.strictEqual(a.source, '3D_BAG');
+  var q = Q.create(a);
+  assert.strictEqual(q.status, 'PROPOSED');
+  assert.ok(Q.isKnown(q));
+});
+
+test('B. b3_opp_dak_schuin ontbreekt -> GEEN 0, niet beschikbaar', function () {
+  var a = Q.autoFor('dakSchuinM2', gebouw({ b3_opp_dak_plat: 120 }));
+  assert.strictEqual(a.value, null);
+  assert.strictEqual(a.source, 'NOT_AVAILABLE');
+  assert.ok(/b3_opp_dak_schuin ontbreekt/.test(a.basis));
+  var q = Q.create(a);
+  assert.strictEqual(q.value, null);
+  assert.strictEqual(q.status, 'NOT_AVAILABLE');
+  assert.strictEqual(Q.isKnown(q), false);
+  // ook zonder 3D BAG: geen '0 aangenomen' meer
+  var geen = Q.autoFor('dakSchuinM2', { identificatie: 'x', opp: 300, omtrek: 70, units: 12, bagRaw: { footprintM2: 300 }, d3: null, d3raw: null });
+  assert.strictEqual(geen.value, null);
+  // een afgeronde d3.schuin = 0 (uit de oude '|| 0'-lookup) wordt bij een plan MET d3raw niet meer gebruikt
+  var oudeD3 = gebouw({ b3_opp_dak_plat: 120 }); oudeD3.d3 = { plat: 120, schuin: 0, dak: 120 };
+  assert.strictEqual(Q.autoFor('dakSchuinM2', oudeD3).value, null);
+});
+
+test('C. plat aanwezig, schuin ontbreekt -> dak totaal NIET plat + 0', function () {
+  var a = Q.autoFor('dakM2', gebouw({ b3_opp_dak_plat: 120.5 }));
+  assert.strictEqual(a.value, null);
+  assert.strictEqual(a.source, 'NOT_AVAILABLE');
+  assert.ok(/niet volledig beschikbaar/.test(a.basis) && /geen totaal/.test(a.basis));
+  assert.deepStrictEqual(a.raw.missing, ['b3_opp_dak_schuin']);
+  var b = Q.autoFor('dakM2', gebouw({ b3_opp_dak_schuin: 80 }));
+  assert.strictEqual(b.value, null);
+  assert.deepStrictEqual(b.raw.missing, ['b3_opp_dak_plat']);
+});
+
+test('D. plat = 0 aanwezig, schuin > 0 -> totaal = schuin', function () {
+  var a = Q.autoFor('dakM2', gebouw({ b3_opp_dak_plat: 0, b3_opp_dak_schuin: 74.07 }));
+  assert.strictEqual(a.value, 74.07);
+  assert.strictEqual(a.source, 'GEOMETRY_DERIVED');
+  assert.strictEqual(Q.autoFor('dakPlatM2', gebouw({ b3_opp_dak_plat: 0, b3_opp_dak_schuin: 74.07 })).value, 0);
+});
+
+test('E. schuin = 0 aanwezig, plat > 0 -> totaal = plat', function () {
+  var a = Q.autoFor('dakM2', gebouw({ b3_opp_dak_plat: 875.63, b3_opp_dak_schuin: 0 }));
+  assert.strictEqual(a.value, 875.63);
+  assert.strictEqual(a.source, 'GEOMETRY_DERIVED');
+});
+
+test('F. beide dakvelden ontbreken -> geen fictief 3D BAG-totaal (alleen de expliciete grondvlak-schatting)', function () {
+  var a = Q.autoFor('dakM2', gebouw({ b3_opp_buitenmuur: 500 }));
+  assert.notStrictEqual(a.source, 'GEOMETRY_DERIVED');
+  assert.notStrictEqual(a.source, '3D_BAG');
+  assert.strictEqual(a.source, 'ESTIMATED');
+  assert.strictEqual(a.value, 300.4);  // BAG-grondvlak, expliciet als schatting
+  assert.ok(/ontbreken in het 3D BAG-model/.test(a.basis) && /schatting/.test(a.basis));
+  assert.notStrictEqual(a.value, 0);
+  assert.strictEqual(Q.autoFor('dakSchuinM2', gebouw({ b3_opp_buitenmuur: 500 })).value, null);
+});
+
+test('G. b3_opp_buitenmuur = 0 aanwezig -> geldige 0 uit 3D BAG (geen truthiness-terugval op schatting)', function () {
+  var a = Q.autoFor('gevelM2', gebouw({ b3_opp_buitenmuur: 0 }));
+  assert.strictEqual(a.value, 0);
+  assert.strictEqual(a.source, '3D_BAG');
+  var m = Q.autoFor('gevelM2', gebouw({ b3_opp_dak_plat: 10 }));  // ontbreekt -> bestaande expliciete schatting
+  assert.strictEqual(m.source, 'ESTIMATED');
+  assert.ok(/b3_opp_buitenmuur ontbreekt/.test(m.basis));
+});
+
+test('H. handmatige waarde blijft mogelijk bij een niet-beschikbare automatische hoeveelheid', function () {
+  var q = Q.create(Q.autoFor('dakM2', gebouw({ b3_opp_dak_plat: 120 })), '2026-10-05T10:00:00Z');
+  assert.strictEqual(q.status, 'NOT_AVAILABLE');
+  Q.confirm(q);  // bevestigen van "niets" kan niet
+  assert.strictEqual(q.status, 'NOT_AVAILABLE');
+  assert.ok(!q.confirmed);
+  Q.override(q, 210, '210');
+  assert.strictEqual(q.value, 210);
+  assert.strictEqual(q.status, 'USER_OVERRIDDEN');
+  Q.resetToAuto(q);
+  assert.strictEqual(q.value, null);
+  assert.strictEqual(q.status, 'NOT_AVAILABLE');
+});
+
+test('legacy: plan zonder d3raw gebruikt de bestaande afgeronde d3-velden ongewijzigd', function () {
+  var legacy = { identificatie: 'x', opp: 300, omtrek: 70, units: 12, d3: { plat: 120, schuin: 0, dak: 120, gevel: 900 } };
+  assert.strictEqual(Q.autoFor('dakSchuinM2', legacy).value, 0);
+  assert.strictEqual(Q.autoFor('dakM2', legacy).value, 120);
+  assert.strictEqual(Q.autoFor('gevelM2', legacy).value, 900);
+  // een al opgeslagen hoeveelheidsobject blijft zoals het is (fromLegacy/updateAuto overschrijven geen handmatige waarde)
+  var q = Q.create(Q.autoQuantity(0, 'm2', 'ESTIMATED', 'oud', null));
+  Q.override(q, 55, '55');
+  Q.updateAuto(q, Q.unavailableQuantity('m2', 'nu onbekend', null));
+  assert.strictEqual(q.value, 55);
+});
+
 if (fouten) { console.log('\n' + fouten + ' test(s) mislukt.'); process.exit(1); }
 console.log('\nAlle quantity-unit-tests geslaagd.');

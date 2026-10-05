@@ -360,7 +360,10 @@
                   var co = tj.feature.CityObjects['NL.IMBAG.Pand.' + p.identificatie];
                   var a = co && co.attributes;
                   if (!a) return null;
-                  var plat = a.b3_opp_dak_plat || 0, schuin = a.b3_opp_dak_schuin || 0;
+                  // Ontbrekende velden blijven null (MISSING != 0); een aanwezige 0 blijft 0.
+                  var num3d = function (k) { return (a[k] != null && isFinite(a[k])) ? a[k] : null; };
+                  var plat = num3d('b3_opp_dak_plat'), schuin = num3d('b3_opp_dak_schuin');
+                  var rnd = function (v) { return v == null ? null : Math.round(v); };
                   // Ongeronde bronwaarden bewaren (Quantity Foundation v1):
                   // de afgeronde d3-velden hieronder blijven voor weergave en
                   // oudere code, de hoeveelheden rekenen met d3raw.
@@ -375,8 +378,8 @@
                     attributes: rawAttrs,
                   };
                   return {
-                    dak: Math.round(plat + schuin), plat: Math.round(plat), schuin: Math.round(schuin),
-                    gevel: Math.round(a.b3_opp_buitenmuur || 0), grond: Math.round(a.b3_opp_grond || 0),
+                    dak: (plat != null && schuin != null) ? Math.round(plat + schuin) : null, plat: rnd(plat), schuin: rnd(schuin),
+                    gevel: rnd(num3d('b3_opp_buitenmuur')), grond: rnd(num3d('b3_opp_grond')),
                     lagen: a.b3_bouwlagen || null, daktype: a.b3_dak_type || '',
                     hoogte: (a.b3_h_dak_max != null && a.b3_h_maaiveld != null)
                       ? Math.round((a.b3_h_dak_max - a.b3_h_maaiveld) * 10) / 10 : null,
@@ -385,8 +388,10 @@
             }
 
             return afterD3.then(function (d3) {
-              var dak = d3 && d3.dak ? d3.dak : Math.round(best.opp);
-              var gevel = d3 && d3.gevel ? d3.gevel : Math.round(best.omtrek * 3 * 3);
+              // Gebouwkenmerken voor weergave/oudere code: 3D BAG als het veld aanwezig is (ook 0),
+              // anders de bestaande expliciete benadering (grondvlak / omtrek × 9).
+              var dak = d3 && d3.dak != null ? d3.dak : Math.round(best.opp);
+              var gevel = d3 && d3.gevel != null ? d3.gevel : Math.round(best.omtrek * 3 * 3);
               return {
                 adres: doc.weergavenaam,
                 bouwjaar: p.bouwjaar || null,
@@ -514,7 +519,9 @@
     // valt dakPlatM2 terug op het hele dakoppervlak — het oude gedrag,
     // dat een plat dak aanneemt.
     if (bron === 'dakPlatM2') return (b.d3 && b.d3.plat != null) ? b.d3.plat : b.dakM2;
-    if (bron === 'dakSchuinM2') return (b.d3 && b.d3.schuin) || 0;
+    // Onbekend hellend dakoppervlak = null (niet 0); het element 'dak-hellend' wordt dan,
+    // net als voorheen, niet standaard aangeboden (null > 0 is false).
+    if (bron === 'dakSchuinM2') return (b.d3 && b.d3.schuin != null) ? b.d3.schuin : null;
     if (bron === 'gevelM2') return b.gevelM2;
     if (bron === 'units') return b.units;
     return 0;
@@ -523,8 +530,11 @@
   // Effectieve hoeveelheid van een post/kozijnrij — altijd via het
   // hoeveelheidsobject (Quantity Foundation v1). De terugval op het oude
   // kale getal is alleen voor een object dat (nog) niet gemigreerd is.
+  // Een onbekende hoeveelheid (Q.STATUS.NOT_AVAILABLE) geeft null, NIET 0: de kosten
+  // worden dan niet berekend (zie elementCost). Het kale oude getal (zonder object)
+  // is alleen voor een niet-gemigreerd element (legacy).
   function qv(el) {
-    if (el && el.quantity) return el.quantity.value == null ? 0 : el.quantity.value;
+    if (el && el.quantity) return Q.isKnown(el.quantity) ? el.quantity.value : null;
     return (el && el.hoeveelheid) || 0;
   }
   function kozAantal(k) {
@@ -729,7 +739,10 @@
     return Math.round(bedrag * Math.pow(1 + pct, uitvoeringsjaar - basisjaar));
   }
 
+  // Kosten van één beurt. null = niet te berekenen (hoeveelheid onbekend):
+  // nooit stil € 0 alsof het onderhoud gratis is.
   function elementCost(el, state) {
+    if ((el.type === 'dak' || el.type === 'gevel' || el.type === 'steiger' || el.type === 'per-unit' || el.type === 'vast-variabel') && qv(el) == null) return null;
     switch (el.type) {
       case 'dak': return qv(el) * el.kengetal;
       case 'kozijnen': return el.koz.reduce(function (a, k) { return a + kozAantal(k) * kozTarief(k); }, 0);
@@ -743,6 +756,9 @@
   }
 
   function elementMeta(el) {
+    if (el.type !== 'custom' && el.type !== 'kozijnen' && el.type !== 'steiger' && qv(el) == null) {
+      return 'hoeveelheid onbekend — vul zelf in';
+    }
     switch (el.type) {
       case 'dak': return Q.formatNumber(qv(el)) + ' m² × ' + eur(el.kengetal);
       case 'kozijnen': return kozGroepen(el).map(function (g) {
@@ -814,6 +830,9 @@
     }
     var first = conditionYear(el);
     var bedrag = elementCost(el, state);
+    // Hoeveelheid onbekend: geen posten in de planning (en dus geen € 0-posten); de
+    // UI meldt dit apart (costUnknownElements).
+    if (bedrag == null) return out;
     var meta = elementMeta(el);
     var j2 = first;
     while (j2 <= CURRENT_YEAR + HORIZON - 1) {
@@ -822,6 +841,22 @@
     }
     return out;
   }
+
+  // Elementen waarvan de kosten niet berekend kunnen worden omdat de hoeveelheid onbekend is.
+  function costUnknownElements(state) {
+    return state.elements.filter(function (el) { return el.type !== 'custom' && elementCost(el, state) == null; });
+  }
+
+  function costUnknownNotice(state) {
+    var els = costUnknownElements(state);
+    if (!els.length) return '';
+    return '<div class="notice" data-cost-unknown-notice style="margin:12px 0">' + els.length + ' ' + meervoud(els.length, 'post', 'posten') +
+      ' zonder bekende hoeveelheid (' + esc(els.map(function (e) { return e.naam; }).join(', ')) +
+      '): de kosten daarvan zijn niet berekend en tellen niet mee in de totalen. Vul de hoeveelheid zelf in.</div>';
+  }
+
+  // Bedrag van een post; onbekend (null) wordt niet als € 0 getoond.
+  function eurKosten(n) { return n == null ? 'kosten onbekend' : eur(n); }
 
   function fullPlan(state) {
     var posten = [];
@@ -2893,6 +2928,7 @@
       b.units + ' ' + meervoud(b.units, 'appartement', 'appartementen') + ' · ' + state.elements.length + ' ' + meervoud(state.elements.length, 'post', 'posten') + '</p></div>';
     html += '<button type="button" class="ov-btn-dark" data-act="set-tab" data-tab="rapport">Rapport openen</button>';
     html += '</div>';
+    html += costUnknownNotice(state);
 
     // Routebalk: voortgang + "nu aan de beurt", als kaart i.p.v. hero.
     html += '<section class="ov-card ov-routebar" aria-label="Jouw route naar het voorstel">';
@@ -3080,7 +3116,8 @@
       html += '<div class="gb-row" data-act="open-element" data-id="' + el.id + '">';
       html += '<div class="gb-cell-post"><span class="gb-post-naam">' + esc(el.naam) + '</span><span class="gb-post-meta">' + gebouwRowMeta(el) + '</span>' + (score != null ? conditiePill(score) : '') + '</div>';
       html += '<span class="gb-cell-jaar' + (jaar === tekortJaar ? ' tekort' : '') + '">' + jaar + '</span>';
-      html += '<span class="gb-cell-bedrag">' + eur(elementCost(el, state)) + '</span>';
+      var cost = elementCost(el, state);
+      html += '<span class="gb-cell-bedrag"' + (cost == null ? ' data-cost-unknown' : '') + '>' + eurKosten(cost) + '</span>';
       html += '</div>';
     });
     html += '</div>';
@@ -3176,7 +3213,7 @@
     html += '<div class="section"><div class="card pad">';
     html += '<div class="kv"><div class="label">Volgend onderhoud</div><div class="amount" style="font-size:19px">' + jaar + '</div></div>';
     html += '<div class="divider"></div>';
-    html += '<div class="kv strong"><div class="label">Verwachte kosten</div><div class="amount">' + eur(bedrag) + '</div></div>';
+    html += '<div class="kv strong"><div class="label">Verwachte kosten</div><div class="amount">' + eurKosten(bedrag) + '</div></div>';
     html += '<div class="divider"></div>';
     html += '<div class="kv" style="align-items:center"><div class="label">Staat</div>' + conditiePill(score) + '</div>';
     html += '<div class="divider"></div>';
@@ -3188,6 +3225,7 @@
     if (el.type === 'kozijnen') html += renderKozijnen(el);
     if (el.type === 'dak' || el.type === 'gevel' || el.type === 'per-unit') html += renderHoeveelheidKengetal(el);
     if (el.type === 'steiger') html += renderSteiger(el);
+    if (el.type === 'vast-variabel') html += renderVastVariabel(el);
     if (el.type === 'custom') html += renderCustomBewerken(el);
     html += renderGebreken(el);
     html += renderOffertes(el);
@@ -3277,10 +3315,11 @@
     var fout = state.qtyFout && state.qtyFout[id];
     var html = '<div class="qty-panel" data-qty-status="' + esc(q.status) + '" data-qty-source="' + esc(q.source || '') + '">';
     html += '<div class="input-row" style="margin-top:0"><label class="label" for="' + id + '">' + label + ' (' + esc(Q.unitLabel(q.unit)) + ')</label>';
-    html += '<input id="' + id + '" data-change="qty-input" data-id="' + el.id + '" inputmode="decimal" value="' + esc(fout ? fout.tekst : Q.formatNumber(q.value)) + '"' + (fout ? ' aria-invalid="true"' : '') + ' /></div>';
+    html += '<input id="' + id + '" data-change="qty-input" data-id="' + el.id + '" inputmode="decimal" value="' + esc(fout ? fout.tekst : (q.value == null ? '' : Q.formatNumber(q.value))) + '"' +
+      (q.value == null ? ' placeholder="Niet beschikbaar — vul zelf in"' : '') + (fout ? ' aria-invalid="true"' : '') + ' /></div>';
     if (fout) html += '<div class="notice error qty-fout">' + esc(fout.melding) + '</div>';
     html += '<div class="qty-meta">';
-    html += '<span class="origin-tag origin-' + (q.source === Q.SOURCES.ESTIMATED ? 'schatting' : (q.source === Q.SOURCES.MANUAL ? 'aangepast' : 'bag')) + '" data-qty-source-label>' + esc(Q.SOURCE_LABELS[q.source] || 'Onbekend') + '</span> ';
+    html += '<span class="origin-tag origin-' + (q.source === Q.SOURCES.ESTIMATED || q.source === Q.SOURCES.NOT_AVAILABLE ? 'schatting' : (q.source === Q.SOURCES.MANUAL ? 'aangepast' : 'bag')) + '" data-qty-source-label>' + esc(Q.SOURCE_LABELS[q.source] || 'Onbekend') + '</span> ';
     html += '<span class="qty-status qty-status-' + esc(q.status.toLowerCase()) + '" data-qty-status-label>' + esc(Q.STATUS_LABELS[q.status]) + '</span>';
     html += '</div>';
     if (q.auto) {
@@ -3476,7 +3515,22 @@
     if (kgFout) html += '<div class="notice error qty-fout">' + esc(kgFout.melding) + '</div>';
     // De rekenformule stond eerder in de Gebouw-lijst (bv. "11 m² × € 165")
     // — die is verplaatst naar hier, de detailpagina, samen met het resultaat.
-    html += '<div class="formula" data-qty-formula>' + Q.formatNumber(qv(el)) + ' ' + eenheid + ' × ' + eur(el.kengetal) + ' = ' + eur(elementCost(el, state)) + ' per keer</div>';
+    html += qv(el) == null
+      ? '<div class="formula" data-qty-formula data-cost-unknown>Hoeveelheid onbekend × ' + eur(el.kengetal) + ' = kosten niet berekend (vul de hoeveelheid zelf in)</div>'
+      : '<div class="formula" data-qty-formula>' + Q.formatNumber(qv(el)) + ' ' + eenheid + ' × ' + eur(el.kengetal) + ' = ' + eur(elementCost(el, state)) + ' per keer</div>';
+    html += '</div></div>';
+    return html;
+  }
+
+  // Vast bedrag + bedrag per m² (bijv. dakinspectie op basis van het totale
+  // dakoppervlak). Zelfde hoeveelheidspaneel als de andere posten, zodat een
+  // onbekende hoeveelheid zelf ingevuld kan worden.
+  function renderVastVariabel(el) {
+    var html = '<div class="section"><div class="card pad">';
+    html += renderQuantityPanel(el, 'Oppervlak');
+    html += qv(el) == null
+      ? '<div class="formula" data-qty-formula data-cost-unknown>' + eur(el.basis) + ' vast + hoeveelheid onbekend × ' + eur(el.perEenheid) + ' = kosten niet berekend (vul de hoeveelheid zelf in)</div>'
+      : '<div class="formula" data-qty-formula>' + eur(el.basis) + ' vast + ' + Q.formatNumber(qv(el)) + ' m² × ' + eur(el.perEenheid) + ' = ' + eur(elementCost(el, state)) + ' per keer</div>';
     html += '</div></div>';
     return html;
   }
@@ -3489,7 +3543,9 @@
     var whFout = state.qtyFout && state.qtyFout[whId];
     html += '<div class="input-row"><label class="label" for="' + whId + '">Werkhoogte in m</label><input id="' + whId + '" data-change="el-werkhoogte" data-id="' + el.id + '" inputmode="decimal" value="' + esc(whFout ? whFout.tekst : Q.formatNumber(el.werkhoogte)) + '" /></div>';
     if (whFout) html += '<div class="notice error qty-fout">' + esc(whFout.melding) + '</div>';
-    html += '<div class="formula">' + Q.formatNumber(qv(el)) + ' m² × ' + eur(rate) + ' = ' + eur(elementCost(el, state)) + ' per keer</div>';
+    html += qv(el) == null
+      ? '<div class="formula" data-cost-unknown>Hoeveelheid onbekend — kosten niet berekend (vul de hoeveelheid zelf in)</div>'
+      : '<div class="formula">' + Q.formatNumber(qv(el)) + ' m² × ' + eur(rate) + ' = ' + eur(elementCost(el, state)) + ' per keer</div>';
     html += '<div class="hint">' + (el.werkhoogte > 8
       ? 'Boven 8 meter rekent de app met een hoogwerker of rolsteiger: € 11 per m² gevel.'
       : 'Tot 8 meter kan het met een lichte steiger: € 6 per m² gevel.') + '</div>';
@@ -3667,6 +3723,7 @@
     var piekPosten = piekjaar ? plan.filter(function (p) { return p.jaar === piekjaar.jaar; }) : [];
 
     var html = '<div class="ov-page"><div class="ov">';
+    html += costUnknownNotice(state);
 
     html += '<div class="ov-page-head"><div><h1 class="page-title">Planning</h1>';
     html += '<p class="page-sub">' + CURRENT_YEAR + ' – ' + eind + ' · ' + eur(totaal) + ' totaal' + (piekjaar ? ' · piekjaar ' + piekjaar.jaar : '') + '</p></div>';
@@ -3744,6 +3801,7 @@
     var html = pgOpen(true, true);
     html += '<div class="pg-head"><h1 class="page-title">Rapport</h1>';
     html += '<div class="page-sub">' + esc(b.adres) + ' · ' + beoordeeld + ' van ' + state.elements.length + ' posten beoordeeld</div></div>';
+    html += costUnknownNotice(state);
 
     html += '<div class="section"><div class="card pad">';
     html += '<div style="font:500 14.5px/1.3 var(--sans)">MJOP ' + CURRENT_YEAR + '–' + (CURRENT_YEAR + HORIZON - 1) + '</div>';
@@ -3783,7 +3841,7 @@
       var score = conditionScore(el);
       html += '<div class="row"' + (i === 0 ? ' style="border-top:none"' : '') + '>';
       html += '<div class="grow"><div class="name">' + esc(el.naam) + '</div><div class="meta">' + conditiePill(score) + 'Volgt in ' + conditionYear(el) + '</div></div>';
-      html += '<div class="value">' + eur(elementCost(el, state)) + '</div></div>';
+      html += '<div class="value">' + eurKosten(elementCost(el, state)) + '</div></div>';
     });
     html += '</div></div>';
 
@@ -3893,7 +3951,7 @@
     // getallen op beide plekken.
     var posten = state.elements.map(function (el) {
       return { el: el, jaar: elementNextYear(el), bedrag: elementCost(el, state) };
-    }).sort(function (a, b2) { return a.jaar - b2.jaar || b2.bedrag - a.bedrag; });
+    }).sort(function (a, b2) { return a.jaar - b2.jaar || (b2.bedrag || 0) - (a.bedrag || 0); });
     var buitenPeriode = posten.some(function (p) { return p.jaar > eind; });
     // De post die het grootste deel van een eventueel tekortjaar verklaart
     // wordt uitgelicht, i.p.v. elke post in dat jaar (zie het ontwerp: van
@@ -3907,6 +3965,7 @@
     }
 
     html += '<h2 class="pr-h2 pr-break">Alle posten</h2>';
+    html += costUnknownNotice(state);
     html += '<p class="pr-note">Op volgorde van de eerstvolgende beurt.' + (state.elements.every(function (el) { return conditionScore(el) == null; })
       ? ' Geen van de posten is op locatie beoordeeld; de jaartallen volgen uit het bouwjaar en de gebruikelijke levensduur.'
       : '') + '</p>';
@@ -3921,14 +3980,20 @@
       html += '<td class="pr-dim">' + esc(el.categorie) + '</td>';
       html += '<td class="pr-r pr-dim">' + cyclusLabel + '</td>';
       html += '<td class="pr-r' + (nadruk ? ' pr-strong' : '') + '">' + p.jaar + '</td>';
-      html += '<td class="pr-r' + (nadruk ? ' pr-strong' : '') + '">' + eur(p.bedrag) + '</td></tr>';
+      html += '<td class="pr-r' + (nadruk ? ' pr-strong' : '') + '">' + eurKosten(p.bedrag) + '</td></tr>';
     });
     html += '</tbody></table>';
     if (buitenPeriode) html += '<p class="pr-note pr-note-tight">Posten met een jaartal na ' + eind + ' vallen buiten deze periode en tellen niet mee in het totaal.</p>';
 
     html += '<h2 class="pr-h2">Uitgangspunten</h2>';
     html += '<div class="pr-uitgangspunten">';
-    html += '<p><strong>Bouwgegevens.</strong> Bouwjaar en het aantal appartementen komen uit de Basisregistratie Adressen en Gebouwen (BAG). Het dakoppervlak van ' + (b.dakM2 != null ? Math.round(b.dakM2) + ' m²' : 'onbekende omvang') + ', het geveloppervlak van ' + (b.gevelM2 != null ? Math.round(b.gevelM2) + ' m²' : 'onbekende omvang') + ' en de gebouwhoogte komen uit de 3D BAG van de TU Delft. Er is niet op locatie ingemeten.</p>';
+    // Alleen '3D BAG' noemen als het getal echt uit 3D BAG komt; anders is het de expliciete schatting
+    // uit de BAG-pandgeometrie (grondvlak / omtrek × 9).
+    var dakUit3d = !!(b.d3 && b.d3.dak != null), gevelUit3d = !!(b.d3 && b.d3.gevel != null);
+    var maat = function (v, uit3d, schatting) {
+      return v == null ? 'onbekende omvang' : Math.round(v) + ' m²' + (uit3d ? ' (3D BAG van de TU Delft)' : ' (geschat uit ' + schatting + ', geen 3D BAG-waarde)');
+    };
+    html += '<p><strong>Bouwgegevens.</strong> Bouwjaar en het aantal appartementen komen uit de Basisregistratie Adressen en Gebouwen (BAG). Het dakoppervlak van ' + maat(b.dakM2, dakUit3d, 'het BAG-grondvlak') + ', het geveloppervlak van ' + maat(b.gevelM2, gevelUit3d, 'de omtrek van het BAG-pand') + '; de gebouwhoogte komt uit de 3D BAG. Er is niet op locatie ingemeten.</p>';
     html += '<p><strong>Kosten.</strong> De bedragen zijn indicatieve richtprijzen inclusief btw, prijspeil ' + CURRENT_YEAR + '. Het zijn geen offertes. Voor de grote posten is het verstandig voorafgaand aan het uitvoeringsjaar minimaal twee offertes op te vragen.</p>';
     var beoordeeldPr = state.elements.filter(isAssessed).length;
     var conditieTekst = beoordeeldPr === 0
@@ -4783,7 +4848,8 @@
     state.elements.forEach(function (el) {
       var score = conditionScore(el);
       var q = el.quantity;
-      rows.push([el.naam, el.sfb || '', el.categorie, score == null ? 'onbekend' : score, el.cyclus || '', conditionYear(el), Math.round(elementCost(el, state)),
+      var kosten = elementCost(el, state);
+      rows.push([el.naam, el.sfb || '', el.categorie, score == null ? 'onbekend' : score, el.cyclus || '', conditionYear(el), kosten == null ? 'onbekend' : Math.round(kosten),
         q && q.value != null ? Q.formatNumber(q.value) : '', q ? Q.unitLabel(q.unit) : '', q && q.source ? (Q.SOURCE_LABELS[q.source] || q.source) : '', q ? Q.STATUS_LABELS[q.status] : '']);
     });
     var csv = rows.map(function (r) {

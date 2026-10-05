@@ -25,12 +25,19 @@
     ESTIMATED: 'ESTIMATED',
     IMPORTED_MJOP: 'IMPORTED_MJOP',
     MANUAL: 'MANUAL',
+    // Geen betrouwbare automatische hoeveelheid (een benodigd 3D BAG-veld
+    // ontbreekt). Waarde = null, nooit 0 (MISSING != 0).
+    NOT_AVAILABLE: 'NOT_AVAILABLE',
   };
 
   var STATUS = {
     PROPOSED: 'PROPOSED',
     CONFIRMED: 'CONFIRMED',
     USER_OVERRIDDEN: 'USER_OVERRIDDEN',
+    // Er is geen effectieve hoeveelheid (auto niet beschikbaar, niets gekozen
+    // of ingevuld). Dezelfde statusafleiding als hierboven (refresh), geen
+    // tweede mechanisme. Kosten worden dan niet berekend.
+    NOT_AVAILABLE: 'NOT_AVAILABLE',
   };
 
   var SOURCE_LABELS = {
@@ -40,12 +47,14 @@
     ESTIMATED: 'Schatting',
     IMPORTED_MJOP: 'Uit oud MJOP',
     MANUAL: 'Door jou ingevuld',
+    NOT_AVAILABLE: 'Niet beschikbaar',
   };
 
   var STATUS_LABELS = {
     PROPOSED: 'Voorstel',
     CONFIRMED: 'Bevestigd',
     USER_OVERRIDDEN: 'Aangepast door jou',
+    NOT_AVAILABLE: 'Niet beschikbaar',
   };
 
   var UNIT_LABELS = { m2: 'm²', m1: 'm1', m3: 'm³', st: 'st.', app: 'app.', post: 'post', kg: 'kg', ton: 'ton', uur: 'uur' };
@@ -165,6 +174,7 @@
     q.selectedEvidenceId = sel ? sel.id : null;
     if (q.manual) q.status = STATUS.USER_OVERRIDDEN;
     else if (sel) q.status = STATUS.CONFIRMED;
+    else if (q.value == null) q.status = STATUS.NOT_AVAILABLE;
     else if (q.confirmed && q.auto && q.confirmed.value === q.auto.value) q.status = STATUS.CONFIRMED;
     else q.status = STATUS.PROPOSED;
     return q;
@@ -173,6 +183,15 @@
   function autoQuantity(value, unit, source, basis, raw) {
     return { value: value, unit: unit, source: source, basis: basis || '', raw: raw || null };
   }
+
+  // Geen betrouwbare automatische hoeveelheid: waarde null (nooit 0), met de
+  // reden en de ontbrekende velden als onderbouwing. Handmatig invullen blijft
+  // gewoon mogelijk (override).
+  function unavailableQuantity(unit, basis, raw) {
+    return autoQuantity(null, unit, SOURCES.NOT_AVAILABLE, basis, raw);
+  }
+
+  function isKnown(q) { return !!q && q.value != null && isFinite(q.value); }
 
   function create(auto, at) {
     var q = { auto: auto || null, manual: null, confirmed: null, history: [] };
@@ -201,7 +220,8 @@
   }
 
   function confirm(q, at) {
-    if (!q.auto || q.manual) return refresh(q);
+    // Een niet-beschikbare automatische hoeveelheid (waarde null) kan niet bevestigd worden.
+    if (!q.auto || q.manual || q.auto.value == null) return refresh(q);
     var t = nowIso(at);
     q.confirmed = { value: q.auto.value, at: t };
     q.history.push({ at: t, event: 'CONFIRMED', value: q.auto.value, source: q.auto.source });
@@ -302,13 +322,22 @@
   // oudere plannen hebben alleen de afgeronde building.d3. building.bagRaw
   // bevat de ongeronde footprint/omtrek.
 
+  // Aanwezigheid van een 3D BAG-veld = het veld bestaat met een getal (ook 0:
+  // een echte, gemeten 0 is geldig). Ontbreekt het, dan null — nooit 0.
+  // Plannen met ruwe 3D BAG-attributen (d3raw, v1) gebruiken UITSLUITEND die:
+  // de afgeronde d3-velden van zo'n plan zijn er alleen voor weergave en
+  // vallen bij een ontbrekend veld niet terug. Alleen een plan van vóór v1
+  // (geen d3raw) leest de afgeronde d3-velden (legacy-compatibiliteit).
   function d3Attr(b, rawField, roundedField) {
-    if (b.d3raw && b.d3raw.attributes && b.d3raw.attributes[rawField] != null) {
-      return { value: b.d3raw.attributes[rawField], rounded: false };
+    if (b.d3raw) {
+      var v = b.d3raw.attributes ? b.d3raw.attributes[rawField] : null;
+      return (v != null && isFinite(v)) ? { value: v, rounded: false } : null;
     }
-    if (b.d3 && b.d3[roundedField] != null) return { value: b.d3[roundedField], rounded: true };
+    if (b.d3 && b.d3[roundedField] != null && isFinite(b.d3[roundedField])) return { value: b.d3[roundedField], rounded: true };
     return null;
   }
+
+  function has3dbag(b) { return !!(b.d3raw || b.d3); }
 
   function d3RawMeta(b, field, value, rounded) {
     return {
@@ -344,13 +373,18 @@
       a = d3Attr(b, 'b3_opp_dak_plat', 'plat');
       if (a) return autoQuantity(round2(a.value), 'm2', SOURCES.THREE_D_BAG, 'Plat dakoppervlak uit het 3D BAG-model (b3_opp_dak_plat).', d3RawMeta(b, 'b3_opp_dak_plat', a.value, a.rounded));
       return autoQuantity(round2(footprint(b)), 'm2', SOURCES.ESTIMATED,
-        'Geen 3D BAG-gegevens: het grondvlak van het BAG-pand is als benadering van het platte dak gebruikt.',
+        (has3dbag(b) ? 'b3_opp_dak_plat ontbreekt in het 3D BAG-model' : 'Geen 3D BAG-gegevens') +
+        ': het grondvlak van het BAG-pand is als benadering (schatting) van het platte dak gebruikt.',
         { field: 'BAG pandgeometrie (grondvlak)', value: footprint(b), source_name: 'BAG (PDOK)' });
     }
     if (bron === 'dakSchuinM2') {
       a = d3Attr(b, 'b3_opp_dak_schuin', 'schuin');
+      // Een aanwezige 0 is een geldige meting (geen hellend dak).
       if (a) return autoQuantity(round2(a.value), 'm2', SOURCES.THREE_D_BAG, 'Hellend dakoppervlak uit het 3D BAG-model (b3_opp_dak_schuin).', d3RawMeta(b, 'b3_opp_dak_schuin', a.value, a.rounded));
-      return autoQuantity(0, 'm2', SOURCES.ESTIMATED, 'Geen 3D BAG-gegevens: hellend dakoppervlak onbekend, 0 aangenomen.', null);
+      // Ontbreekt het veld, dan is het hellend dakoppervlak ONBEKEND — geen 0 en geen schatting.
+      return unavailableQuantity('m2', (has3dbag(b) ? 'Het 3D BAG-model van dit pand bevat geen hellend dakoppervlak (b3_opp_dak_schuin ontbreekt)'
+        : 'Geen 3D BAG-gegevens voor dit pand') + ': geen betrouwbare automatische hoeveelheid. Vul de hoeveelheid zelf in.',
+        { field: 'b3_opp_dak_schuin', value: null, missing: true, source_name: '3D BAG (TU Delft), api.3dbag.nl' });
     }
     if (bron === 'dakM2') {
       var p = d3Attr(b, 'b3_opp_dak_plat', 'plat'), s = d3Attr(b, 'b3_opp_dak_schuin', 'schuin');
@@ -363,19 +397,30 @@
           'Som van plat en hellend dakoppervlak uit 3D BAG (b3_opp_dak_plat + b3_opp_dak_schuin).',
           { formula: 'round(b3_opp_dak_plat + b3_opp_dak_schuin)', value: b.d3.dak, rounded_in_legacy_plan: true });
       }
-      if (p || s) {
-        var pv = p ? p.value : 0, sv = s ? s.value : 0;
-        return autoQuantity(round2(pv + sv), 'm2', SOURCES.GEOMETRY_DERIVED,
+      // Een totaal alleen als BEIDE velden aanwezig zijn (een aanwezige 0 telt mee).
+      if (p && s) {
+        return autoQuantity(round2(p.value + s.value), 'm2', SOURCES.GEOMETRY_DERIVED,
           'Som van plat en hellend dakoppervlak uit 3D BAG (b3_opp_dak_plat + b3_opp_dak_schuin).',
-          { formula: 'b3_opp_dak_plat + b3_opp_dak_schuin', inputs: [d3RawMeta(b, 'b3_opp_dak_plat', pv, p && p.rounded), d3RawMeta(b, 'b3_opp_dak_schuin', sv, s && s.rounded)] });
+          { formula: 'b3_opp_dak_plat + b3_opp_dak_schuin', inputs: [d3RawMeta(b, 'b3_opp_dak_plat', p.value, p.rounded), d3RawMeta(b, 'b3_opp_dak_schuin', s.value, s.rounded)] });
+      }
+      // Eén van beide ontbreekt: het totaal is NIET beschikbaar. Het bekende deel
+      // wordt niet als totaal gepresenteerd en het ontbrekende deel telt niet als 0.
+      if (p || s) {
+        var bekend = p ? ['b3_opp_dak_plat', p] : ['b3_opp_dak_schuin', s];
+        var mist = p ? 'b3_opp_dak_schuin' : 'b3_opp_dak_plat';
+        return unavailableQuantity('m2', 'Totaal dakoppervlak niet volledig beschikbaar: ' + mist + ' ontbreekt in het 3D BAG-model (' +
+          bekend[0] + ' = ' + formatNumber(bekend[1].value) + ' m² is bekend, maar is geen totaal). Vul de hoeveelheid zelf in.',
+          { formula: 'b3_opp_dak_plat + b3_opp_dak_schuin', missing: [mist], inputs: [d3RawMeta(b, bekend[0], bekend[1].value, bekend[1].rounded)] });
       }
       return autoQuantity(round2(footprint(b)), 'm2', SOURCES.ESTIMATED,
-        'Geen 3D BAG-gegevens: het grondvlak van het BAG-pand is als benadering van het dakoppervlak gebruikt.',
+        (has3dbag(b) ? 'Plat en hellend dakoppervlak ontbreken in het 3D BAG-model' : 'Geen 3D BAG-gegevens') +
+        ': het grondvlak van het BAG-pand is als benadering (schatting) van het dakoppervlak gebruikt.',
         { field: 'BAG pandgeometrie (grondvlak)', value: footprint(b), source_name: 'BAG (PDOK)' });
     }
     if (bron === 'gevelM2') {
       a = d3Attr(b, 'b3_opp_buitenmuur', 'gevel');
-      if (a && a.value) {
+      // Aanwezigheid, niet truthiness: een gemeten 0 is geen ontbrekend veld.
+      if (a) {
         var raw = d3RawMeta(b, 'b3_opp_buitenmuur', a.value, a.rounded);
         if (opts.benadering) {
           return autoQuantity(round2(a.value), 'm2', SOURCES.ESTIMATED,
@@ -388,7 +433,8 @@
       // al in gevelM2 en is niet uit de afgeronde omtrek te reconstrueren.
       var gevelSchatting = (!b.bagRaw && b.gevelM2 != null) ? b.gevelM2 : round2(omtrek * 3 * 3);
       return autoQuantity(gevelSchatting, 'm2', SOURCES.ESTIMATED,
-        'Geen 3D BAG-gegevens: omtrek van het BAG-pand × 3 bouwlagen × 3 m aangenomen.',
+        (has3dbag(b) ? 'b3_opp_buitenmuur ontbreekt in het 3D BAG-model' : 'Geen 3D BAG-gegevens') +
+        ': schatting op basis van de omtrek van het BAG-pand × 3 bouwlagen × 3 m.',
         { formula: 'omtrek × 3 × 3', inputs: [{ field: 'BAG pandgeometrie (omtrek)', value: omtrek, source_name: 'BAG (PDOK)' }] });
     }
     if (bron === 'units') {
@@ -608,7 +654,7 @@
     SOURCES: SOURCES, STATUS: STATUS, SOURCE_LABELS: SOURCE_LABELS, STATUS_LABELS: STATUS_LABELS,
     parseQuantity: parseQuantity, parseAmount: parseAmount, parseErrorText: parseErrorText,
     formatNumber: formatNumber, formatSourceValue: formatSourceValue, normalizeUnit: normalizeUnit, unitLabel: unitLabel,
-    autoQuantity: autoQuantity, create: create, refresh: refresh, updateAuto: updateAuto,
+    autoQuantity: autoQuantity, unavailableQuantity: unavailableQuantity, isKnown: isKnown, create: create, refresh: refresh, updateAuto: updateAuto,
     confirm: confirm, override: override, resetToAuto: resetToAuto, fromLegacy: fromLegacy, isValid: isValid,
     addEvidence: addEvidence, selectEvidence: selectEvidence, findEvidence: findEvidence, difference: difference,
     parseOfferteAmounts: parseOfferteAmounts, amountErrorText: amountErrorText, bundleEntries: bundleEntries,
