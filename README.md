@@ -291,6 +291,7 @@ node test/quantity-multipand.spec.js     # bundel v2: VvE-scope met meerdere BAG
 node test/quantity-related.spec.js       # bundel v3: verwant maar ander onderwerp (historische dakbedekking) als niet-kiesbare context
 node test/quantity-maldenhof-real.spec.js # ECHTE Maldenhof-bundel v3 (15 panden) door de importflow; zie test/fixtures/real/README.md
 node test/quantity-doc012-real.spec.js    # ECHTE DOC-012-bundel v3 (Meppelweg, 1 pand) door dezelfde importflow
+node test/quantity-maldenhof-expanded-real.spec.js # ECHTE uitgebreide Maldenhof-bundel: dak-plat + dak-hellend (historische dakpannen als context)
 node test/auth.spec.js                   # inloglink met de echte Supabase-SDK; Supabase-netwerk nagebootst
 node test/quantity-missingness.spec.js    # MISSING != 0: ontbrekend 3D BAG-veld -> niet beschikbaar, kosten onbekend (geen € 0)
 node test/reservefonds.spec.js
