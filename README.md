@@ -46,6 +46,34 @@ duidelijke melding op het "Inloggen"-tabblad. Om het aan te zetten:
    daarvan is dan niet aan te passen. Dat is precies waarom deze app een
    link verwacht in plaats van een in te typen code.
 
+### Ontbrekende hoeveelheden (MISSING != 0)
+
+Een 3D BAG-veld telt als aanwezig als het bestaat met een getal; een aanwezige
+**0 is een geldige meting** (bijv. `b3_opp_dak_schuin = 0`: geen hellend dak).
+Ontbreekt een veld, dan wordt het nooit 0:
+
+- hellend dak (`dakSchuinM2`) zonder `b3_opp_dak_schuin`: geen automatische
+  hoeveelheid (bron/status *Niet beschikbaar*), geen schatting;
+- totaal dak (`dakM2`): alleen `plat + schuin` als **beide** velden aanwezig
+  zijn; ontbreekt één van beide, dan *niet beschikbaar* (het bekende deel wordt
+  niet als totaal getoond). Ontbreken beide, dan blijft de bestaande, als
+  schatting gemarkeerde benadering via het BAG-grondvlak;
+- buitenmuur (`gevelM2`): aanwezigheid via `!= null`, niet via truthiness — een
+  gemeten 0 blijft 0 uit 3D BAG.
+
+Bij een onbekende hoeveelheid is het invoerveld leeg ("Niet beschikbaar — vul
+zelf in"), kan de hoeveelheid niet "bevestigd" worden, en worden de kosten
+**niet** berekend: de post toont "kosten onbekend", komt niet als € 0 in de
+planning/totalen, en Overzicht, Planning en Rapport melden welke posten
+ontbreken. Handmatig invullen werkt zoals altijd.
+
+Legacy: een plan van vóór de ruwe 3D BAG-attributen (`building.d3raw`) leest
+nog de afgeronde `building.d3`-velden, en al opgeslagen hoeveelheidsobjecten
+blijven ongewijzigd bij het openen (ook een oude automatische "0 aangenomen").
+Pas bij een nieuwe adres-opvraging of een gewijzigd aantal appartementen wordt
+de automatische waarde volgens de nieuwe regels opnieuw bepaald; een handmatige
+waarde blijft altijd staan. Nieuwe plannen maken nooit meer missing-as-zero.
+
 ### Als inloggen niet lukt (diagnostiek)
 
 De app toont bij een mislukte inlogpoging een melding met een foutcode
@@ -264,6 +292,7 @@ node test/quantity-related.spec.js       # bundel v3: verwant maar ander onderwe
 node test/quantity-maldenhof-real.spec.js # ECHTE Maldenhof-bundel v3 (15 panden) door de importflow; zie test/fixtures/real/README.md
 node test/quantity-doc012-real.spec.js    # ECHTE DOC-012-bundel v3 (Meppelweg, 1 pand) door dezelfde importflow
 node test/auth.spec.js                   # inloglink met de echte Supabase-SDK; Supabase-netwerk nagebootst
+node test/quantity-missingness.spec.js    # MISSING != 0: ontbrekend 3D BAG-veld -> niet beschikbaar, kosten onbekend (geen € 0)
 node test/reservefonds.spec.js
 ```
 
