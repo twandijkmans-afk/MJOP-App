@@ -1,0 +1,33 @@
+{
+ "_provenance": {
+  "note": "Uitsnede uit de canonieke mjop-learning-snapshot (alleen voor tests; geen nieuwe API-call).",
+  "mjop_learning_snapshot": "data/bag_snapshots/BAGSNAP-431559474da45dcf.json",
+  "mjop_learning_commit": "4c96486f6623d5dae6816a1f8aeace3ca129a88e",
+  "threedbag_url": "https://api.3dbag.nl/collections/pand/items/NL.IMBAG.Pand.0363100012137996",
+  "threedbag_response_sha256": "b9b0309d9464214248a649b0ac94051b7228cd0e0db68741eb7092cc57c704ba",
+  "fetched_at": "2026-10-05T09:15:50Z"
+ },
+ "address": {
+  "weergavenaam": "Maldenhof 240, 1106EZ Amsterdam",
+  "centroide_ll": "POINT(4.96562575 52.30244154)",
+  "postcode": "1106EZ"
+ },
+ "bag_pand_id": "0363100012137996",
+ "bag_properties": {
+  "aantal_verblijfsobjecten": 1,
+  "bouwjaar": 1981,
+  "gebruiksdoel": "woonfunctie",
+  "identificatie": "0363100012137996",
+  "status": "Pand in gebruik"
+ },
+ "threedbag_attributes": {
+  "b3_opp_dak_plat": 12.74,
+  "b3_opp_dak_schuin": 74.07,
+  "b3_opp_buitenmuur": 118.32,
+  "b3_opp_grond": 54.74,
+  "b3_bouwlagen": 2,
+  "b3_dak_type": "slanted",
+  "b3_h_dak_max": 8.079000473022461,
+  "b3_h_maaiveld": -1.3650000095367432
+ }
+}
