@@ -1,0 +1,146 @@
+{
+ "bundle_version": "mjop_app_quantity_bundle_v3",
+ "building_id": "BAG:0518100000354752",
+ "bag_pand_ids": [
+  "0518100000354752"
+ ],
+ "building_scope": {
+  "building_id": "BAG:0518100000354752",
+  "kind": "SINGLE_PAND",
+  "bag_pand_ids": [
+   "0518100000354752"
+  ],
+  "pand_count": 1
+ },
+ "tenant_note": "Bevat historische hoeveelheden van één VvE; alleen importeren in een plan van die VvE.",
+ "entries": [
+  {
+   "app_element_key": "dak-plat",
+   "crosswalk_mapping_id": "XW-dak-plat-4711-m2",
+   "crosswalk_decision_id": "XWD-00001",
+   "subject_key": "ROOF_FLAT_AREA",
+   "evidence": {
+    "evidence_id": "QE-0cd5f153f2a60245",
+    "source_type": "3D_BAG",
+    "method_class": "DIRECT_MEASURED",
+    "value": "875.63",
+    "unit": "m2",
+    "status": "PROPOSED",
+    "review_reasons": [],
+    "scope_caveats": [],
+    "source_cluster": null,
+    "same_object_document_ids": [],
+    "source_ref": {
+     "document_id": null,
+     "quantity_observation_id": null,
+     "page": null,
+     "text_fragment": null,
+     "quantity_as_stated": null,
+     "bag_pand_id": "0518100000354752",
+     "fields": [
+      "b3_opp_dak_plat"
+     ],
+     "raw_inputs": {
+      "b3_opp_dak_plat": 875.63
+     },
+     "fetched_at": "2026-10-05T12:38:17Z",
+     "rule_id": "bag3d.roof_flat_area",
+     "rule_version": "1.0.0"
+    },
+    "evidence_refs": {
+     "evidence_id": "QE-0cd5f153f2a60245",
+     "building_id": "BAG:0518100000354752",
+     "subject_id": "QS-253fbdadf6c2cef4",
+     "rule_id": "bag3d.roof_flat_area",
+     "rule_version": "1.0.0",
+     "bag_pand_ids": [
+      "0518100000354752"
+     ],
+     "snapshot_ids": [
+      "BAGSNAP-599d2f2004100011"
+     ],
+     "building_link_ids": [
+      "BLINK-00081"
+     ],
+     "child_evidence_ids": [],
+     "document_id": null,
+     "quantity_observation_id": null,
+     "source_sha256": null,
+     "subject_mapping_ref": null,
+     "dependency": {
+      "source_cluster": null,
+      "same_object_document_ids": [],
+      "identical_in_same_object_documents": []
+     }
+    }
+   },
+   "role": "PRIMARY",
+   "selectable": true,
+   "subject_label_nl": "Plat dakoppervlak"
+  },
+  {
+   "app_element_key": "dak-plat",
+   "crosswalk_mapping_id": "XW-dak-plat-4711-m2",
+   "crosswalk_decision_id": "XWD-00001",
+   "subject_key": "ROOF_COVERING_REPORTED_AREA",
+   "evidence": {
+    "evidence_id": "QE-bd9ee7e3931f8b77",
+    "source_type": "MJOP_ELEMENT_OVERVIEW",
+    "method_class": "SOURCE_REPORTED",
+    "value": "801.04",
+    "unit": "m2",
+    "status": "PROPOSED",
+    "review_reasons": [],
+    "scope_caveats": [],
+    "source_cluster": "SC-DOC-012",
+    "same_object_document_ids": [],
+    "source_ref": {
+     "document_id": "DOC-012",
+     "quantity_observation_id": "QO-DOC-012-EL-024",
+     "page": 7,
+     "text_fragment": "4711 Dakbedekking app 801,04m2 1",
+     "quantity_as_stated": "801,04",
+     "bag_pand_id": null,
+     "fields": null,
+     "raw_inputs": null,
+     "fetched_at": null,
+     "rule_id": null,
+     "rule_version": null
+    },
+    "evidence_refs": {
+     "evidence_id": "QE-bd9ee7e3931f8b77",
+     "building_id": "BAG:0518100000354752",
+     "subject_id": "QS-2122731cfb94b156",
+     "rule_id": null,
+     "rule_version": null,
+     "bag_pand_ids": [],
+     "snapshot_ids": [],
+     "building_link_ids": [
+      "BLINK-00081"
+     ],
+     "child_evidence_ids": [],
+     "document_id": "DOC-012",
+     "quantity_observation_id": "QO-DOC-012-EL-024",
+     "source_sha256": "86bf554e24b00f976b72465e2ceb3ce20db6083b7c487a77310a476054a7e716",
+     "subject_mapping_ref": "HSM-ROOF_COVERING_REPORTED_AREA-4711-m2-DOC-012",
+     "dependency": {
+      "source_cluster": "SC-DOC-012",
+      "same_object_document_ids": [],
+      "identical_in_same_object_documents": []
+     }
+    }
+   },
+   "role": "RELATED_CONTEXT",
+   "selectable": false,
+   "subject_label_nl": "Door bron/MJOP gerapporteerde oppervlakte dakbedekking",
+   "primary_subject_key": "ROOF_FLAT_AREA",
+   "primary_subject_label_nl": "Plat dakoppervlak",
+   "subject_relation": {
+    "relation_id": "SREL-ROOF_COVERING_REPORTED_AREA-ROOF_FLAT_AREA",
+    "relation": "RELATED_NOT_EQUIVALENT",
+    "resolvable_as_same_quantity": false,
+    "show_difference_as": "SOURCE_DIFFERENCE_DIFFERENT_DEFINITION"
+   }
+  }
+ ]
+}
