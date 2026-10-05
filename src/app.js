@@ -3289,12 +3289,20 @@
     });
     if (rows.length < 2 && !(q.evidence || []).length) return '';
     var html = '<div class="qty-sources" data-qty-sources><div class="label" style="margin-top:12px">Bronnen</div>';
+    var effLevel = Q.effectiveScopeLevel(q);
     rows.forEach(function (r) {
       var isManualNow = q.manual && r.source === Q.SOURCES.MANUAL && r.value === q.manual.value && r.id === lastManualId(q);
       var effective = r.effective || isManualNow;
-      var d = effective ? null : Q.difference(q, r.value);
-      html += '<div class="qty-source' + (effective ? ' is-effective' : '') + '" data-qty-source-row="' + esc(r.id || 'auto') + '" data-source="' + esc(r.source || '') + '">';
-      html += '<div class="qty-source-head"><span class="qty-source-label">' + esc((r.auto ? 'Automatisch: ' : '') + (Q.SOURCE_LABELS[r.source] || r.source)) + '</span>';
+      var level = r.auto ? 'PAND' : Q.scopeLevel(r.ev);
+      // Een verschil tussen complexniveau (hele VvE-scope) en één pand is niet zinvol: niet tonen.
+      var d = effective || level !== effLevel ? null : Q.difference(q, r.value);
+      var complex = level === 'COMPLEX' && r.ev && r.ev.scope;
+      var comps = (r.ev && r.ev.components) || [];
+      var label = (r.auto ? 'Automatisch: ' : '') + (Q.SOURCE_LABELS[r.source] || r.source);
+      if (complex) label += comps.length ? ' — som van ' + comps.length + ' panden' : ' — complexniveau';
+      html += '<div class="qty-source' + (effective ? ' is-effective' : '') + '" data-qty-source-row="' + esc(r.id || 'auto') + '" data-source="' + esc(r.source || '') + '"' +
+        ' data-scope-level="' + esc(level) + '"' + (r.ev && r.ev.method_class ? ' data-method="' + esc(r.ev.method_class) + '"' : '') + '>';
+      html += '<div class="qty-source-head"><span class="qty-source-label" data-qty-source-label>' + esc(label) + '</span>';
       html += '<span class="qty-source-value" data-qty-source-value>' + Q.formatNumber(r.value) + ' ' + esc(Q.unitLabel(r.unit)) + '</span></div>';
       var det = [];
       if (r.ref.document_id) det.push('document ' + r.ref.document_id + (r.ref.page ? ', p. ' + r.ref.page : ''));
@@ -3306,7 +3314,20 @@
       if (r.ev && r.ev.same_object_document_ids && r.ev.same_object_document_ids.length) det.push('ook in ' + r.ev.same_object_document_ids.join(', ') + ' (geen onafhankelijke bevestiging)');
       if (r.ev && r.ev.added_at && r.source === Q.SOURCES.MANUAL) det.push('ingevuld ' + String(r.ev.added_at).slice(0, 10));
       if (r.ev && r.ev.review_reasons && r.ev.review_reasons.length) det.push('let op: ' + r.ev.review_reasons.join(', '));
+      if (complex) det.push('complexniveau: hele VvE-scope van ' + r.ev.scope.pand_count + ' panden (niet over panden verdeeld)');
+      if (r.ev && r.ev.method_class === 'GEOMETRY_DERIVED') det.push('berekend (GEOMETRY_DERIVED)');
+      if (r.ev && r.ev.method_class === 'SOURCE_REPORTED') det.push('zoals vermeld in de bron (SOURCE_REPORTED)');
       if (det.length) html += '<div class="hint" data-qty-source-detail>' + esc(det.join(' · ')) + '</div>';
+      if (complex && level !== effLevel) html += '<div class="hint" data-qty-scope-note>Geldt voor de hele VvE-scope, niet alleen voor pand ' + esc((state.building && state.building.identificatie) || '') + '; daarom geen verschil met de huidige hoeveelheid.</div>';
+      if (comps.length) {
+        html += '<details class="ov-details qty-bron" data-qty-components><summary>Bron bekijken (' + comps.length + ' panden)</summary><p>';
+        if (r.ev.formula) html += 'Berekening: <code>' + esc(r.ev.formula) + '</code><br>';
+        comps.forEach(function (c) {
+          html += '<span data-qty-component="' + esc(c.bag_pand_id) + '">Pand ' + esc(c.bag_pand_id) + ': ' + Q.formatNumber(c.value) + ' ' + esc(Q.unitLabel(c.unit)) +
+            (c.rule_id ? ' <code>' + esc(c.rule_id) + '</code>' : '') + (c.fetched_at ? ' · opgehaald ' + esc(String(c.fetched_at).slice(0, 10)) : '') + '</span><br>';
+        });
+        html += '</p></details>';
+      }
       if (effective) html += '<div class="hint qty-source-effective">Gebruikt voor de berekening</div>';
       else {
         if (d) html += '<div class="hint" data-qty-source-diff>Verschil met gekozen hoeveelheid: ' + (d.absolute > 0 ? '+' : '') + Q.formatNumber(d.absolute) + ' ' + esc(Q.unitLabel(r.unit)) + (d.percentage != null ? ' (' + (d.percentage > 0 ? '+' : '') + Q.formatNumber(d.percentage) + '%)' : '') + '</div>';
@@ -3344,6 +3365,7 @@
   function importQuantityBundle(bundle) {
     var res = Q.bundleEntries(bundle, state.building);
     if (!res.ok) { state.bundleUi = { fout: res.errors.join(' ') }; return; }
+    var scopeTekst = res.scope ? ' (VvE-scope van ' + res.scope.pand_count + ' panden; bronnen op complexniveau)' : '';
     var toegevoegd = 0, alAanwezig = 0, overgeslagen = [];
     res.entries.forEach(function (e) {
       var el = findEl(e.app_element_key);
@@ -3353,7 +3375,7 @@
       if (Q.addEvidence(el.quantity, e.evidence)) toegevoegd++; else alAanwezig++;
     });
     state.bundleUi = { melding: toegevoegd + ' ' + meervoud(toegevoegd, 'bron', 'bronnen') + ' toegevoegd' +
-      (alAanwezig ? ', ' + alAanwezig + ' al aanwezig' : '') + (overgeslagen.length ? '; overgeslagen: ' + overgeslagen.join(', ') : '') + '.' };
+      (alAanwezig ? ', ' + alAanwezig + ' al aanwezig' : '') + (overgeslagen.length ? '; overgeslagen: ' + overgeslagen.join(', ') : '') + scopeTekst + '.' };
   }
 
   function renderHoeveelheidKengetal(el) {

@@ -211,5 +211,57 @@ test('offerte: leeg telt als 0, onzin wordt geweigerd', function () {
   assert.deepStrictEqual(amounts(['', 'abc']), [0, 'not_a_number']);
 });
 
+// --- multi-pand bundel (v2) -------------------------------------------------
+var fs = require('fs');
+var path = require('path');
+var V2 = JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures', 'quantity-bundle-multipand.test.json'), 'utf8'));
+var V1 = JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures', 'quantity-bundle.test.json'), 'utf8'));
+test('oude v1-bundel (één pand) wordt nog steeds gelezen, zonder scope', function () {
+  var r = Q.bundleEntries(V1, { identificatie: V1.bag_pand_ids[0] });
+  assert.strictEqual(r.ok, true);
+  assert.strictEqual(r.scope, null);
+  assert.ok(r.entries.every(function (e) { return e.evidence.scope_level === undefined && e.evidence.components === undefined; }));
+});
+test('v2-bundel: plan-pand in de scope -> complexbronnen met som en onderdelen per pand', function () {
+  var r = Q.bundleEntries(V2, { identificatie: '0363100012345679' });
+  assert.strictEqual(r.ok, true);
+  assert.deepStrictEqual(r.scope.bag_pand_ids, V2.building_scope.bag_pand_ids);
+  var bag = r.entries.filter(function (e) { return e.evidence.source === '3D_BAG'; })[0].evidence;
+  var hist = r.entries.filter(function (e) { return e.evidence.source === 'IMPORTED_MJOP'; })[0].evidence;
+  assert.strictEqual(bag.value, 463.39);
+  assert.strictEqual(bag.method_class, 'GEOMETRY_DERIVED');
+  assert.strictEqual(bag.scope_level, 'COMPLEX');
+  assert.deepStrictEqual(bag.components.map(function (c) { return [c.bag_pand_id, c.value]; }),
+    [['0363100012345678', 312.64], ['0363100012345679', 100.25], ['0363100012345680', 50.5]]);
+  assert.ok(/som van 3 panden/.test(bag.basis));
+  assert.strictEqual(hist.value, 520);
+  assert.strictEqual(hist.scope_level, 'COMPLEX');
+  assert.deepStrictEqual(hist.components, []);
+  assert.ok(/complexniveau/.test(hist.basis) && /niet over panden verdeeld/.test(hist.basis));
+});
+test('v2-bundel: plan-pand buiten de scope of inconsistente scope wordt geweigerd', function () {
+  assert.strictEqual(Q.bundleEntries(V2, { identificatie: '0363100099999999' }).ok, false);
+  var kapot = JSON.parse(JSON.stringify(V2)); kapot.building_scope.bag_pand_ids.pop();
+  assert.strictEqual(Q.bundleEntries(kapot, { identificatie: '0363100012345678' }).ok, false);
+  var v1meer = JSON.parse(JSON.stringify(V1)); v1meer.bag_pand_ids = ['1', '2'];
+  assert.strictEqual(Q.bundleEntries(v1meer, { identificatie: '1' }).ok, false);
+});
+test('v2: importeren kiest niets en middelt niets; verschil alleen op hetzelfde niveau', function () {
+  var q = Q.create(dakAuto(312.64));
+  var r = Q.bundleEntries(V2, { identificatie: '0363100012345678' });
+  r.entries.forEach(function (e) { Q.addEvidence(q, e.evidence); });
+  assert.ok(!q.selected);                                                    // niets automatisch gekozen
+  assert.strictEqual(q.value, 312.64);
+  assert.strictEqual(q.status, 'PROPOSED');
+  assert.strictEqual(Q.effectiveScopeLevel(q), 'PAND');
+  var bag = r.entries.filter(function (e) { return e.evidence.source === '3D_BAG'; })[0].evidence;
+  assert.strictEqual(Q.scopeLevel(bag), 'COMPLEX');
+  assert.deepStrictEqual(Q.selectEvidence(q, bag.id), { ok: true });       // alleen op expliciete keuze
+  assert.strictEqual(q.value, 463.39);
+  assert.strictEqual(Q.effectiveScopeLevel(q), 'COMPLEX');
+  var bewaard = JSON.parse(JSON.stringify(q));                              // opslaan/herladen
+  assert.deepStrictEqual(bewaard.evidence.filter(function (e) { return e.source === '3D_BAG'; })[0].components.length, 3);
+});
+
 if (fouten) { console.log('\n' + fouten + ' test(s) mislukt.'); process.exit(1); }
 console.log('\nAlle quantity-unit-tests geslaagd.');
