@@ -1,0 +1,1675 @@
+{
+ "bundle_version": "mjop_app_quantity_bundle_v3",
+ "building_id": "BAG:0363100012070344+0363100012071880+0363100012078022+0363100012091756+0363100012091974+0363100012102659+0363100012107492+0363100012121455+0363100012127361+0363100012134188+0363100012137996+0363100012140664+0363100012141419+0363100012143647+0363100012144766",
+ "bag_pand_ids": [
+  "0363100012070344",
+  "0363100012071880",
+  "0363100012078022",
+  "0363100012091756",
+  "0363100012091974",
+  "0363100012102659",
+  "0363100012107492",
+  "0363100012121455",
+  "0363100012127361",
+  "0363100012134188",
+  "0363100012137996",
+  "0363100012140664",
+  "0363100012141419",
+  "0363100012143647",
+  "0363100012144766"
+ ],
+ "building_scope": {
+  "building_id": "BAG:0363100012070344+0363100012071880+0363100012078022+0363100012091756+0363100012091974+0363100012102659+0363100012107492+0363100012121455+0363100012127361+0363100012134188+0363100012137996+0363100012140664+0363100012141419+0363100012143647+0363100012144766",
+  "kind": "MULTI_PAND_SCOPE",
+  "bag_pand_ids": [
+   "0363100012070344",
+   "0363100012071880",
+   "0363100012078022",
+   "0363100012091756",
+   "0363100012091974",
+   "0363100012102659",
+   "0363100012107492",
+   "0363100012121455",
+   "0363100012127361",
+   "0363100012134188",
+   "0363100012137996",
+   "0363100012140664",
+   "0363100012141419",
+   "0363100012143647",
+   "0363100012144766"
+  ],
+  "pand_count": 15
+ },
+ "tenant_note": "Bevat historische hoeveelheden van één VvE; alleen importeren in een plan van die VvE.",
+ "entries": [
+  {
+   "app_element_key": "dak-hellend",
+   "crosswalk_mapping_id": "XQ-dak-hellend-ROOF_SLOPED_AREA-m2",
+   "crosswalk_decision_id": "XWD-00004",
+   "subject_key": "ROOF_SLOPED_AREA",
+   "evidence": {
+    "evidence_id": "QE-49f335215eb3c9be",
+    "source_type": "3D_BAG",
+    "method_class": "GEOMETRY_DERIVED",
+    "value": "1415.57",
+    "unit": "m2",
+    "status": "PROPOSED",
+    "review_reasons": [],
+    "scope_caveats": [],
+    "source_cluster": null,
+    "same_object_document_ids": [],
+    "source_ref": {
+     "document_id": null,
+     "quantity_observation_id": null,
+     "page": null,
+     "text_fragment": null,
+     "quantity_as_stated": null,
+     "bag_pand_id": null,
+     "fields": null,
+     "raw_inputs": null,
+     "fetched_at": null,
+     "rule_id": null,
+     "rule_version": null
+    },
+    "scope_level": "COMPLEX",
+    "aggregation": "SUM_OVER_CONFIRMED_PANDEN",
+    "formula": "SUM(child_evidence.value)",
+    "components": [
+     {
+      "bag_pand_id": "0363100012070344",
+      "evidence_id": "QE-9e9a7a5ea570de35",
+      "value": "99.91",
+      "unit": "m2",
+      "method_class": "DIRECT_MEASURED",
+      "rule_id": "bag3d.roof_sloped_area",
+      "fields": [
+       "b3_opp_dak_schuin"
+      ],
+      "raw_inputs": {
+       "b3_opp_dak_schuin": 99.91
+      },
+      "snapshot_id": "BAGSNAP-431559474da45dcf",
+      "fetched_at": "2026-10-05T09:15:50Z"
+     },
+     {
+      "bag_pand_id": "0363100012071880",
+      "evidence_id": "QE-9cbc210157bce630",
+      "value": "101.57",
+      "unit": "m2",
+      "method_class": "DIRECT_MEASURED",
+      "rule_id": "bag3d.roof_sloped_area",
+      "fields": [
+       "b3_opp_dak_schuin"
+      ],
+      "raw_inputs": {
+       "b3_opp_dak_schuin": 101.57
+      },
+      "snapshot_id": "BAGSNAP-431559474da45dcf",
+      "fetched_at": "2026-10-05T09:15:50Z"
+     },
+     {
+      "bag_pand_id": "0363100012078022",
+      "evidence_id": "QE-2454fd0d1bc52ae3",
+      "value": "91.19",
+      "unit": "m2",
+      "method_class": "DIRECT_MEASURED",
+      "rule_id": "bag3d.roof_sloped_area",
+      "fields": [
+       "b3_opp_dak_schuin"
+      ],
+      "raw_inputs": {
+       "b3_opp_dak_schuin": 91.19
+      },
+      "snapshot_id": "BAGSNAP-431559474da45dcf",
+      "fetched_at": "2026-10-05T09:15:50Z"
+     },
+     {
+      "bag_pand_id": "0363100012091756",
+      "evidence_id": "QE-4b0c7854df78a0a0",
+      "value": "101.68",
+      "unit": "m2",
+      "method_class": "DIRECT_MEASURED",
+      "rule_id": "bag3d.roof_sloped_area",
+      "fields": [
+       "b3_opp_dak_schuin"
+      ],
+      "raw_inputs": {
+       "b3_opp_dak_schuin": 101.68
+      },
+      "snapshot_id": "BAGSNAP-431559474da45dcf",
+      "fetched_at": "2026-10-05T09:15:50Z"
+     },
+     {
+      "bag_pand_id": "0363100012091974",
+      "evidence_id": "QE-55892703d748462d",
+      "value": "88.42",
+      "unit": "m2",
+      "method_class": "DIRECT_MEASURED",
+      "rule_id": "bag3d.roof_sloped_area",
+      "fields": [
+       "b3_opp_dak_schuin"
+      ],
+      "raw_inputs": {
+       "b3_opp_dak_schuin": 88.42
+      },
+      "snapshot_id": "BAGSNAP-431559474da45dcf",
+      "fetched_at": "2026-10-05T09:15:50Z"
+     },
+     {
+      "bag_pand_id": "0363100012102659",
+      "evidence_id": "QE-7a18d84092f74918",
+      "value": "99.32",
+      "unit": "m2",
+      "method_class": "DIRECT_MEASURED",
+      "rule_id": "bag3d.roof_sloped_area",
+      "fields": [
+       "b3_opp_dak_schuin"
+      ],
+      "raw_inputs": {
+       "b3_opp_dak_schuin": 99.32
+      },
+      "snapshot_id": "BAGSNAP-431559474da45dcf",
+      "fetched_at": "2026-10-05T09:15:50Z"
+     },
+     {
+      "bag_pand_id": "0363100012107492",
+      "evidence_id": "QE-05dbf3a10e79dee5",
+      "value": "90.34",
+      "unit": "m2",
+      "method_class": "DIRECT_MEASURED",
+      "rule_id": "bag3d.roof_sloped_area",
+      "fields": [
+       "b3_opp_dak_schuin"
+      ],
+      "raw_inputs": {
+       "b3_opp_dak_schuin": 90.34
+      },
+      "snapshot_id": "BAGSNAP-431559474da45dcf",
+      "fetched_at": "2026-10-05T09:15:50Z"
+     },
+     {
+      "bag_pand_id": "0363100012121455",
+      "evidence_id": "QE-76f2bd20861492a6",
+      "value": "89.12",
+      "unit": "m2",
+      "method_class": "DIRECT_MEASURED",
+      "rule_id": "bag3d.roof_sloped_area",
+      "fields": [
+       "b3_opp_dak_schuin"
+      ],
+      "raw_inputs": {
+       "b3_opp_dak_schuin": 89.12
+      },
+      "snapshot_id": "BAGSNAP-431559474da45dcf",
+      "fetched_at": "2026-10-05T09:15:50Z"
+     },
+     {
+      "bag_pand_id": "0363100012127361",
+      "evidence_id": "QE-cd1373eaf544d9f4",
+      "value": "98.56",
+      "unit": "m2",
+      "method_class": "DIRECT_MEASURED",
+      "rule_id": "bag3d.roof_sloped_area",
+      "fields": [
+       "b3_opp_dak_schuin"
+      ],
+      "raw_inputs": {
+       "b3_opp_dak_schuin": 98.56
+      },
+      "snapshot_id": "BAGSNAP-431559474da45dcf",
+      "fetched_at": "2026-10-05T09:15:50Z"
+     },
+     {
+      "bag_pand_id": "0363100012134188",
+      "evidence_id": "QE-77b3391146dbc646",
+      "value": "87.94",
+      "unit": "m2",
+      "method_class": "DIRECT_MEASURED",
+      "rule_id": "bag3d.roof_sloped_area",
+      "fields": [
+       "b3_opp_dak_schuin"
+      ],
+      "raw_inputs": {
+       "b3_opp_dak_schuin": 87.94
+      },
+      "snapshot_id": "BAGSNAP-431559474da45dcf",
+      "fetched_at": "2026-10-05T09:15:50Z"
+     },
+     {
+      "bag_pand_id": "0363100012137996",
+      "evidence_id": "QE-3a39191f7f1e132a",
+      "value": "74.07",
+      "unit": "m2",
+      "method_class": "DIRECT_MEASURED",
+      "rule_id": "bag3d.roof_sloped_area",
+      "fields": [
+       "b3_opp_dak_schuin"
+      ],
+      "raw_inputs": {
+       "b3_opp_dak_schuin": 74.07
+      },
+      "snapshot_id": "BAGSNAP-431559474da45dcf",
+      "fetched_at": "2026-10-05T09:15:50Z"
+     },
+     {
+      "bag_pand_id": "0363100012140664",
+      "evidence_id": "QE-470da4ac3947914b",
+      "value": "87.81",
+      "unit": "m2",
+      "method_class": "DIRECT_MEASURED",
+      "rule_id": "bag3d.roof_sloped_area",
+      "fields": [
+       "b3_opp_dak_schuin"
+      ],
+      "raw_inputs": {
+       "b3_opp_dak_schuin": 87.81
+      },
+      "snapshot_id": "BAGSNAP-431559474da45dcf",
+      "fetched_at": "2026-10-05T09:15:50Z"
+     },
+     {
+      "bag_pand_id": "0363100012141419",
+      "evidence_id": "QE-a1d254734f2d6b14",
+      "value": "105.92",
+      "unit": "m2",
+      "method_class": "DIRECT_MEASURED",
+      "rule_id": "bag3d.roof_sloped_area",
+      "fields": [
+       "b3_opp_dak_schuin"
+      ],
+      "raw_inputs": {
+       "b3_opp_dak_schuin": 105.92
+      },
+      "snapshot_id": "BAGSNAP-431559474da45dcf",
+      "fetched_at": "2026-10-05T09:15:50Z"
+     },
+     {
+      "bag_pand_id": "0363100012143647",
+      "evidence_id": "QE-623106e50028db08",
+      "value": "93.57",
+      "unit": "m2",
+      "method_class": "DIRECT_MEASURED",
+      "rule_id": "bag3d.roof_sloped_area",
+      "fields": [
+       "b3_opp_dak_schuin"
+      ],
+      "raw_inputs": {
+       "b3_opp_dak_schuin": 93.57
+      },
+      "snapshot_id": "BAGSNAP-431559474da45dcf",
+      "fetched_at": "2026-10-05T09:15:50Z"
+     },
+     {
+      "bag_pand_id": "0363100012144766",
+      "evidence_id": "QE-2b18b45f180f765e",
+      "value": "106.15",
+      "unit": "m2",
+      "method_class": "DIRECT_MEASURED",
+      "rule_id": "bag3d.roof_sloped_area",
+      "fields": [
+       "b3_opp_dak_schuin"
+      ],
+      "raw_inputs": {
+       "b3_opp_dak_schuin": 106.15
+      },
+      "snapshot_id": "BAGSNAP-431559474da45dcf",
+      "fetched_at": "2026-10-05T09:15:50Z"
+     }
+    ],
+    "evidence_refs": {
+     "evidence_id": "QE-49f335215eb3c9be",
+     "building_id": "BAG:0363100012070344+0363100012071880+0363100012078022+0363100012091756+0363100012091974+0363100012102659+0363100012107492+0363100012121455+0363100012127361+0363100012134188+0363100012137996+0363100012140664+0363100012141419+0363100012143647+0363100012144766",
+     "subject_id": "QS-3b84e266c2c453ca",
+     "rule_id": "scope.sum_over_confirmed_panden",
+     "rule_version": "1.0.0",
+     "bag_pand_ids": [
+      "0363100012070344",
+      "0363100012071880",
+      "0363100012078022",
+      "0363100012091756",
+      "0363100012091974",
+      "0363100012102659",
+      "0363100012107492",
+      "0363100012121455",
+      "0363100012127361",
+      "0363100012134188",
+      "0363100012137996",
+      "0363100012140664",
+      "0363100012141419",
+      "0363100012143647",
+      "0363100012144766"
+     ],
+     "snapshot_ids": [
+      "BAGSNAP-431559474da45dcf"
+     ],
+     "building_link_ids": [
+      "BLINK-00001",
+      "BLINK-00002",
+      "BLINK-00003",
+      "BLINK-00004",
+      "BLINK-00005",
+      "BLINK-00006",
+      "BLINK-00007",
+      "BLINK-00008",
+      "BLINK-00009",
+      "BLINK-00010",
+      "BLINK-00011",
+      "BLINK-00012",
+      "BLINK-00013",
+      "BLINK-00014",
+      "BLINK-00015",
+      "BLINK-00041",
+      "BLINK-00042",
+      "BLINK-00043",
+      "BLINK-00044",
+      "BLINK-00045",
+      "BLINK-00046",
+      "BLINK-00047",
+      "BLINK-00048",
+      "BLINK-00049",
+      "BLINK-00050",
+      "BLINK-00051",
+      "BLINK-00052",
+      "BLINK-00053",
+      "BLINK-00054",
+      "BLINK-00055"
+     ],
+     "child_evidence_ids": [
+      "QE-9e9a7a5ea570de35",
+      "QE-9cbc210157bce630",
+      "QE-2454fd0d1bc52ae3",
+      "QE-4b0c7854df78a0a0",
+      "QE-55892703d748462d",
+      "QE-7a18d84092f74918",
+      "QE-05dbf3a10e79dee5",
+      "QE-76f2bd20861492a6",
+      "QE-cd1373eaf544d9f4",
+      "QE-77b3391146dbc646",
+      "QE-3a39191f7f1e132a",
+      "QE-470da4ac3947914b",
+      "QE-a1d254734f2d6b14",
+      "QE-623106e50028db08",
+      "QE-2b18b45f180f765e"
+     ],
+     "document_id": null,
+     "quantity_observation_id": null,
+     "source_sha256": null,
+     "subject_mapping_ref": null,
+     "dependency": {
+      "source_cluster": null,
+      "same_object_document_ids": [],
+      "identical_in_same_object_documents": []
+     }
+    }
+   },
+   "role": "PRIMARY",
+   "selectable": true,
+   "subject_label_nl": "Hellend dakoppervlak (hellend vlak, niet de projectie)"
+  },
+  {
+   "app_element_key": "dak-hellend",
+   "crosswalk_mapping_id": "XQ-dak-hellend-ROOF_SLOPED_AREA-m2",
+   "crosswalk_decision_id": "XWD-00004",
+   "subject_key": "ROOF_TILES_REPORTED_AREA",
+   "evidence": {
+    "evidence_id": "QE-b0a58dbfd69cc808",
+    "source_type": "MJOP_ELEMENT_OVERVIEW",
+    "method_class": "SOURCE_REPORTED",
+    "value": "1485.60",
+    "unit": "m2",
+    "status": "PROPOSED",
+    "review_reasons": [],
+    "scope_caveats": [
+     "SAME_IN_RELATED_DOCUMENT"
+    ],
+    "source_cluster": "SC-DOC-005+DOC-006",
+    "same_object_document_ids": [
+     "DOC-006"
+    ],
+    "source_ref": {
+     "document_id": "DOC-005",
+     "quantity_observation_id": "QO-DOC-005-EL-027",
+     "page": 7,
+     "text_fragment": "4712 Dakpan beton Hellend dak 1485,60m2 3",
+     "quantity_as_stated": "1485,60",
+     "bag_pand_id": null,
+     "fields": null,
+     "raw_inputs": null,
+     "fetched_at": null,
+     "rule_id": null,
+     "rule_version": null
+    },
+    "scope_level": "COMPLEX",
+    "aggregation": null,
+    "formula": null,
+    "components": [],
+    "evidence_refs": {
+     "evidence_id": "QE-b0a58dbfd69cc808",
+     "building_id": "BAG:0363100012070344+0363100012071880+0363100012078022+0363100012091756+0363100012091974+0363100012102659+0363100012107492+0363100012121455+0363100012127361+0363100012134188+0363100012137996+0363100012140664+0363100012141419+0363100012143647+0363100012144766",
+     "subject_id": "QS-20f9d9f49dbe50f8",
+     "rule_id": null,
+     "rule_version": null,
+     "bag_pand_ids": [],
+     "snapshot_ids": [],
+     "building_link_ids": [
+      "BLINK-00001",
+      "BLINK-00002",
+      "BLINK-00003",
+      "BLINK-00004",
+      "BLINK-00005",
+      "BLINK-00006",
+      "BLINK-00007",
+      "BLINK-00008",
+      "BLINK-00009",
+      "BLINK-00010",
+      "BLINK-00011",
+      "BLINK-00012",
+      "BLINK-00013",
+      "BLINK-00014",
+      "BLINK-00015"
+     ],
+     "child_evidence_ids": [],
+     "document_id": "DOC-005",
+     "quantity_observation_id": "QO-DOC-005-EL-027",
+     "source_sha256": "89cd0b06fa4bf00a36a507043f68c012311c8ffd9c01c60786a824913f9a8ae8",
+     "subject_mapping_ref": "HSM-ROOF_TILES_REPORTED_AREA-4712-m2-DOC-005-006",
+     "dependency": {
+      "source_cluster": "SC-DOC-005+DOC-006",
+      "same_object_document_ids": [
+       "DOC-006"
+      ],
+      "identical_in_same_object_documents": [
+       "QO-DOC-006-EL-027"
+      ]
+     }
+    }
+   },
+   "role": "RELATED_CONTEXT",
+   "selectable": false,
+   "subject_label_nl": "Door bron/MJOP gerapporteerde oppervlakte dakpannen",
+   "primary_subject_key": "ROOF_SLOPED_AREA",
+   "primary_subject_label_nl": "Hellend dakoppervlak (hellend vlak, niet de projectie)",
+   "subject_relation": {
+    "relation_id": "SREL-ROOF_TILES_REPORTED_AREA-ROOF_SLOPED_AREA",
+    "relation": "RELATED_NOT_EQUIVALENT",
+    "resolvable_as_same_quantity": false,
+    "show_difference_as": "SOURCE_DIFFERENCE_DIFFERENT_DEFINITION"
+   }
+  },
+  {
+   "app_element_key": "dak-hellend",
+   "crosswalk_mapping_id": "XQ-dak-hellend-ROOF_SLOPED_AREA-m2",
+   "crosswalk_decision_id": "XWD-00004",
+   "subject_key": "ROOF_TILES_REPORTED_AREA",
+   "evidence": {
+    "evidence_id": "QE-df6c981f2f0f8134",
+    "source_type": "MJOP_ELEMENT_OVERVIEW",
+    "method_class": "SOURCE_REPORTED",
+    "value": "1485.60",
+    "unit": "m2",
+    "status": "PROPOSED",
+    "review_reasons": [],
+    "scope_caveats": [
+     "SAME_IN_RELATED_DOCUMENT"
+    ],
+    "source_cluster": "SC-DOC-005+DOC-006",
+    "same_object_document_ids": [
+     "DOC-005",
+     "DOC-014"
+    ],
+    "source_ref": {
+     "document_id": "DOC-006",
+     "quantity_observation_id": "QO-DOC-006-EL-027",
+     "page": 7,
+     "text_fragment": "4712 Dakpan beton Hellend dak 1485,60m2 1",
+     "quantity_as_stated": "1485,60",
+     "bag_pand_id": null,
+     "fields": null,
+     "raw_inputs": null,
+     "fetched_at": null,
+     "rule_id": null,
+     "rule_version": null
+    },
+    "scope_level": "COMPLEX",
+    "aggregation": null,
+    "formula": null,
+    "components": [],
+    "evidence_refs": {
+     "evidence_id": "QE-df6c981f2f0f8134",
+     "building_id": "BAG:0363100012070344+0363100012071880+0363100012078022+0363100012091756+0363100012091974+0363100012102659+0363100012107492+0363100012121455+0363100012127361+0363100012134188+0363100012137996+0363100012140664+0363100012141419+0363100012143647+0363100012144766",
+     "subject_id": "QS-20f9d9f49dbe50f8",
+     "rule_id": null,
+     "rule_version": null,
+     "bag_pand_ids": [],
+     "snapshot_ids": [],
+     "building_link_ids": [
+      "BLINK-00041",
+      "BLINK-00042",
+      "BLINK-00043",
+      "BLINK-00044",
+      "BLINK-00045",
+      "BLINK-00046",
+      "BLINK-00047",
+      "BLINK-00048",
+      "BLINK-00049",
+      "BLINK-00050",
+      "BLINK-00051",
+      "BLINK-00052",
+      "BLINK-00053",
+      "BLINK-00054",
+      "BLINK-00055"
+     ],
+     "child_evidence_ids": [],
+     "document_id": "DOC-006",
+     "quantity_observation_id": "QO-DOC-006-EL-027",
+     "source_sha256": "b593a3a2e62bcf1566e9286cce4d2bf120f67b3e96bb14edc65ab2e7163acb00",
+     "subject_mapping_ref": "HSM-ROOF_TILES_REPORTED_AREA-4712-m2-DOC-005-006",
+     "dependency": {
+      "source_cluster": "SC-DOC-005+DOC-006",
+      "same_object_document_ids": [
+       "DOC-005",
+       "DOC-014"
+      ],
+      "identical_in_same_object_documents": [
+       "QO-DOC-005-EL-027"
+      ]
+     }
+    }
+   },
+   "role": "RELATED_CONTEXT",
+   "selectable": false,
+   "subject_label_nl": "Door bron/MJOP gerapporteerde oppervlakte dakpannen",
+   "primary_subject_key": "ROOF_SLOPED_AREA",
+   "primary_subject_label_nl": "Hellend dakoppervlak (hellend vlak, niet de projectie)",
+   "subject_relation": {
+    "relation_id": "SREL-ROOF_TILES_REPORTED_AREA-ROOF_SLOPED_AREA",
+    "relation": "RELATED_NOT_EQUIVALENT",
+    "resolvable_as_same_quantity": false,
+    "show_difference_as": "SOURCE_DIFFERENCE_DIFFERENT_DEFINITION"
+   }
+  },
+  {
+   "app_element_key": "steiger",
+   "crosswalk_mapping_id": "XQ-steiger-OUTER_WALL_GROSS_AREA-m2",
+   "crosswalk_decision_id": "XWD-00006",
+   "subject_key": "OUTER_WALL_GROSS_AREA",
+   "evidence": {
+    "evidence_id": "QE-bbcbef41efede680",
+    "source_type": "3D_BAG",
+    "method_class": "GEOMETRY_DERIVED",
+    "value": "1747.35",
+    "unit": "m2",
+    "status": "PROPOSED",
+    "review_reasons": [],
+    "scope_caveats": [],
+    "source_cluster": null,
+    "same_object_document_ids": [],
+    "source_ref": {
+     "document_id": null,
+     "quantity_observation_id": null,
+     "page": null,
+     "text_fragment": null,
+     "quantity_as_stated": null,
+     "bag_pand_id": null,
+     "fields": null,
+     "raw_inputs": null,
+     "fetched_at": null,
+     "rule_id": null,
+     "rule_version": null
+    },
+    "scope_level": "COMPLEX",
+    "aggregation": "SUM_OVER_CONFIRMED_PANDEN",
+    "formula": "SUM(child_evidence.value)",
+    "components": [
+     {
+      "bag_pand_id": "0363100012070344",
+      "evidence_id": "QE-6be5a69db91e2772",
+      "value": "100.84",
+      "unit": "m2",
+      "method_class": "DIRECT_MEASURED",
+      "rule_id": "bag3d.outer_wall_gross_area",
+      "fields": [
+       "b3_opp_buitenmuur"
+      ],
+      "raw_inputs": {
+       "b3_opp_buitenmuur": 100.84
+      },
+      "snapshot_id": "BAGSNAP-431559474da45dcf",
+      "fetched_at": "2026-10-05T09:15:50Z"
+     },
+     {
+      "bag_pand_id": "0363100012071880",
+      "evidence_id": "QE-d82c7db69dc6359f",
+      "value": "132.64",
+      "unit": "m2",
+      "method_class": "DIRECT_MEASURED",
+      "rule_id": "bag3d.outer_wall_gross_area",
+      "fields": [
+       "b3_opp_buitenmuur"
+      ],
+      "raw_inputs": {
+       "b3_opp_buitenmuur": 132.64
+      },
+      "snapshot_id": "BAGSNAP-431559474da45dcf",
+      "fetched_at": "2026-10-05T09:15:50Z"
+     },
+     {
+      "bag_pand_id": "0363100012078022",
+      "evidence_id": "QE-10fe9e7acfcb8550",
+      "value": "99.61",
+      "unit": "m2",
+      "method_class": "DIRECT_MEASURED",
+      "rule_id": "bag3d.outer_wall_gross_area",
+      "fields": [
+       "b3_opp_buitenmuur"
+      ],
+      "raw_inputs": {
+       "b3_opp_buitenmuur": 99.61
+      },
+      "snapshot_id": "BAGSNAP-431559474da45dcf",
+      "fetched_at": "2026-10-05T09:15:50Z"
+     },
+     {
+      "bag_pand_id": "0363100012091756",
+      "evidence_id": "QE-5e045e1e83e2d7b5",
+      "value": "99.06",
+      "unit": "m2",
+      "method_class": "DIRECT_MEASURED",
+      "rule_id": "bag3d.outer_wall_gross_area",
+      "fields": [
+       "b3_opp_buitenmuur"
+      ],
+      "raw_inputs": {
+       "b3_opp_buitenmuur": 99.06
+      },
+      "snapshot_id": "BAGSNAP-431559474da45dcf",
+      "fetched_at": "2026-10-05T09:15:50Z"
+     },
+     {
+      "bag_pand_id": "0363100012091974",
+      "evidence_id": "QE-cab5714d35b8e7f8",
+      "value": "98.09",
+      "unit": "m2",
+      "method_class": "DIRECT_MEASURED",
+      "rule_id": "bag3d.outer_wall_gross_area",
+      "fields": [
+       "b3_opp_buitenmuur"
+      ],
+      "raw_inputs": {
+       "b3_opp_buitenmuur": 98.09
+      },
+      "snapshot_id": "BAGSNAP-431559474da45dcf",
+      "fetched_at": "2026-10-05T09:15:50Z"
+     },
+     {
+      "bag_pand_id": "0363100012102659",
+      "evidence_id": "QE-b9d25398b96e2bda",
+      "value": "150.33",
+      "unit": "m2",
+      "method_class": "DIRECT_MEASURED",
+      "rule_id": "bag3d.outer_wall_gross_area",
+      "fields": [
+       "b3_opp_buitenmuur"
+      ],
+      "raw_inputs": {
+       "b3_opp_buitenmuur": 150.33
+      },
+      "snapshot_id": "BAGSNAP-431559474da45dcf",
+      "fetched_at": "2026-10-05T09:15:50Z"
+     },
+     {
+      "bag_pand_id": "0363100012107492",
+      "evidence_id": "QE-acbb5a91e2cf677a",
+      "value": "103.5",
+      "unit": "m2",
+      "method_class": "DIRECT_MEASURED",
+      "rule_id": "bag3d.outer_wall_gross_area",
+      "fields": [
+       "b3_opp_buitenmuur"
+      ],
+      "raw_inputs": {
+       "b3_opp_buitenmuur": 103.5
+      },
+      "snapshot_id": "BAGSNAP-431559474da45dcf",
+      "fetched_at": "2026-10-05T09:15:50Z"
+     },
+     {
+      "bag_pand_id": "0363100012121455",
+      "evidence_id": "QE-9611242cb162f832",
+      "value": "101.13",
+      "unit": "m2",
+      "method_class": "DIRECT_MEASURED",
+      "rule_id": "bag3d.outer_wall_gross_area",
+      "fields": [
+       "b3_opp_buitenmuur"
+      ],
+      "raw_inputs": {
+       "b3_opp_buitenmuur": 101.13
+      },
+      "snapshot_id": "BAGSNAP-431559474da45dcf",
+      "fetched_at": "2026-10-05T09:15:50Z"
+     },
+     {
+      "bag_pand_id": "0363100012127361",
+      "evidence_id": "QE-6e8e47cf10c1a5fa",
+      "value": "197.42",
+      "unit": "m2",
+      "method_class": "DIRECT_MEASURED",
+      "rule_id": "bag3d.outer_wall_gross_area",
+      "fields": [
+       "b3_opp_buitenmuur"
+      ],
+      "raw_inputs": {
+       "b3_opp_buitenmuur": 197.42
+      },
+      "snapshot_id": "BAGSNAP-431559474da45dcf",
+      "fetched_at": "2026-10-05T09:15:50Z"
+     },
+     {
+      "bag_pand_id": "0363100012134188",
+      "evidence_id": "QE-c7200fb62f5444d2",
+      "value": "116.45",
+      "unit": "m2",
+      "method_class": "DIRECT_MEASURED",
+      "rule_id": "bag3d.outer_wall_gross_area",
+      "fields": [
+       "b3_opp_buitenmuur"
+      ],
+      "raw_inputs": {
+       "b3_opp_buitenmuur": 116.45
+      },
+      "snapshot_id": "BAGSNAP-431559474da45dcf",
+      "fetched_at": "2026-10-05T09:15:50Z"
+     },
+     {
+      "bag_pand_id": "0363100012137996",
+      "evidence_id": "QE-0fe6a230409ccad7",
+      "value": "118.32",
+      "unit": "m2",
+      "method_class": "DIRECT_MEASURED",
+      "rule_id": "bag3d.outer_wall_gross_area",
+      "fields": [
+       "b3_opp_buitenmuur"
+      ],
+      "raw_inputs": {
+       "b3_opp_buitenmuur": 118.32
+      },
+      "snapshot_id": "BAGSNAP-431559474da45dcf",
+      "fetched_at": "2026-10-05T09:15:50Z"
+     },
+     {
+      "bag_pand_id": "0363100012140664",
+      "evidence_id": "QE-2e9164e4a7e6a8f5",
+      "value": "99.35",
+      "unit": "m2",
+      "method_class": "DIRECT_MEASURED",
+      "rule_id": "bag3d.outer_wall_gross_area",
+      "fields": [
+       "b3_opp_buitenmuur"
+      ],
+      "raw_inputs": {
+       "b3_opp_buitenmuur": 99.35
+      },
+      "snapshot_id": "BAGSNAP-431559474da45dcf",
+      "fetched_at": "2026-10-05T09:15:50Z"
+     },
+     {
+      "bag_pand_id": "0363100012141419",
+      "evidence_id": "QE-14f3014c9d1ca8ce",
+      "value": "106.74",
+      "unit": "m2",
+      "method_class": "DIRECT_MEASURED",
+      "rule_id": "bag3d.outer_wall_gross_area",
+      "fields": [
+       "b3_opp_buitenmuur"
+      ],
+      "raw_inputs": {
+       "b3_opp_buitenmuur": 106.74
+      },
+      "snapshot_id": "BAGSNAP-431559474da45dcf",
+      "fetched_at": "2026-10-05T09:15:50Z"
+     },
+     {
+      "bag_pand_id": "0363100012143647",
+      "evidence_id": "QE-c88540b06dc96c26",
+      "value": "102.5",
+      "unit": "m2",
+      "method_class": "DIRECT_MEASURED",
+      "rule_id": "bag3d.outer_wall_gross_area",
+      "fields": [
+       "b3_opp_buitenmuur"
+      ],
+      "raw_inputs": {
+       "b3_opp_buitenmuur": 102.5
+      },
+      "snapshot_id": "BAGSNAP-431559474da45dcf",
+      "fetched_at": "2026-10-05T09:15:50Z"
+     },
+     {
+      "bag_pand_id": "0363100012144766",
+      "evidence_id": "QE-ea55346307b41973",
+      "value": "121.37",
+      "unit": "m2",
+      "method_class": "DIRECT_MEASURED",
+      "rule_id": "bag3d.outer_wall_gross_area",
+      "fields": [
+       "b3_opp_buitenmuur"
+      ],
+      "raw_inputs": {
+       "b3_opp_buitenmuur": 121.37
+      },
+      "snapshot_id": "BAGSNAP-431559474da45dcf",
+      "fetched_at": "2026-10-05T09:15:50Z"
+     }
+    ],
+    "evidence_refs": {
+     "evidence_id": "QE-bbcbef41efede680",
+     "building_id": "BAG:0363100012070344+0363100012071880+0363100012078022+0363100012091756+0363100012091974+0363100012102659+0363100012107492+0363100012121455+0363100012127361+0363100012134188+0363100012137996+0363100012140664+0363100012141419+0363100012143647+0363100012144766",
+     "subject_id": "QS-60b640b695fb8954",
+     "rule_id": "scope.sum_over_confirmed_panden",
+     "rule_version": "1.0.0",
+     "bag_pand_ids": [
+      "0363100012070344",
+      "0363100012071880",
+      "0363100012078022",
+      "0363100012091756",
+      "0363100012091974",
+      "0363100012102659",
+      "0363100012107492",
+      "0363100012121455",
+      "0363100012127361",
+      "0363100012134188",
+      "0363100012137996",
+      "0363100012140664",
+      "0363100012141419",
+      "0363100012143647",
+      "0363100012144766"
+     ],
+     "snapshot_ids": [
+      "BAGSNAP-431559474da45dcf"
+     ],
+     "building_link_ids": [
+      "BLINK-00001",
+      "BLINK-00002",
+      "BLINK-00003",
+      "BLINK-00004",
+      "BLINK-00005",
+      "BLINK-00006",
+      "BLINK-00007",
+      "BLINK-00008",
+      "BLINK-00009",
+      "BLINK-00010",
+      "BLINK-00011",
+      "BLINK-00012",
+      "BLINK-00013",
+      "BLINK-00014",
+      "BLINK-00015",
+      "BLINK-00041",
+      "BLINK-00042",
+      "BLINK-00043",
+      "BLINK-00044",
+      "BLINK-00045",
+      "BLINK-00046",
+      "BLINK-00047",
+      "BLINK-00048",
+      "BLINK-00049",
+      "BLINK-00050",
+      "BLINK-00051",
+      "BLINK-00052",
+      "BLINK-00053",
+      "BLINK-00054",
+      "BLINK-00055"
+     ],
+     "child_evidence_ids": [
+      "QE-6be5a69db91e2772",
+      "QE-d82c7db69dc6359f",
+      "QE-10fe9e7acfcb8550",
+      "QE-5e045e1e83e2d7b5",
+      "QE-cab5714d35b8e7f8",
+      "QE-b9d25398b96e2bda",
+      "QE-acbb5a91e2cf677a",
+      "QE-9611242cb162f832",
+      "QE-6e8e47cf10c1a5fa",
+      "QE-c7200fb62f5444d2",
+      "QE-0fe6a230409ccad7",
+      "QE-2e9164e4a7e6a8f5",
+      "QE-14f3014c9d1ca8ce",
+      "QE-c88540b06dc96c26",
+      "QE-ea55346307b41973"
+     ],
+     "document_id": null,
+     "quantity_observation_id": null,
+     "source_sha256": null,
+     "subject_mapping_ref": null,
+     "dependency": {
+      "source_cluster": null,
+      "same_object_document_ids": [],
+      "identical_in_same_object_documents": []
+     }
+    }
+   },
+   "pricing_context": {
+    "purpose": "SCAFFOLD_WORK_HEIGHT",
+    "context_subject_key": "BUILDING_HEIGHT",
+    "context_product_role": "CONTEXT_ONLY",
+    "selectable": false,
+    "rows": [
+     {
+      "bag_pand_id": "0363100012070344",
+      "quantity_evidence_id": "QE-6be5a69db91e2772",
+      "context_evidence_id": "QE-f345095ac2c7641d",
+      "value": "12.1749999523162844",
+      "unit": "m",
+      "method_class": "GEOMETRY_DERIVED",
+      "rule_id": "bag3d.building_height",
+      "snapshot_id": "BAGSNAP-431559474da45dcf",
+      "status": "AVAILABLE"
+     },
+     {
+      "bag_pand_id": "0363100012071880",
+      "quantity_evidence_id": "QE-d82c7db69dc6359f",
+      "context_evidence_id": "QE-ecd159677260b8f3",
+      "value": "12.1870001554489136",
+      "unit": "m",
+      "method_class": "GEOMETRY_DERIVED",
+      "rule_id": "bag3d.building_height",
+      "snapshot_id": "BAGSNAP-431559474da45dcf",
+      "status": "AVAILABLE"
+     },
+     {
+      "bag_pand_id": "0363100012078022",
+      "quantity_evidence_id": "QE-10fe9e7acfcb8550",
+      "context_evidence_id": "QE-a005c5e01c2a9f3b",
+      "value": "12.1429998874664306",
+      "unit": "m",
+      "method_class": "GEOMETRY_DERIVED",
+      "rule_id": "bag3d.building_height",
+      "snapshot_id": "BAGSNAP-431559474da45dcf",
+      "status": "AVAILABLE"
+     },
+     {
+      "bag_pand_id": "0363100012091756",
+      "quantity_evidence_id": "QE-5e045e1e83e2d7b5",
+      "context_evidence_id": "QE-e88594351de9098c",
+      "value": "12.158999800682068",
+      "unit": "m",
+      "method_class": "GEOMETRY_DERIVED",
+      "rule_id": "bag3d.building_height",
+      "snapshot_id": "BAGSNAP-431559474da45dcf",
+      "status": "AVAILABLE"
+     },
+     {
+      "bag_pand_id": "0363100012091974",
+      "quantity_evidence_id": "QE-cab5714d35b8e7f8",
+      "context_evidence_id": "QE-7c1b9dc2f2b3a833",
+      "value": "12.1499998569488526",
+      "unit": "m",
+      "method_class": "GEOMETRY_DERIVED",
+      "rule_id": "bag3d.building_height",
+      "snapshot_id": "BAGSNAP-431559474da45dcf",
+      "status": "AVAILABLE"
+     },
+     {
+      "bag_pand_id": "0363100012102659",
+      "quantity_evidence_id": "QE-b9d25398b96e2bda",
+      "context_evidence_id": "QE-f7a6f0f80eb3ebae",
+      "value": "12.1640002727508544",
+      "unit": "m",
+      "method_class": "GEOMETRY_DERIVED",
+      "rule_id": "bag3d.building_height",
+      "snapshot_id": "BAGSNAP-431559474da45dcf",
+      "status": "AVAILABLE"
+     },
+     {
+      "bag_pand_id": "0363100012107492",
+      "quantity_evidence_id": "QE-acbb5a91e2cf677a",
+      "context_evidence_id": "QE-324803993a477842",
+      "value": "12.2469997406005855",
+      "unit": "m",
+      "method_class": "GEOMETRY_DERIVED",
+      "rule_id": "bag3d.building_height",
+      "snapshot_id": "BAGSNAP-431559474da45dcf",
+      "status": "AVAILABLE"
+     },
+     {
+      "bag_pand_id": "0363100012121455",
+      "quantity_evidence_id": "QE-9611242cb162f832",
+      "context_evidence_id": "QE-c4f76ed7b52fc6e7",
+      "value": "12.1100000143051145",
+      "unit": "m",
+      "method_class": "GEOMETRY_DERIVED",
+      "rule_id": "bag3d.building_height",
+      "snapshot_id": "BAGSNAP-431559474da45dcf",
+      "status": "AVAILABLE"
+     },
+     {
+      "bag_pand_id": "0363100012127361",
+      "quantity_evidence_id": "QE-6e8e47cf10c1a5fa",
+      "context_evidence_id": "QE-46962f0928b15792",
+      "value": "12.1269999742507936",
+      "unit": "m",
+      "method_class": "GEOMETRY_DERIVED",
+      "rule_id": "bag3d.building_height",
+      "snapshot_id": "BAGSNAP-431559474da45dcf",
+      "status": "AVAILABLE"
+     },
+     {
+      "bag_pand_id": "0363100012134188",
+      "quantity_evidence_id": "QE-c7200fb62f5444d2",
+      "context_evidence_id": "QE-c1dfd674c0d036b5",
+      "value": "12.0950005054473873",
+      "unit": "m",
+      "method_class": "GEOMETRY_DERIVED",
+      "rule_id": "bag3d.building_height",
+      "snapshot_id": "BAGSNAP-431559474da45dcf",
+      "status": "AVAILABLE"
+     },
+     {
+      "bag_pand_id": "0363100012137996",
+      "quantity_evidence_id": "QE-0fe6a230409ccad7",
+      "context_evidence_id": "QE-0f10351efeec3928",
+      "value": "9.4440004825592042",
+      "unit": "m",
+      "method_class": "GEOMETRY_DERIVED",
+      "rule_id": "bag3d.building_height",
+      "snapshot_id": "BAGSNAP-431559474da45dcf",
+      "status": "AVAILABLE"
+     },
+     {
+      "bag_pand_id": "0363100012140664",
+      "quantity_evidence_id": "QE-2e9164e4a7e6a8f5",
+      "context_evidence_id": "QE-a671756cbdd209db",
+      "value": "12.1379998922348022",
+      "unit": "m",
+      "method_class": "GEOMETRY_DERIVED",
+      "rule_id": "bag3d.building_height",
+      "snapshot_id": "BAGSNAP-431559474da45dcf",
+      "status": "AVAILABLE"
+     },
+     {
+      "bag_pand_id": "0363100012141419",
+      "quantity_evidence_id": "QE-14f3014c9d1ca8ce",
+      "context_evidence_id": "QE-03fe251ca5280695",
+      "value": "12.136999845504761",
+      "unit": "m",
+      "method_class": "GEOMETRY_DERIVED",
+      "rule_id": "bag3d.building_height",
+      "snapshot_id": "BAGSNAP-431559474da45dcf",
+      "status": "AVAILABLE"
+     },
+     {
+      "bag_pand_id": "0363100012143647",
+      "quantity_evidence_id": "QE-c88540b06dc96c26",
+      "context_evidence_id": "QE-420e84f7d4552624",
+      "value": "12.1670004129409788",
+      "unit": "m",
+      "method_class": "GEOMETRY_DERIVED",
+      "rule_id": "bag3d.building_height",
+      "snapshot_id": "BAGSNAP-431559474da45dcf",
+      "status": "AVAILABLE"
+     },
+     {
+      "bag_pand_id": "0363100012144766",
+      "quantity_evidence_id": "QE-ea55346307b41973",
+      "context_evidence_id": "QE-4abdfc82cd8e52b7",
+      "value": "12.1209995746612546",
+      "unit": "m",
+      "method_class": "GEOMETRY_DERIVED",
+      "rule_id": "bag3d.building_height",
+      "snapshot_id": "BAGSNAP-431559474da45dcf",
+      "status": "AVAILABLE"
+     }
+    ]
+   },
+   "role": "PRIMARY",
+   "selectable": true,
+   "subject_label_nl": "Buitenmuuroppervlak bruto (openingen niet afgetrokken)"
+  },
+  {
+   "app_element_key": "dak-plat",
+   "crosswalk_mapping_id": "XW-dak-plat-4711-m2",
+   "crosswalk_decision_id": "XWD-00001",
+   "subject_key": "ROOF_COVERING_REPORTED_AREA",
+   "evidence": {
+    "evidence_id": "QE-5993359f27e8dea6",
+    "source_type": "MJOP_ELEMENT_OVERVIEW",
+    "method_class": "SOURCE_REPORTED",
+    "value": "425.80",
+    "unit": "m2",
+    "status": "PROPOSED",
+    "review_reasons": [],
+    "scope_caveats": [
+     "SAME_IN_RELATED_DOCUMENT"
+    ],
+    "source_cluster": "SC-DOC-005+DOC-006",
+    "same_object_document_ids": [
+     "DOC-005",
+     "DOC-014"
+    ],
+    "source_ref": {
+     "document_id": "DOC-006",
+     "quantity_observation_id": "QO-DOC-006-EL-025",
+     "page": 7,
+     "text_fragment": "4711 Dakbedekking APP Platte dak 425,80m2 1",
+     "quantity_as_stated": "425,80",
+     "bag_pand_id": null,
+     "fields": null,
+     "raw_inputs": null,
+     "fetched_at": null,
+     "rule_id": null,
+     "rule_version": null
+    },
+    "scope_level": "COMPLEX",
+    "aggregation": null,
+    "formula": null,
+    "components": [],
+    "evidence_refs": {
+     "evidence_id": "QE-5993359f27e8dea6",
+     "building_id": "BAG:0363100012070344+0363100012071880+0363100012078022+0363100012091756+0363100012091974+0363100012102659+0363100012107492+0363100012121455+0363100012127361+0363100012134188+0363100012137996+0363100012140664+0363100012141419+0363100012143647+0363100012144766",
+     "subject_id": "QS-cb56b37167ff6427",
+     "rule_id": null,
+     "rule_version": null,
+     "bag_pand_ids": [],
+     "snapshot_ids": [],
+     "building_link_ids": [
+      "BLINK-00041",
+      "BLINK-00042",
+      "BLINK-00043",
+      "BLINK-00044",
+      "BLINK-00045",
+      "BLINK-00046",
+      "BLINK-00047",
+      "BLINK-00048",
+      "BLINK-00049",
+      "BLINK-00050",
+      "BLINK-00051",
+      "BLINK-00052",
+      "BLINK-00053",
+      "BLINK-00054",
+      "BLINK-00055"
+     ],
+     "child_evidence_ids": [],
+     "document_id": "DOC-006",
+     "quantity_observation_id": "QO-DOC-006-EL-025",
+     "source_sha256": "b593a3a2e62bcf1566e9286cce4d2bf120f67b3e96bb14edc65ab2e7163acb00",
+     "subject_mapping_ref": "HSM-ROOF_COVERING_REPORTED_AREA-4711-m2-DOC-005-006",
+     "dependency": {
+      "source_cluster": "SC-DOC-005+DOC-006",
+      "same_object_document_ids": [
+       "DOC-005",
+       "DOC-014"
+      ],
+      "identical_in_same_object_documents": [
+       "QO-DOC-005-EL-025"
+      ]
+     }
+    }
+   },
+   "role": "RELATED_CONTEXT",
+   "selectable": false,
+   "subject_label_nl": "Door bron/MJOP gerapporteerde oppervlakte dakbedekking",
+   "primary_subject_key": "ROOF_FLAT_AREA",
+   "primary_subject_label_nl": "Plat dakoppervlak",
+   "subject_relation": {
+    "relation_id": "SREL-ROOF_COVERING_REPORTED_AREA-ROOF_FLAT_AREA",
+    "relation": "RELATED_NOT_EQUIVALENT",
+    "resolvable_as_same_quantity": false,
+    "show_difference_as": "SOURCE_DIFFERENCE_DIFFERENT_DEFINITION"
+   }
+  },
+  {
+   "app_element_key": "dak-plat",
+   "crosswalk_mapping_id": "XW-dak-plat-4711-m2",
+   "crosswalk_decision_id": "XWD-00001",
+   "subject_key": "ROOF_COVERING_REPORTED_AREA",
+   "evidence": {
+    "evidence_id": "QE-cda20b77ca36b732",
+    "source_type": "MJOP_ELEMENT_OVERVIEW",
+    "method_class": "SOURCE_REPORTED",
+    "value": "425.80",
+    "unit": "m2",
+    "status": "PROPOSED",
+    "review_reasons": [],
+    "scope_caveats": [
+     "SAME_IN_RELATED_DOCUMENT"
+    ],
+    "source_cluster": "SC-DOC-005+DOC-006",
+    "same_object_document_ids": [
+     "DOC-006"
+    ],
+    "source_ref": {
+     "document_id": "DOC-005",
+     "quantity_observation_id": "QO-DOC-005-EL-025",
+     "page": 7,
+     "text_fragment": "4711 Dakbedekking APP Platte dak 425,80m2 3",
+     "quantity_as_stated": "425,80",
+     "bag_pand_id": null,
+     "fields": null,
+     "raw_inputs": null,
+     "fetched_at": null,
+     "rule_id": null,
+     "rule_version": null
+    },
+    "scope_level": "COMPLEX",
+    "aggregation": null,
+    "formula": null,
+    "components": [],
+    "evidence_refs": {
+     "evidence_id": "QE-cda20b77ca36b732",
+     "building_id": "BAG:0363100012070344+0363100012071880+0363100012078022+0363100012091756+0363100012091974+0363100012102659+0363100012107492+0363100012121455+0363100012127361+0363100012134188+0363100012137996+0363100012140664+0363100012141419+0363100012143647+0363100012144766",
+     "subject_id": "QS-cb56b37167ff6427",
+     "rule_id": null,
+     "rule_version": null,
+     "bag_pand_ids": [],
+     "snapshot_ids": [],
+     "building_link_ids": [
+      "BLINK-00001",
+      "BLINK-00002",
+      "BLINK-00003",
+      "BLINK-00004",
+      "BLINK-00005",
+      "BLINK-00006",
+      "BLINK-00007",
+      "BLINK-00008",
+      "BLINK-00009",
+      "BLINK-00010",
+      "BLINK-00011",
+      "BLINK-00012",
+      "BLINK-00013",
+      "BLINK-00014",
+      "BLINK-00015"
+     ],
+     "child_evidence_ids": [],
+     "document_id": "DOC-005",
+     "quantity_observation_id": "QO-DOC-005-EL-025",
+     "source_sha256": "89cd0b06fa4bf00a36a507043f68c012311c8ffd9c01c60786a824913f9a8ae8",
+     "subject_mapping_ref": "HSM-ROOF_COVERING_REPORTED_AREA-4711-m2-DOC-005-006",
+     "dependency": {
+      "source_cluster": "SC-DOC-005+DOC-006",
+      "same_object_document_ids": [
+       "DOC-006"
+      ],
+      "identical_in_same_object_documents": [
+       "QO-DOC-006-EL-025"
+      ]
+     }
+    }
+   },
+   "role": "RELATED_CONTEXT",
+   "selectable": false,
+   "subject_label_nl": "Door bron/MJOP gerapporteerde oppervlakte dakbedekking",
+   "primary_subject_key": "ROOF_FLAT_AREA",
+   "primary_subject_label_nl": "Plat dakoppervlak",
+   "subject_relation": {
+    "relation_id": "SREL-ROOF_COVERING_REPORTED_AREA-ROOF_FLAT_AREA",
+    "relation": "RELATED_NOT_EQUIVALENT",
+    "resolvable_as_same_quantity": false,
+    "show_difference_as": "SOURCE_DIFFERENCE_DIFFERENT_DEFINITION"
+   }
+  },
+  {
+   "app_element_key": "dak-plat",
+   "crosswalk_mapping_id": "XW-dak-plat-4711-m2",
+   "crosswalk_decision_id": "XWD-00001",
+   "subject_key": "ROOF_FLAT_AREA",
+   "evidence": {
+    "evidence_id": "QE-de5bcca75b309377",
+    "source_type": "3D_BAG",
+    "method_class": "GEOMETRY_DERIVED",
+    "value": "190.65",
+    "unit": "m2",
+    "status": "PROPOSED",
+    "review_reasons": [],
+    "scope_caveats": [],
+    "source_cluster": null,
+    "same_object_document_ids": [],
+    "source_ref": {
+     "document_id": null,
+     "quantity_observation_id": null,
+     "page": null,
+     "text_fragment": null,
+     "quantity_as_stated": null,
+     "bag_pand_id": null,
+     "fields": null,
+     "raw_inputs": null,
+     "fetched_at": null,
+     "rule_id": null,
+     "rule_version": null
+    },
+    "scope_level": "COMPLEX",
+    "aggregation": "SUM_OVER_CONFIRMED_PANDEN",
+    "formula": "SUM(child_evidence.value)",
+    "components": [
+     {
+      "bag_pand_id": "0363100012070344",
+      "evidence_id": "QE-c0a7a77dfed689d5",
+      "value": "7.61",
+      "unit": "m2",
+      "method_class": "DIRECT_MEASURED",
+      "rule_id": "bag3d.roof_flat_area",
+      "fields": [
+       "b3_opp_dak_plat"
+      ],
+      "raw_inputs": {
+       "b3_opp_dak_plat": 7.61
+      },
+      "snapshot_id": "BAGSNAP-431559474da45dcf",
+      "fetched_at": "2026-10-05T09:15:50Z"
+     },
+     {
+      "bag_pand_id": "0363100012071880",
+      "evidence_id": "QE-d9c4c97864805d9e",
+      "value": "8.8",
+      "unit": "m2",
+      "method_class": "DIRECT_MEASURED",
+      "rule_id": "bag3d.roof_flat_area",
+      "fields": [
+       "b3_opp_dak_plat"
+      ],
+      "raw_inputs": {
+       "b3_opp_dak_plat": 8.8
+      },
+      "snapshot_id": "BAGSNAP-431559474da45dcf",
+      "fetched_at": "2026-10-05T09:15:50Z"
+     },
+     {
+      "bag_pand_id": "0363100012078022",
+      "evidence_id": "QE-4f17530f790bb48a",
+      "value": "16.05",
+      "unit": "m2",
+      "method_class": "DIRECT_MEASURED",
+      "rule_id": "bag3d.roof_flat_area",
+      "fields": [
+       "b3_opp_dak_plat"
+      ],
+      "raw_inputs": {
+       "b3_opp_dak_plat": 16.05
+      },
+      "snapshot_id": "BAGSNAP-431559474da45dcf",
+      "fetched_at": "2026-10-05T09:15:50Z"
+     },
+     {
+      "bag_pand_id": "0363100012091756",
+      "evidence_id": "QE-43d4e82529464339",
+      "value": "8.27",
+      "unit": "m2",
+      "method_class": "DIRECT_MEASURED",
+      "rule_id": "bag3d.roof_flat_area",
+      "fields": [
+       "b3_opp_dak_plat"
+      ],
+      "raw_inputs": {
+       "b3_opp_dak_plat": 8.27
+      },
+      "snapshot_id": "BAGSNAP-431559474da45dcf",
+      "fetched_at": "2026-10-05T09:15:50Z"
+     },
+     {
+      "bag_pand_id": "0363100012091974",
+      "evidence_id": "QE-ea816e3de9336545",
+      "value": "14.56",
+      "unit": "m2",
+      "method_class": "DIRECT_MEASURED",
+      "rule_id": "bag3d.roof_flat_area",
+      "fields": [
+       "b3_opp_dak_plat"
+      ],
+      "raw_inputs": {
+       "b3_opp_dak_plat": 14.56
+      },
+      "snapshot_id": "BAGSNAP-431559474da45dcf",
+      "fetched_at": "2026-10-05T09:15:50Z"
+     },
+     {
+      "bag_pand_id": "0363100012102659",
+      "evidence_id": "QE-2f34fe96853075ff",
+      "value": "10.55",
+      "unit": "m2",
+      "method_class": "DIRECT_MEASURED",
+      "rule_id": "bag3d.roof_flat_area",
+      "fields": [
+       "b3_opp_dak_plat"
+      ],
+      "raw_inputs": {
+       "b3_opp_dak_plat": 10.55
+      },
+      "snapshot_id": "BAGSNAP-431559474da45dcf",
+      "fetched_at": "2026-10-05T09:15:50Z"
+     },
+     {
+      "bag_pand_id": "0363100012107492",
+      "evidence_id": "QE-c618ae1068b0eaac",
+      "value": "15.99",
+      "unit": "m2",
+      "method_class": "DIRECT_MEASURED",
+      "rule_id": "bag3d.roof_flat_area",
+      "fields": [
+       "b3_opp_dak_plat"
+      ],
+      "raw_inputs": {
+       "b3_opp_dak_plat": 15.99
+      },
+      "snapshot_id": "BAGSNAP-431559474da45dcf",
+      "fetched_at": "2026-10-05T09:15:50Z"
+     },
+     {
+      "bag_pand_id": "0363100012121455",
+      "evidence_id": "QE-ecd6fb6a75c9673a",
+      "value": "18.04",
+      "unit": "m2",
+      "method_class": "DIRECT_MEASURED",
+      "rule_id": "bag3d.roof_flat_area",
+      "fields": [
+       "b3_opp_dak_plat"
+      ],
+      "raw_inputs": {
+       "b3_opp_dak_plat": 18.04
+      },
+      "snapshot_id": "BAGSNAP-431559474da45dcf",
+      "fetched_at": "2026-10-05T09:15:50Z"
+     },
+     {
+      "bag_pand_id": "0363100012127361",
+      "evidence_id": "QE-70c72e3009374da4",
+      "value": "10.33",
+      "unit": "m2",
+      "method_class": "DIRECT_MEASURED",
+      "rule_id": "bag3d.roof_flat_area",
+      "fields": [
+       "b3_opp_dak_plat"
+      ],
+      "raw_inputs": {
+       "b3_opp_dak_plat": 10.33
+      },
+      "snapshot_id": "BAGSNAP-431559474da45dcf",
+      "fetched_at": "2026-10-05T09:15:50Z"
+     },
+     {
+      "bag_pand_id": "0363100012134188",
+      "evidence_id": "QE-95b0720f8dfbcbf7",
+      "value": "23.56",
+      "unit": "m2",
+      "method_class": "DIRECT_MEASURED",
+      "rule_id": "bag3d.roof_flat_area",
+      "fields": [
+       "b3_opp_dak_plat"
+      ],
+      "raw_inputs": {
+       "b3_opp_dak_plat": 23.56
+      },
+      "snapshot_id": "BAGSNAP-431559474da45dcf",
+      "fetched_at": "2026-10-05T09:15:50Z"
+     },
+     {
+      "bag_pand_id": "0363100012137996",
+      "evidence_id": "QE-9cb6be219c2d4e6a",
+      "value": "12.74",
+      "unit": "m2",
+      "method_class": "DIRECT_MEASURED",
+      "rule_id": "bag3d.roof_flat_area",
+      "fields": [
+       "b3_opp_dak_plat"
+      ],
+      "raw_inputs": {
+       "b3_opp_dak_plat": 12.74
+      },
+      "snapshot_id": "BAGSNAP-431559474da45dcf",
+      "fetched_at": "2026-10-05T09:15:50Z"
+     },
+     {
+      "bag_pand_id": "0363100012140664",
+      "evidence_id": "QE-e58817976ce36ab2",
+      "value": "16.31",
+      "unit": "m2",
+      "method_class": "DIRECT_MEASURED",
+      "rule_id": "bag3d.roof_flat_area",
+      "fields": [
+       "b3_opp_dak_plat"
+      ],
+      "raw_inputs": {
+       "b3_opp_dak_plat": 16.31
+      },
+      "snapshot_id": "BAGSNAP-431559474da45dcf",
+      "fetched_at": "2026-10-05T09:15:50Z"
+     },
+     {
+      "bag_pand_id": "0363100012141419",
+      "evidence_id": "QE-cf37ff666d79d716",
+      "value": "9.38",
+      "unit": "m2",
+      "method_class": "DIRECT_MEASURED",
+      "rule_id": "bag3d.roof_flat_area",
+      "fields": [
+       "b3_opp_dak_plat"
+      ],
+      "raw_inputs": {
+       "b3_opp_dak_plat": 9.38
+      },
+      "snapshot_id": "BAGSNAP-431559474da45dcf",
+      "fetched_at": "2026-10-05T09:15:50Z"
+     },
+     {
+      "bag_pand_id": "0363100012143647",
+      "evidence_id": "QE-63f182348b77a77c",
+      "value": "10.49",
+      "unit": "m2",
+      "method_class": "DIRECT_MEASURED",
+      "rule_id": "bag3d.roof_flat_area",
+      "fields": [
+       "b3_opp_dak_plat"
+      ],
+      "raw_inputs": {
+       "b3_opp_dak_plat": 10.49
+      },
+      "snapshot_id": "BAGSNAP-431559474da45dcf",
+      "fetched_at": "2026-10-05T09:15:50Z"
+     },
+     {
+      "bag_pand_id": "0363100012144766",
+      "evidence_id": "QE-3ca9f54cb900191e",
+      "value": "7.97",
+      "unit": "m2",
+      "method_class": "DIRECT_MEASURED",
+      "rule_id": "bag3d.roof_flat_area",
+      "fields": [
+       "b3_opp_dak_plat"
+      ],
+      "raw_inputs": {
+       "b3_opp_dak_plat": 7.97
+      },
+      "snapshot_id": "BAGSNAP-431559474da45dcf",
+      "fetched_at": "2026-10-05T09:15:50Z"
+     }
+    ],
+    "evidence_refs": {
+     "evidence_id": "QE-de5bcca75b309377",
+     "building_id": "BAG:0363100012070344+0363100012071880+0363100012078022+0363100012091756+0363100012091974+0363100012102659+0363100012107492+0363100012121455+0363100012127361+0363100012134188+0363100012137996+0363100012140664+0363100012141419+0363100012143647+0363100012144766",
+     "subject_id": "QS-b841368e34d968f7",
+     "rule_id": "scope.sum_over_confirmed_panden",
+     "rule_version": "1.0.0",
+     "bag_pand_ids": [
+      "0363100012070344",
+      "0363100012071880",
+      "0363100012078022",
+      "0363100012091756",
+      "0363100012091974",
+      "0363100012102659",
+      "0363100012107492",
+      "0363100012121455",
+      "0363100012127361",
+      "0363100012134188",
+      "0363100012137996",
+      "0363100012140664",
+      "0363100012141419",
+      "0363100012143647",
+      "0363100012144766"
+     ],
+     "snapshot_ids": [
+      "BAGSNAP-431559474da45dcf"
+     ],
+     "building_link_ids": [
+      "BLINK-00001",
+      "BLINK-00002",
+      "BLINK-00003",
+      "BLINK-00004",
+      "BLINK-00005",
+      "BLINK-00006",
+      "BLINK-00007",
+      "BLINK-00008",
+      "BLINK-00009",
+      "BLINK-00010",
+      "BLINK-00011",
+      "BLINK-00012",
+      "BLINK-00013",
+      "BLINK-00014",
+      "BLINK-00015",
+      "BLINK-00041",
+      "BLINK-00042",
+      "BLINK-00043",
+      "BLINK-00044",
+      "BLINK-00045",
+      "BLINK-00046",
+      "BLINK-00047",
+      "BLINK-00048",
+      "BLINK-00049",
+      "BLINK-00050",
+      "BLINK-00051",
+      "BLINK-00052",
+      "BLINK-00053",
+      "BLINK-00054",
+      "BLINK-00055"
+     ],
+     "child_evidence_ids": [
+      "QE-c0a7a77dfed689d5",
+      "QE-d9c4c97864805d9e",
+      "QE-4f17530f790bb48a",
+      "QE-43d4e82529464339",
+      "QE-ea816e3de9336545",
+      "QE-2f34fe96853075ff",
+      "QE-c618ae1068b0eaac",
+      "QE-ecd6fb6a75c9673a",
+      "QE-70c72e3009374da4",
+      "QE-95b0720f8dfbcbf7",
+      "QE-9cb6be219c2d4e6a",
+      "QE-e58817976ce36ab2",
+      "QE-cf37ff666d79d716",
+      "QE-63f182348b77a77c",
+      "QE-3ca9f54cb900191e"
+     ],
+     "document_id": null,
+     "quantity_observation_id": null,
+     "source_sha256": null,
+     "subject_mapping_ref": null,
+     "dependency": {
+      "source_cluster": null,
+      "same_object_document_ids": [],
+      "identical_in_same_object_documents": []
+     }
+    }
+   },
+   "role": "PRIMARY",
+   "selectable": true,
+   "subject_label_nl": "Plat dakoppervlak"
+  }
+ ]
+}

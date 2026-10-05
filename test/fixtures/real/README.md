@@ -1,6 +1,6 @@
 # Echte testdata (herkomst: mjop-learning)
 
-Alleen voor `test/quantity-maldenhof-real.spec.js`, `test/quantity-doc012-real.spec.js` en `test/quantity-maldenhof-expanded-real.spec.js`. Niet gebruikt door de app zelf.
+Alleen voor `test/quantity-maldenhof-real.spec.js`, `test/quantity-doc012-real.spec.js`, `test/quantity-maldenhof-expanded-real.spec.js` en `test/quantity-geometry-real.spec.js`. Niet gebruikt door de app zelf.
 
 | Bestand | Herkomst |
 |---|---|
@@ -8,6 +8,8 @@ Alleen voor `test/quantity-maldenhof-real.spec.js`, `test/quantity-doc012-real.s
 | `maldenhof_240_snapshot_excerpt.json` | Uitsnede uit de canonieke snapshot `BAGSNAP-431559474da45dcf` (adres Maldenhof 240 en de 3D BAG-attributen van pand 0363100012137996). In de test worden PDOK/BAG/3D BAG hiermee nagebootst: geen netwerkcalls. De BAG-pandgeometrie zit niet in de snapshot; de test gebruikt een klein vierkant rond het adrespunt. |
 | `doc012_meppelweg_v3.json` | Ongewijzigde kopie van `mjop-learning/reports/quantity/app_bundles/doc012_meppelweg_v3.json` (PR "DOC-012 Quantity Activation + Bundle v3", merge `6cdff4e`), zelfde exporter en validator. sha256 `748ebcbe53e83afc06fd4dba67467f1014d3cc88c728b55c56c3adfd33e0a191`. |
 | `maldenhof_expanded_v3.json` | Ongewijzigde kopie van `mjop-learning/reports/quantity/app_bundles/maldenhof_expanded_v3.json` (PR "Sloped Roof Quantity Activation v1", merge `12e1119`): dak-plat + dak-hellend, zelfde exporter en validator. sha256 `c78f387e66ce7963d7a434270350f0ee8fa4c9f232099f871e83ed202cd2975d`. |
+| `maldenhof_geometry_expanded_v3.json` | Ongewijzigde kopie van `mjop-learning/reports/quantity/app_bundles/maldenhof_geometry_expanded_v3.json` (PR "Scaffolding Quantity Activation v1", merge `ed9398d`): dak-plat + dak-hellend + steiger met per-pand werkhoogtecontext (BUILDING_HEIGHT). sha256 `8264bdceb2c0ee633333b79ac6a073f8c9ea48661659007f69ff22df391a52ca`. |
+| `doc012_geometry_v3.json` | Ongewijzigde kopie van `mjop-learning/reports/quantity/app_bundles/doc012_geometry_v3.json` (zelfde PR): dak-plat + dak-hellend (gemeten 0 m²) + steiger. sha256 `fe12a4eb7999f784056d46a607e5e37b6223fc30a6eff0c4c86924390f074a87`. |
 | `doc012_meppelweg_819_snapshot_excerpt.json` | Uitsnede uit de canonieke snapshot `BAGSNAP-599d2f2004100011` (adres Meppelweg 819 en de 3D BAG-attributen van pand 0518100000354752). Pandgeometrie: klein vierkant rond het adrespunt. |
 
 Tenant-scheiding: elke bundel bevat historische hoeveelheden van één VvE en hoort alleen in een plan van die VvE. Hij bevat geen keuze en geen quantity resolution.
