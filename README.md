@@ -295,6 +295,7 @@ node test/quantity-doc012-real.spec.js    # ECHTE DOC-012-bundel v3 (Meppelweg, 
 node test/quantity-maldenhof-expanded-real.spec.js # ECHTE uitgebreide Maldenhof-bundel: dak-plat + dak-hellend (historische dakpannen als context)
 node test/quantity-geometry-real.spec.js  # ECHTE geometriebundels: steiger met werkhoogte per pand (Maldenhof 15 panden, DOC-012 1 pand)
 node test/facade-scaffold.spec.js         # gevel-metselwerk/voegwerk als benadering; steigerkosten per pand/tariefklasse; ontbrekende werkhoogte
+node test/price-source-labels.spec.js     # prijsbron-labels: app-schattingen (geen kengetal, geen prijspeil), offerte overschrijft niets, eenheid in formule
 node test/auth.spec.js                   # inloglink met de echte Supabase-SDK; Supabase-netwerk nagebootst
 node test/quantity-missingness.spec.js    # MISSING != 0: ontbrekend 3D BAG-veld -> niet beschikbaar, kosten onbekend (geen € 0)
 node test/reservefonds.spec.js
