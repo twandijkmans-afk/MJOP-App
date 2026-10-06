@@ -2091,7 +2091,7 @@
     html += '</div>';
 
     html += '</div>';
-    html += '<div class="entry-foot">Kengetallen zijn indicatieve richtprijzen inclusief btw, geen offerte. Bronnen: PDOK Locatieserver en BAG (Public Domain Mark 1.0) en 3D BAG van de TU Delft (CC BY 4.0).</div>';
+    html += '<div class="entry-foot">Prijzen zijn indicatieve app-schattingen inclusief btw, geen offerte. Bronnen: PDOK Locatieserver en BAG (Public Domain Mark 1.0) en 3D BAG van de TU Delft (CC BY 4.0).</div>';
     html += '</div>';
     return html;
   }
@@ -3003,7 +3003,7 @@
     html += '</section>';
 
     html += '<section class="ov-card ov-source"><h2 class="ov-h2">Waar komen deze cijfers vandaan?</h2>';
-    html += '<p class="ov-hint">De bedragen zijn indicatieve richtprijzen (inclusief btw, prijspeil ' + CURRENT_YEAR + '), geen offerte. Hoe vaak onderhoud nodig is volgt uit het bouwjaar in de BAG. Beoordeel je de staat van een post, dan schuift het onderhoud naar voren of naar achteren.</p>';
+    html += '<p class="ov-hint" data-price-source-note>De standaardbedragen zijn indicatieve app-schattingen (inclusief btw): geen offerte en geen onderbouwd kengetal, zonder vastgelegd prijspeil en niet geïndexeerd. Hoe vaak onderhoud nodig is volgt uit het bouwjaar in de BAG. Beoordeel je de staat van een post, dan schuift het onderhoud naar voren of naar achteren.</p>';
     html += '</section>';
 
     html += '</div></div>';
@@ -3540,14 +3540,18 @@
   // dakoppervlak). Zelfde hoeveelheidspaneel als de andere posten, zodat een
   // onbekende hoeveelheid zelf ingevuld kan worden.
   function renderVastVariabel(el) {
+    // Eenheid uit het hoeveelheidsobject: posten per appartement (bron 'units') zijn geen m².
+    var perApp = el.bron === 'units';
+    var eenheid = el.quantity ? Q.unitLabel(el.quantity.unit) : (perApp ? 'app.' : 'm²');
     var html = '<div class="section"><div class="card pad">';
-    html += renderQuantityPanel(el, 'Oppervlak');
+    html += renderQuantityPanel(el, perApp ? 'Aantal' : 'Oppervlak');
     html += qv(el) == null
       ? '<div class="formula" data-qty-formula data-cost-unknown>' + eur(el.basis) + ' vast + hoeveelheid onbekend × ' + eur(el.perEenheid) + ' = kosten niet berekend (vul de hoeveelheid zelf in)</div>'
-      : '<div class="formula" data-qty-formula>' + eur(el.basis) + ' vast + ' + Q.formatNumber(qv(el)) + ' m² × ' + eur(el.perEenheid) + ' = ' + eur(elementCost(el, state)) + ' per keer</div>';
+      : '<div class="formula" data-qty-formula>' + eur(el.basis) + ' vast + ' + Q.formatNumber(qv(el)) + ' ' + esc(eenheid) + ' × ' + eur(el.perEenheid) + ' = ' + eur(elementCost(el, state)) + ' per keer</div>';
     html += '</div></div>';
     return html;
   }
+
 
   function renderSteiger(el) {
     var sp = Q.scaffoldPricing(el.quantity, el.werkhoogte);
@@ -3623,7 +3627,7 @@
     html += '<div class="koz-total"><div class="label">Onderhoud kozijnen</div><div class="count">' + totaalAantal + ' kozijnen</div><div class="amount">' + eur(elementCost(el, state)) + '</div></div>';
     html += '</div>';
     html += '<div class="info-block">De aantallen zijn een schatting op basis van het aantal appartementen (niet geteld). Pas ze aan zodra je de werkelijke aantallen weet.</div>';
-    html += '<div class="info-block">Het materiaal bepaalt de onderhoudscyclus: hout vraagt periodiek schilderwerk, aluminium en kunststof vooral reiniging en afstellen. Kozijnen met verschillend materiaal worden apart in de tijd gezet. Tarieven zijn direct aanpasbaar; een offerte overschrijft het tarief.</div>';
+    html += '<div class="info-block">Het materiaal bepaalt de onderhoudscyclus: hout vraagt periodiek schilderwerk, aluminium en kunststof vooral reiniging en afstellen. Kozijnen met verschillend materiaal worden apart in de tijd gezet. Tarieven zijn direct aanpasbaar. Offertes worden ter vergelijking getoond en veranderen het tarief niet automatisch.</div>';
     html += '</div>';
     return html;
   }
@@ -3888,7 +3892,7 @@
     });
     html += '</div></div>';
 
-    html += '<div class="footer-note">Bronnen: PDOK Locatieserver en BAG (Public Domain Mark 1.0), 3D BAG van de TU Delft (CC BY 4.0). Kengetallen zijn indicatieve richtprijzen, geen offerte.</div>';
+    html += '<div class="footer-note">Bronnen: PDOK Locatieserver en BAG (Public Domain Mark 1.0), 3D BAG van de TU Delft (CC BY 4.0). Prijzen zijn indicatieve app-schattingen, geen offerte.</div>';
     html += PG_CLOSE;
     return html;
   }
@@ -4037,7 +4041,7 @@
       return v == null ? 'onbekende omvang' : Math.round(v) + ' m²' + (uit3d ? ' (3D BAG van de TU Delft)' : ' (geschat uit ' + schatting + ', geen 3D BAG-waarde)');
     };
     html += '<p><strong>Bouwgegevens.</strong> Bouwjaar en het aantal appartementen komen uit de Basisregistratie Adressen en Gebouwen (BAG). Het dakoppervlak van ' + maat(b.dakM2, dakUit3d, 'het BAG-grondvlak') + ', het geveloppervlak van ' + maat(b.gevelM2, gevelUit3d, 'de omtrek van het BAG-pand') + '; de gebouwhoogte komt uit de 3D BAG. Er is niet op locatie ingemeten.</p>';
-    html += '<p><strong>Kosten.</strong> De bedragen zijn indicatieve richtprijzen inclusief btw, prijspeil ' + CURRENT_YEAR + '. Het zijn geen offertes. Voor de grote posten is het verstandig voorafgaand aan het uitvoeringsjaar minimaal twee offertes op te vragen.</p>';
+    html += '<p data-price-source-note><strong>Kosten.</strong> De standaardbedragen zijn indicatieve app-schattingen inclusief btw, zonder vastgelegd prijspeil en niet geïndexeerd. Het zijn geen offertes en geen onderbouwde kengetallen. Voor de grote posten is het verstandig voorafgaand aan het uitvoeringsjaar minimaal twee offertes op te vragen.</p>';
     var beoordeeldPr = state.elements.filter(isAssessed).length;
     var conditieTekst = beoordeeldPr === 0
       ? 'Geen van de posten is beoordeeld. De planning volgt daarom de gebruikelijke levensduur per bouwdeel. Een inspectie kan een post naar voren of naar achteren schuiven.'
