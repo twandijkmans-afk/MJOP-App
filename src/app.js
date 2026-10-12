@@ -5,6 +5,7 @@
   // Quantity Foundation v1 (src/quantity.js): één hoeveelheidsobject per post
   // met herkomst, status, automatische en handmatige waarde.
   var Q = window.MJOPQuantity;
+  var INV = window.MJOPInventory;
   var HORIZON = 10; // years shown in projections (current year + 9)
 
   // ---------------------------------------------------------------------
@@ -979,6 +980,8 @@
     addForm: null,
     qtyFout: {}, // invoer-id -> { tekst, melding }: afgewezen hoeveelheids-/prijsinvoer (niet geraden)
     bundleUi: null, // { fout } | { melding }: resultaat van het importeren van een bronnenbundel
+    inventory: null, // component-inventaris (zie src/inventory.js); null = legacy gedrag, plan werkt zoals voorheen
+    inventoryUi: null, // { fout } | { melding }: resultaat van het importeren van een inventarisbundel
     accountMenuOpen: false, // mini-menu (Account/Uitloggen) onder het gebruikersblok in de zijbalk
     buildingSwitcherOpen: false, // dropdown van de gebouwkiezer boven in de zijbalk
     accountSubTab: 'profiel', // links sub-menu binnen de samengevoegde Account-pagina (zie renderAccount())
@@ -1121,7 +1124,7 @@
   // opgeslagen rij thuis en zou bij het heropenen alleen maar verwarren.
   // ---------------------------------------------------------------------
   function serializePlan() {
-    return {
+    var blob = {
       building: state.building,
       elements: state.elements,
       fonds: state.fonds,
@@ -1130,6 +1133,9 @@
       offertes: state.offertes,
       bijvullen: state.bijvullen,
     };
+    // Alleen opnemen als er een inventaris is: plannen zonder inventaris blijven byte-identiek aan vroeger.
+    if (state.inventory) blob.inventory = state.inventory;
+    return blob;
   }
 
   function applyPlanBlob(blob) {
@@ -1141,6 +1147,8 @@
     state.invul = blob.invul || { fonds: true, bijdrage: true };
     state.offertes = blob.offertes || {};
     state.bijvullen = blob.bijvullen || {};
+    // Plannen van vóór Building Element Inventory UI v1 hebben geen inventaris: dan geldt het legacy gedrag.
+    state.inventory = blob.inventory && blob.inventory.bundle_version === INV.BUNDLE_VERSION ? blob.inventory : null;
     // Plannen van vóór Quantity Foundation v1: kale hoeveelheden omzetten
     // naar het hoeveelheidsobject (handmatige afwijkingen blijven staan).
     state.elements.forEach(function (el) { ensureQuantity(el, state.building); });
@@ -3128,7 +3136,7 @@
       var score = conditionScore(el);
       var jaar = elementNextYear(el);
       html += '<div class="gb-row" data-act="open-element" data-id="' + el.id + '">';
-      html += '<div class="gb-cell-post"><span class="gb-post-naam">' + esc(el.naam) + '</span><span class="gb-post-meta">' + gebouwRowMeta(el) + '</span>' + (score != null ? conditiePill(score) : '') + '</div>';
+      html += '<div class="gb-cell-post"><span class="gb-post-naam">' + esc(el.naam) + '</span><span class="gb-post-meta">' + gebouwRowMeta(el) + '</span>' + inventoryBadge(el) + (score != null ? conditiePill(score) : '') + '</div>';
       html += '<span class="gb-cell-jaar' + (jaar === tekortJaar ? ' tekort' : '') + '">' + jaar + '</span>';
       var cost = elementCost(el, state);
       html += '<span class="gb-cell-bedrag"' + (cost == null ? ' data-cost-unknown' : '') + '>' + eurKosten(cost) + '</span>';
@@ -3138,6 +3146,7 @@
 
     if (state.addForm) html += renderAddElementForm();
     if (!b.isVoorbeeld) html += renderBundleImport();
+    if (!b.isVoorbeeld || state.inventory) html += renderInventory();
 
     html += '</div></div>';
     return html;
@@ -3484,6 +3493,96 @@
     return m.length ? m[m.length - 1].id : null;
   }
 
+  // --- Building Element Inventory UI v1 ----------------------------------
+  // Aanwezigheid (✓ aanwezig / ? nog te bevestigen / — niet aanwezig) per fysiek bouwdeel. UNKNOWN is nooit
+  // ABSENT: een onbekend bouwdeel laat een post niet verdwijnen en vraagt een expliciete keuze van de gebruiker.
+  function inventoryBadge(el) {
+    if (!state.inventory) return '';
+    var r = INV.requirementResult(state.inventory, el.id);
+    if (r !== 'NEEDS_CONFIRMATION' && r !== 'NEEDS_ATTRIBUTE_CONFIRMATION') return '';
+    return '<span class="inv-badge" data-inv-badge="' + esc(r) + '">? ' + esc(INV.RESULT_LABELS[r]) + '</span>';
+  }
+
+  function renderInventory() {
+    var ui = state.inventoryUi || {};
+    var inv = state.inventory;
+    var html = '<section class="ov-card inv-card" data-inventory style="margin-top:16px;padding:16px">';
+    html += '<h2 class="section-title" style="margin:0 0 6px">Aanwezige bouwdelen</h2>';
+    if (!inv) {
+      html += '<p class="hint" style="margin:0 0 10px">Importeer een component-inventaris (mjop-learning) om te zien welke bouwdelen aanwezig zijn, nog bevestigd moeten worden of ontbreken. Zonder inventaris werkt het plan zoals altijd.</p>';
+      html += '<input type="file" id="inv-bundle-input" accept=".json,application/json" />';
+    } else {
+      var res = INV.resolve(inv);
+      html += '<p class="hint" style="margin:0 0 10px">Bron: inventaris van ' + esc((inv.building.document_ids || []).join(', ')) + ' (mjop-learning). ✓ aanwezig · ? nog te bevestigen · — niet aanwezig. Jouw keuze telt als handmatig bevestigd en overschrijft de bron. Een onbekend bouwdeel wordt nooit als afwezig behandeld.</p>';
+      res.components.forEach(function (c) {
+        var base = INV.BASIS_LABELS[c.source] || (c.user_confirmed ? '' : c.source);
+        html += '<div class="inv-row" data-inv-comp="' + esc(c.component_type) + '" data-inv-status="' + c.status + '" data-inv-source="' + esc(c.source) + '" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:8px 0;border-top:1px solid var(--line, #e5e7eb)">';
+        html += '<span class="inv-sym" aria-hidden="true" style="width:18px">' + INV.STATUS_SYMBOLS[c.status] + '</span>';
+        html += '<span style="flex:1 1 220px"><b>' + esc(c.label_nl) + '</b> · <span data-inv-status-label>' + INV.STATUS_LABELS[c.status] + '</span>';
+        html += '<br><span class="hint" data-inv-basis>' + (c.user_confirmed ? 'Door jou bevestigd (handmatig, USER_CONFIRMED_MANUAL)' : esc(base)) + (c.decision_ref && !c.user_confirmed ? ' · ' + esc(c.decision_ref) : '') + (c.material_as_reported ? ' · materiaal volgens bron: ' + esc(c.material_as_reported) : '') + '</span></span>';
+        if (c.status === 'UNKNOWN') html += '<span class="hint" data-inv-question style="flex-basis:100%">Is dit onderdeel aanwezig?</span>';
+        html += '<span class="inv-actions" style="display:flex;gap:6px">';
+        [['JA', 'Ja'], ['NEE', 'Nee'], ['LATER', 'Onbekend / later']].forEach(function (a) {
+          html += '<button type="button" class="ov-btn secondary' + (c.answer === a[0] ? ' active' : '') + '" data-act="inv-answer" data-comp="' + esc(c.component_type) + '" data-ans="' + a[0] + '">' + a[1] + '</button>';
+        });
+        html += '</span></div>';
+      });
+      html += '<h3 class="section-title" style="margin:14px 0 6px">Onderhoudsposten</h3>';
+      res.requirements.forEach(function (r) {
+        var inPlan = !!findEl(r.app_element_id);
+        var verwijderd = !!(inv.removed && inv.removed[r.app_element_id]);
+        html += '<div class="inv-req" data-inv-result="' + esc(r.app_element_id) + '" data-result="' + r.result + '">' + esc(r.app_label) + ' — ' + esc(INV.RESULT_LABELS[r.result]) +
+          (verwijderd ? ' (uit het plan gehaald omdat het bouwdeel niet aanwezig is; komt terug als je dat wijzigt)' : (inPlan ? '' : ' (niet in dit plan)')) + '</div>';
+      });
+      html += '<div class="btn-row" style="margin-top:10px"><div class="ghost-btn" data-act="inv-clear">Inventaris verwijderen</div></div>';
+    }
+    if (ui.fout) html += '<div class="notice error" data-inv-fout style="margin-top:8px">' + esc(ui.fout) + '</div>';
+    if (ui.melding) html += '<div class="notice" data-inv-melding style="margin-top:8px">' + esc(ui.melding) + '</div>';
+    html += '</section>';
+    return html;
+  }
+
+  function importInventoryBundle(bundle) {
+    var res = INV.loadBundle(bundle, state.building);
+    if (!res.ok) { state.inventoryUi = { fout: res.errors.join(' ') }; return; }
+    state.inventory = res.inventory;
+    var eff = INV.applyToElements(state.inventory, state.elements);
+    state.elements = eff.elements;
+    state.inventoryUi = { melding: 'Inventaris geladen (' + res.inventory.components.length + ' bouwdelen).' + (eff.removed.length ? ' Uit het plan gehaald (expliciet niet aanwezig): ' + eff.removed.join(', ') + '.' : '') };
+  }
+
+  function answerInventory(type, ans) {
+    if (!state.inventory) return;
+    if (!INV.setAnswer(state.inventory, type, ans)) return;
+    var eff = INV.applyToElements(state.inventory, state.elements);
+    state.elements = eff.elements;
+    state.inventoryUi = null;
+    if (eff.removed.length || eff.restored.length) {
+      state.inventoryUi = { melding: (eff.removed.length ? 'Uit het plan gehaald (niet aanwezig): ' + eff.removed.join(', ') + '. ' : '') + (eff.restored.length ? 'Teruggezet in het plan: ' + eff.restored.join(', ') + '.' : '') };
+    }
+  }
+
+  // Kozijnen bij een inventaris: aanwezigheid en bewijs zonder onbewezen totaal.
+  function renderKozijnInventory() {
+    if (!state.inventory) return '';
+    var f = INV.frameSummary(state.inventory);
+    if (!f) return '';
+    var st = f.presence.status;
+    var mat = f.material_as_reported ? f.material_as_reported.charAt(0).toUpperCase() + f.material_as_reported.slice(1) + (f.material_basis === 'SOURCE_REPORTED_BUILDING_LEVEL' ? ' volgens bestaand MJOP' : '') : 'Onbekend';
+    var html = '<div class="section"><div class="info-block" data-koz-inventory>';
+    html += '<div><b>Buitenkozijnen</b></div>';
+    html += '<div data-koz-status>Status: ' + INV.STATUS_LABELS[st] + (f.presence.user_confirmed ? ' (door jou bevestigd)' : '') + '</div>';
+    html += '<div data-koz-materiaal>Materiaal: ' + esc(mat) + '</div>';
+    html += '<div data-koz-hoeveelheid>Hoeveelheid: ' + (f.building_total_known ? 'gebouwtotaal bekend' : 'Gebouwtotaal nog onbekend') + '</div>';
+    if (f.photo_visible) {
+      html += '<div data-koz-bewijs>Beschikbaar bewijs: ' + f.photo_visible.frames + ' zichtbare kozijnopeningen bevestigd op één voorgevel-foto';
+      html += '<br>' + f.photo_visible.doors + ' zichtbare buitendeur</div>';
+    }
+    html += '<div data-koz-gebruik>Gebruik voor berekening: nog geen bevestigd gebouwtotaal. Terugval: ' + esc(f.legacy_label) + ' (geen meting, niet bevestigd, niet uit foto bepaald).</div>';
+    html += '</div></div>';
+    return html;
+  }
+
   // Bronnen uit mjop-learning importeren (bundel per VvE, zie
   // scripts/export_app_quantity_bundle.py). Alleen voor het eigen pand; niets
   // wordt overschreven of automatisch gekozen.
@@ -3601,7 +3700,8 @@
   }
 
   function renderKozijnen(el) {
-    var html = '<div class="section"><div class="koz-table">';
+    var html = renderKozijnInventory();
+    html += '<div class="section"><div class="koz-table">';
     html += '<div class="koz-head"><div class="c1">Type</div><div class="c1b">Materiaal</div><div class="c2">Aantal</div><div class="c3">Tarief</div><div class="c4">Bedrag</div></div>';
     el.koz.forEach(function (k, i) {
       var tarief = kozTarief(k);
@@ -3616,7 +3716,7 @@
       var kq = k.quantity;
       html += '<div class="c2"><button data-act="koz-min" data-id="' + el.id + '" data-i="' + i + '">−</button><span class="val">' + Q.formatNumber(kozAantal(k)) + '</span><button data-act="koz-plus" data-id="' + el.id + '" data-i="' + i + '">+</button>';
       if (kq && kq.manual) html += '<div class="hint">Door jou aangepast · <a href="#" data-act="koz-reset" data-id="' + el.id + '" data-i="' + i + '">schatting (' + Q.formatNumber(kq.auto ? kq.auto.value : null) + ')</a></div>';
-      else html += '<div class="hint">Schatting</div>';
+      else html += '<div class="hint" data-koz-legacy>' + (state.inventory ? esc(INV.frameSummary(state.inventory).legacy_label) : 'Schatting') + '</div>';
       html += '</div>';
       html += '<div class="c3"><input id="koz-tarief-' + el.id + '-' + i + '" data-change="koz-tarief" data-id="' + el.id + '" data-i="' + i + '" inputmode="decimal" value="' + Q.formatNumber(tarief) + '" />';
       html += '<div class="hint">' + mat.label + ' · ' + mat.cyclus + 'j cyclus</div></div>';
@@ -4176,7 +4276,7 @@
       state.currentPlanId = null; state.lastSavedSnapshot = null;
       state.building = null; state.elements = [];
       state.fonds = 0; state.bijdrage = 55; state.invul = { fonds: false, bijdrage: false };
-      state.offertes = {}; state.bijvullen = {};
+      state.offertes = {}; state.bijvullen = {}; state.inventory = null; state.inventoryUi = null;
       state.activeElementId = null; state.filter = 'Alles'; state.gebrekenFilter = false; state.addForm = null;
       render();
     },
@@ -4287,6 +4387,12 @@
     'focus-fonds': function () {
       var f = document.getElementById('fonds-bedrag');
       if (f) { f.scrollIntoView({ block: 'center' }); f.focus(); }
+    },
+    'inv-answer': function (d) { answerInventory(d.comp, d.ans); render(); },
+    'inv-clear': function () {
+      // Terug naar legacy: posten die door de inventaris uit het plan waren gehaald komen ongewijzigd terug.
+      if (state.inventory) Object.keys(state.inventory.removed || {}).forEach(function (id) { if (!findEl(id)) state.elements.push(state.inventory.removed[id]); });
+      state.inventory = null; state.inventoryUi = null; render();
     },
     'open-add-element': function () { state.addForm = { naam: '', jaar: CURRENT_YEAR + 1, bedrag: 0, cyclus: '' }; render(); },
     'cancel-add-element': function () { state.addForm = null; render(); },
@@ -5047,6 +5153,16 @@
           importQuantityBundle(parsed);
           render();
         }).catch(function () { state.bundleUi = { fout: 'Bestand kon niet gelezen worden.' }; render(); });
+        return;
+      }
+      if (e.target && e.target.id === 'inv-bundle-input') {
+        var inf = e.target.files && e.target.files[0];
+        if (inf) readFileAsText(inf).then(function (txt) {
+          var parsed;
+          try { parsed = JSON.parse(txt); } catch (err) { state.inventoryUi = { fout: 'Dit bestand is geen geldige JSON.' }; render(); return; }
+          importInventoryBundle(parsed);
+          render();
+        }).catch(function () { state.inventoryUi = { fout: 'Bestand kon niet gelezen worden.' }; render(); });
         return;
       }
       if (e.target && e.target.id === 'mjop-file-input') {

@@ -1,0 +1,1720 @@
+{
+  "bundle_version": "mjop_app_component_inventory_bundle_v1",
+  "builder_version": "app_component_inventory_bundle_v1.0.0",
+  "note": "Component-inventarisbundel voor MJOP-App. PRESENT/ABSENT/UNKNOWN voor fysieke bouwdelen; UNKNOWN is niet ABSENT. Bevat geen scores, geen confidence-percentages, geen hoeveelheden-afleiding en geen prijzen. Bundel hoort bij één VvE (tenant-scheiding).",
+  "building": {
+    "building_id": "BAG:0363100012070344+0363100012071880+0363100012078022+0363100012091756+0363100012091974+0363100012102659+0363100012107492+0363100012121455+0363100012127361+0363100012134188+0363100012137996+0363100012140664+0363100012141419+0363100012143647+0363100012144766",
+    "document_ids": [
+      "DOC-005",
+      "DOC-006"
+    ],
+    "bag_pand_ids": [
+      "0363100012070344",
+      "0363100012071880",
+      "0363100012078022",
+      "0363100012091756",
+      "0363100012091974",
+      "0363100012102659",
+      "0363100012107492",
+      "0363100012121455",
+      "0363100012127361",
+      "0363100012134188",
+      "0363100012137996",
+      "0363100012140664",
+      "0363100012141419",
+      "0363100012143647",
+      "0363100012144766"
+    ],
+    "pand_count": 15
+  },
+  "inventory_last_reviewed_at": "2026-10-06T08:01:12Z",
+  "input_hashes": {
+    "component_inventory": "761bcbd4b32032f2c818e0e142d5401651cebdbfbfe8cde93f72c1f637bd8107",
+    "component_presence_evidence": "0fc3366078c05533d8887843ce01f68d05a3fe0153ec14da4e4dab8a45ab7a0c",
+    "component_presence_decisions": "984a6436bababc42c2ea2777476f6b7e08d699774ec5490c96c724c0efe75757",
+    "app_element_requirements": "a8d5dfd4878a35baf02f85c22a74ed4c529fc1d56b50c9d28a91b07c10cc5682",
+    "building_component_types": "60d52f237d5e266c55d9e3c63039ce9520593c1a8f58a55258382e1a9d903a26",
+    "frame_inventory": "2109144babd2024891d9b6cd0047ad9ec73962ea8f21aa3578ca0ed955ebca1b"
+  },
+  "status_vocabulary": {
+    "PRESENT": "aanwezig",
+    "ABSENT": "niet aanwezig (alleen expliciet)",
+    "UNKNOWN": "nog te bevestigen"
+  },
+  "inventory_result_vocabulary": {
+    "APPLICABLE": "Alle benodigde bouwdelen zijn aanwezig; de post kan voorgesteld worden (PROPOSED).",
+    "NOT_APPLICABLE": "Een benodigd bouwdeel is expliciet ABSENT (menselijk besluit); de post vervalt.",
+    "NEEDS_CONFIRMATION": "Aanwezigheid van minstens één benodigd bouwdeel is niet vastgesteld (UNKNOWN); de post blijft zichtbaar.",
+    "NEEDS_ATTRIBUTE_CONFIRMATION": "Bouwdeel aanwezig, maar het vereiste attribuut (materiaal/afwerking) is niet vastgesteld.",
+    "NOT_PRESENCE_DRIVEN": "Aanwezigheid van bouwdelen bepaalt deze post niet (ondersteunende kostenpost).",
+    "USER_SELECTED": "Optionele verbetering; alleen via gebruikerskeuze, nooit door aanwezigheid."
+  },
+  "summary": {
+    "component_status_counts": {
+      "PRESENT": 9,
+      "ABSENT": 0,
+      "UNKNOWN": 13
+    },
+    "inventory_result_counts": {
+      "APPLICABLE": 10,
+      "NOT_APPLICABLE": 0,
+      "NEEDS_CONFIRMATION": 11,
+      "NEEDS_ATTRIBUTE_CONFIRMATION": 1,
+      "NOT_PRESENCE_DRIVEN": 1,
+      "USER_SELECTED": 1
+    }
+  },
+  "components": [
+    {
+      "component_type": "ROOF_FLAT_COVERING",
+      "label_nl": "Dakbedekking plat dak",
+      "status": "PRESENT",
+      "presence_basis": "SOURCE_EVIDENCE_NOT_CONFIRMED",
+      "user_confirmed": false,
+      "decision_ref": null,
+      "evidence_refs": [
+        "CPE-0c7c7e1a0fbcacaa",
+        "CPE-2d63d0ad7cfe13f7",
+        "CPE-48a5977066cf13dd",
+        "CPE-613dd11860bb576c",
+        "CPE-63c1750f7f1538ac",
+        "CPE-73f667ef1f2a1753",
+        "CPE-82ce63e9cbff3197",
+        "CPE-884878fa746229d7",
+        "CPE-920efa171dfb6401",
+        "CPE-965a6f0cf610b76b",
+        "CPE-96d3126609c0ad9d",
+        "CPE-acf46a4df6cb5347",
+        "CPE-b43e51519acd75ba",
+        "CPE-c5eaf64309b71537",
+        "CPE-c7fc4af7bfa4d227",
+        "CPE-ce341c327f28664e",
+        "CPE-f1310d204a9e5666"
+      ],
+      "source_summary": [
+        {
+          "evidence_id": "CPE-0c7c7e1a0fbcacaa",
+          "source_type": "3D_BAG",
+          "assertion": "PRESENT",
+          "method_class": "GEOMETRY_POSITIVE_VALUE",
+          "evidence_status": "PROPOSED",
+          "scope_level": "PAND",
+          "bag_pand_id": "0363100012078022",
+          "snapshot_id": "BAGSNAP-431559474da45dcf",
+          "fields": [
+            "b3_opp_dak_plat"
+          ]
+        },
+        {
+          "evidence_id": "CPE-2d63d0ad7cfe13f7",
+          "source_type": "3D_BAG",
+          "assertion": "PRESENT",
+          "method_class": "GEOMETRY_POSITIVE_VALUE",
+          "evidence_status": "PROPOSED",
+          "scope_level": "PAND",
+          "bag_pand_id": "0363100012140664",
+          "snapshot_id": "BAGSNAP-431559474da45dcf",
+          "fields": [
+            "b3_opp_dak_plat"
+          ]
+        },
+        {
+          "evidence_id": "CPE-48a5977066cf13dd",
+          "source_type": "3D_BAG",
+          "assertion": "PRESENT",
+          "method_class": "GEOMETRY_POSITIVE_VALUE",
+          "evidence_status": "PROPOSED",
+          "scope_level": "PAND",
+          "bag_pand_id": "0363100012141419",
+          "snapshot_id": "BAGSNAP-431559474da45dcf",
+          "fields": [
+            "b3_opp_dak_plat"
+          ]
+        },
+        {
+          "evidence_id": "CPE-613dd11860bb576c",
+          "source_type": "MJOP",
+          "assertion": "PRESENT",
+          "method_class": "SOURCE_EXPLICIT_ELEMENT",
+          "evidence_status": "PROPOSED",
+          "scope_level": "BUILDING_SCOPE",
+          "document_id": "DOC-006",
+          "page": 7,
+          "text_fragment": "4711 Dakbedekking APP Platte dak 425,80m2 1",
+          "element_description_as_reported": "Dakbedekking APP"
+        },
+        {
+          "evidence_id": "CPE-63c1750f7f1538ac",
+          "source_type": "MJOP",
+          "assertion": "PRESENT",
+          "method_class": "SOURCE_EXPLICIT_ELEMENT",
+          "evidence_status": "PROPOSED",
+          "scope_level": "BUILDING_SCOPE",
+          "document_id": "DOC-005",
+          "page": 7,
+          "text_fragment": "4711 Dakbedekking APP Platte dak 425,80m2 3",
+          "element_description_as_reported": "Dakbedekking APP"
+        },
+        {
+          "evidence_id": "CPE-73f667ef1f2a1753",
+          "source_type": "3D_BAG",
+          "assertion": "PRESENT",
+          "method_class": "GEOMETRY_POSITIVE_VALUE",
+          "evidence_status": "PROPOSED",
+          "scope_level": "PAND",
+          "bag_pand_id": "0363100012091756",
+          "snapshot_id": "BAGSNAP-431559474da45dcf",
+          "fields": [
+            "b3_opp_dak_plat"
+          ]
+        },
+        {
+          "evidence_id": "CPE-82ce63e9cbff3197",
+          "source_type": "3D_BAG",
+          "assertion": "PRESENT",
+          "method_class": "GEOMETRY_POSITIVE_VALUE",
+          "evidence_status": "PROPOSED",
+          "scope_level": "PAND",
+          "bag_pand_id": "0363100012070344",
+          "snapshot_id": "BAGSNAP-431559474da45dcf",
+          "fields": [
+            "b3_opp_dak_plat"
+          ]
+        },
+        {
+          "evidence_id": "CPE-884878fa746229d7",
+          "source_type": "3D_BAG",
+          "assertion": "PRESENT",
+          "method_class": "GEOMETRY_POSITIVE_VALUE",
+          "evidence_status": "PROPOSED",
+          "scope_level": "PAND",
+          "bag_pand_id": "0363100012127361",
+          "snapshot_id": "BAGSNAP-431559474da45dcf",
+          "fields": [
+            "b3_opp_dak_plat"
+          ]
+        },
+        {
+          "evidence_id": "CPE-920efa171dfb6401",
+          "source_type": "3D_BAG",
+          "assertion": "PRESENT",
+          "method_class": "GEOMETRY_POSITIVE_VALUE",
+          "evidence_status": "PROPOSED",
+          "scope_level": "PAND",
+          "bag_pand_id": "0363100012121455",
+          "snapshot_id": "BAGSNAP-431559474da45dcf",
+          "fields": [
+            "b3_opp_dak_plat"
+          ]
+        },
+        {
+          "evidence_id": "CPE-965a6f0cf610b76b",
+          "source_type": "3D_BAG",
+          "assertion": "PRESENT",
+          "method_class": "GEOMETRY_POSITIVE_VALUE",
+          "evidence_status": "PROPOSED",
+          "scope_level": "PAND",
+          "bag_pand_id": "0363100012143647",
+          "snapshot_id": "BAGSNAP-431559474da45dcf",
+          "fields": [
+            "b3_opp_dak_plat"
+          ]
+        },
+        {
+          "evidence_id": "CPE-96d3126609c0ad9d",
+          "source_type": "3D_BAG",
+          "assertion": "PRESENT",
+          "method_class": "GEOMETRY_POSITIVE_VALUE",
+          "evidence_status": "PROPOSED",
+          "scope_level": "PAND",
+          "bag_pand_id": "0363100012102659",
+          "snapshot_id": "BAGSNAP-431559474da45dcf",
+          "fields": [
+            "b3_opp_dak_plat"
+          ]
+        },
+        {
+          "evidence_id": "CPE-acf46a4df6cb5347",
+          "source_type": "3D_BAG",
+          "assertion": "PRESENT",
+          "method_class": "GEOMETRY_POSITIVE_VALUE",
+          "evidence_status": "PROPOSED",
+          "scope_level": "PAND",
+          "bag_pand_id": "0363100012107492",
+          "snapshot_id": "BAGSNAP-431559474da45dcf",
+          "fields": [
+            "b3_opp_dak_plat"
+          ]
+        },
+        {
+          "evidence_id": "CPE-b43e51519acd75ba",
+          "source_type": "3D_BAG",
+          "assertion": "PRESENT",
+          "method_class": "GEOMETRY_POSITIVE_VALUE",
+          "evidence_status": "PROPOSED",
+          "scope_level": "PAND",
+          "bag_pand_id": "0363100012144766",
+          "snapshot_id": "BAGSNAP-431559474da45dcf",
+          "fields": [
+            "b3_opp_dak_plat"
+          ]
+        },
+        {
+          "evidence_id": "CPE-c5eaf64309b71537",
+          "source_type": "3D_BAG",
+          "assertion": "PRESENT",
+          "method_class": "GEOMETRY_POSITIVE_VALUE",
+          "evidence_status": "PROPOSED",
+          "scope_level": "PAND",
+          "bag_pand_id": "0363100012071880",
+          "snapshot_id": "BAGSNAP-431559474da45dcf",
+          "fields": [
+            "b3_opp_dak_plat"
+          ]
+        },
+        {
+          "evidence_id": "CPE-c7fc4af7bfa4d227",
+          "source_type": "3D_BAG",
+          "assertion": "PRESENT",
+          "method_class": "GEOMETRY_POSITIVE_VALUE",
+          "evidence_status": "PROPOSED",
+          "scope_level": "PAND",
+          "bag_pand_id": "0363100012091974",
+          "snapshot_id": "BAGSNAP-431559474da45dcf",
+          "fields": [
+            "b3_opp_dak_plat"
+          ]
+        },
+        {
+          "evidence_id": "CPE-ce341c327f28664e",
+          "source_type": "3D_BAG",
+          "assertion": "PRESENT",
+          "method_class": "GEOMETRY_POSITIVE_VALUE",
+          "evidence_status": "PROPOSED",
+          "scope_level": "PAND",
+          "bag_pand_id": "0363100012134188",
+          "snapshot_id": "BAGSNAP-431559474da45dcf",
+          "fields": [
+            "b3_opp_dak_plat"
+          ]
+        },
+        {
+          "evidence_id": "CPE-f1310d204a9e5666",
+          "source_type": "3D_BAG",
+          "assertion": "PRESENT",
+          "method_class": "GEOMETRY_POSITIVE_VALUE",
+          "evidence_status": "PROPOSED",
+          "scope_level": "PAND",
+          "bag_pand_id": "0363100012137996",
+          "snapshot_id": "BAGSNAP-431559474da45dcf",
+          "fields": [
+            "b3_opp_dak_plat"
+          ]
+        }
+      ],
+      "material_as_reported": null,
+      "materials_as_reported": [],
+      "material_basis": null,
+      "scope_building_id": "BAG:0363100012070344+0363100012071880+0363100012078022+0363100012091756+0363100012091974+0363100012102659+0363100012107492+0363100012121455+0363100012127361+0363100012134188+0363100012137996+0363100012140664+0363100012141419+0363100012143647+0363100012144766",
+      "last_reviewed": {
+        "state": "NOT_REVIEWED"
+      },
+      "notes": []
+    },
+    {
+      "component_type": "ROOF_SLOPED_COVERING",
+      "label_nl": "Dakbedekking hellend dak",
+      "status": "PRESENT",
+      "presence_basis": "SOURCE_EVIDENCE_NOT_CONFIRMED",
+      "user_confirmed": false,
+      "decision_ref": null,
+      "evidence_refs": [
+        "CPE-0b73001ef8f3c717",
+        "CPE-1c2b1db6611adc7c",
+        "CPE-2cc180daef08d9ff",
+        "CPE-324dc6837c2f5df4",
+        "CPE-6c3980aeec1b8414",
+        "CPE-79044a7317988d3c",
+        "CPE-7bc20fe0a3c6c238",
+        "CPE-8f9e73f429beafc0",
+        "CPE-a6d2bc3a913c585b",
+        "CPE-bc0830c5488cc5ad",
+        "CPE-cb7dc21b306d989f",
+        "CPE-cd3c9a579b2fa199",
+        "CPE-cfd7beaf00f3eb34",
+        "CPE-d25e14f34013f230",
+        "CPE-d29dfbc41e821188",
+        "CPE-d8697ea35eb82f2f",
+        "CPE-e28d64e971dcff6d"
+      ],
+      "source_summary": [
+        {
+          "evidence_id": "CPE-0b73001ef8f3c717",
+          "source_type": "3D_BAG",
+          "assertion": "PRESENT",
+          "method_class": "GEOMETRY_POSITIVE_VALUE",
+          "evidence_status": "PROPOSED",
+          "scope_level": "PAND",
+          "bag_pand_id": "0363100012102659",
+          "snapshot_id": "BAGSNAP-431559474da45dcf",
+          "fields": [
+            "b3_opp_dak_schuin"
+          ]
+        },
+        {
+          "evidence_id": "CPE-1c2b1db6611adc7c",
+          "source_type": "MJOP",
+          "assertion": "PRESENT",
+          "method_class": "SOURCE_EXPLICIT_ELEMENT",
+          "evidence_status": "PROPOSED",
+          "scope_level": "BUILDING_SCOPE",
+          "document_id": "DOC-005",
+          "page": 7,
+          "text_fragment": "4712 Dakpan beton Hellend dak 1485,60m2 3",
+          "element_description_as_reported": "Dakpan beton"
+        },
+        {
+          "evidence_id": "CPE-2cc180daef08d9ff",
+          "source_type": "3D_BAG",
+          "assertion": "PRESENT",
+          "method_class": "GEOMETRY_POSITIVE_VALUE",
+          "evidence_status": "PROPOSED",
+          "scope_level": "PAND",
+          "bag_pand_id": "0363100012107492",
+          "snapshot_id": "BAGSNAP-431559474da45dcf",
+          "fields": [
+            "b3_opp_dak_schuin"
+          ]
+        },
+        {
+          "evidence_id": "CPE-324dc6837c2f5df4",
+          "source_type": "3D_BAG",
+          "assertion": "PRESENT",
+          "method_class": "GEOMETRY_POSITIVE_VALUE",
+          "evidence_status": "PROPOSED",
+          "scope_level": "PAND",
+          "bag_pand_id": "0363100012140664",
+          "snapshot_id": "BAGSNAP-431559474da45dcf",
+          "fields": [
+            "b3_opp_dak_schuin"
+          ]
+        },
+        {
+          "evidence_id": "CPE-6c3980aeec1b8414",
+          "source_type": "3D_BAG",
+          "assertion": "PRESENT",
+          "method_class": "GEOMETRY_POSITIVE_VALUE",
+          "evidence_status": "PROPOSED",
+          "scope_level": "PAND",
+          "bag_pand_id": "0363100012091756",
+          "snapshot_id": "BAGSNAP-431559474da45dcf",
+          "fields": [
+            "b3_opp_dak_schuin"
+          ]
+        },
+        {
+          "evidence_id": "CPE-79044a7317988d3c",
+          "source_type": "3D_BAG",
+          "assertion": "PRESENT",
+          "method_class": "GEOMETRY_POSITIVE_VALUE",
+          "evidence_status": "PROPOSED",
+          "scope_level": "PAND",
+          "bag_pand_id": "0363100012143647",
+          "snapshot_id": "BAGSNAP-431559474da45dcf",
+          "fields": [
+            "b3_opp_dak_schuin"
+          ]
+        },
+        {
+          "evidence_id": "CPE-7bc20fe0a3c6c238",
+          "source_type": "3D_BAG",
+          "assertion": "PRESENT",
+          "method_class": "GEOMETRY_POSITIVE_VALUE",
+          "evidence_status": "PROPOSED",
+          "scope_level": "PAND",
+          "bag_pand_id": "0363100012078022",
+          "snapshot_id": "BAGSNAP-431559474da45dcf",
+          "fields": [
+            "b3_opp_dak_schuin"
+          ]
+        },
+        {
+          "evidence_id": "CPE-8f9e73f429beafc0",
+          "source_type": "MJOP",
+          "assertion": "PRESENT",
+          "method_class": "SOURCE_EXPLICIT_ELEMENT",
+          "evidence_status": "PROPOSED",
+          "scope_level": "BUILDING_SCOPE",
+          "document_id": "DOC-006",
+          "page": 7,
+          "text_fragment": "4712 Dakpan beton Hellend dak 1485,60m2 1",
+          "element_description_as_reported": "Dakpan beton"
+        },
+        {
+          "evidence_id": "CPE-a6d2bc3a913c585b",
+          "source_type": "3D_BAG",
+          "assertion": "PRESENT",
+          "method_class": "GEOMETRY_POSITIVE_VALUE",
+          "evidence_status": "PROPOSED",
+          "scope_level": "PAND",
+          "bag_pand_id": "0363100012091974",
+          "snapshot_id": "BAGSNAP-431559474da45dcf",
+          "fields": [
+            "b3_opp_dak_schuin"
+          ]
+        },
+        {
+          "evidence_id": "CPE-bc0830c5488cc5ad",
+          "source_type": "3D_BAG",
+          "assertion": "PRESENT",
+          "method_class": "GEOMETRY_POSITIVE_VALUE",
+          "evidence_status": "PROPOSED",
+          "scope_level": "PAND",
+          "bag_pand_id": "0363100012070344",
+          "snapshot_id": "BAGSNAP-431559474da45dcf",
+          "fields": [
+            "b3_opp_dak_schuin"
+          ]
+        },
+        {
+          "evidence_id": "CPE-cb7dc21b306d989f",
+          "source_type": "3D_BAG",
+          "assertion": "PRESENT",
+          "method_class": "GEOMETRY_POSITIVE_VALUE",
+          "evidence_status": "PROPOSED",
+          "scope_level": "PAND",
+          "bag_pand_id": "0363100012127361",
+          "snapshot_id": "BAGSNAP-431559474da45dcf",
+          "fields": [
+            "b3_opp_dak_schuin"
+          ]
+        },
+        {
+          "evidence_id": "CPE-cd3c9a579b2fa199",
+          "source_type": "3D_BAG",
+          "assertion": "PRESENT",
+          "method_class": "GEOMETRY_POSITIVE_VALUE",
+          "evidence_status": "PROPOSED",
+          "scope_level": "PAND",
+          "bag_pand_id": "0363100012121455",
+          "snapshot_id": "BAGSNAP-431559474da45dcf",
+          "fields": [
+            "b3_opp_dak_schuin"
+          ]
+        },
+        {
+          "evidence_id": "CPE-cfd7beaf00f3eb34",
+          "source_type": "3D_BAG",
+          "assertion": "PRESENT",
+          "method_class": "GEOMETRY_POSITIVE_VALUE",
+          "evidence_status": "PROPOSED",
+          "scope_level": "PAND",
+          "bag_pand_id": "0363100012071880",
+          "snapshot_id": "BAGSNAP-431559474da45dcf",
+          "fields": [
+            "b3_opp_dak_schuin"
+          ]
+        },
+        {
+          "evidence_id": "CPE-d25e14f34013f230",
+          "source_type": "3D_BAG",
+          "assertion": "PRESENT",
+          "method_class": "GEOMETRY_POSITIVE_VALUE",
+          "evidence_status": "PROPOSED",
+          "scope_level": "PAND",
+          "bag_pand_id": "0363100012134188",
+          "snapshot_id": "BAGSNAP-431559474da45dcf",
+          "fields": [
+            "b3_opp_dak_schuin"
+          ]
+        },
+        {
+          "evidence_id": "CPE-d29dfbc41e821188",
+          "source_type": "3D_BAG",
+          "assertion": "PRESENT",
+          "method_class": "GEOMETRY_POSITIVE_VALUE",
+          "evidence_status": "PROPOSED",
+          "scope_level": "PAND",
+          "bag_pand_id": "0363100012137996",
+          "snapshot_id": "BAGSNAP-431559474da45dcf",
+          "fields": [
+            "b3_opp_dak_schuin"
+          ]
+        },
+        {
+          "evidence_id": "CPE-d8697ea35eb82f2f",
+          "source_type": "3D_BAG",
+          "assertion": "PRESENT",
+          "method_class": "GEOMETRY_POSITIVE_VALUE",
+          "evidence_status": "PROPOSED",
+          "scope_level": "PAND",
+          "bag_pand_id": "0363100012144766",
+          "snapshot_id": "BAGSNAP-431559474da45dcf",
+          "fields": [
+            "b3_opp_dak_schuin"
+          ]
+        },
+        {
+          "evidence_id": "CPE-e28d64e971dcff6d",
+          "source_type": "3D_BAG",
+          "assertion": "PRESENT",
+          "method_class": "GEOMETRY_POSITIVE_VALUE",
+          "evidence_status": "PROPOSED",
+          "scope_level": "PAND",
+          "bag_pand_id": "0363100012141419",
+          "snapshot_id": "BAGSNAP-431559474da45dcf",
+          "fields": [
+            "b3_opp_dak_schuin"
+          ]
+        }
+      ],
+      "material_as_reported": null,
+      "materials_as_reported": [],
+      "material_basis": null,
+      "scope_building_id": "BAG:0363100012070344+0363100012071880+0363100012078022+0363100012091756+0363100012091974+0363100012102659+0363100012107492+0363100012121455+0363100012127361+0363100012134188+0363100012137996+0363100012140664+0363100012141419+0363100012143647+0363100012144766",
+      "last_reviewed": {
+        "state": "NOT_REVIEWED"
+      },
+      "notes": []
+    },
+    {
+      "component_type": "RAINWATER_DRAINAGE",
+      "label_nl": "Hemelwaterafvoer (goten en afvoeren)",
+      "status": "PRESENT",
+      "presence_basis": "SOURCE_EVIDENCE_NOT_CONFIRMED",
+      "user_confirmed": false,
+      "decision_ref": null,
+      "evidence_refs": [
+        "CPE-0724217c85000458",
+        "CPE-3ee9bb519ab784a8",
+        "CPE-551c8ad16137c4c8",
+        "CPE-61ef7b3c1a28a44d",
+        "CPE-6e7ce6d8f00f0a19",
+        "CPE-c1af0f2acc3b9550"
+      ],
+      "source_summary": [
+        {
+          "evidence_id": "CPE-0724217c85000458",
+          "source_type": "MJOP",
+          "assertion": "PRESENT",
+          "method_class": "SOURCE_EXPLICIT_ELEMENT",
+          "evidence_status": "PROPOSED",
+          "scope_level": "BUILDING_SCOPE",
+          "document_id": "DOC-006",
+          "page": 6,
+          "text_fragment": "2716 Dakgoot zink Alle gevels 165,80m1 1",
+          "element_description_as_reported": "Dakgoot zink"
+        },
+        {
+          "evidence_id": "CPE-3ee9bb519ab784a8",
+          "source_type": "MJOP",
+          "assertion": "PRESENT",
+          "method_class": "SOURCE_EXPLICIT_ELEMENT",
+          "evidence_status": "PROPOSED",
+          "scope_level": "BUILDING_SCOPE",
+          "document_id": "DOC-005",
+          "page": 7,
+          "text_fragment": "5211 Hemelwaterafvoer staal Alle gevels 41,40m1 2",
+          "element_description_as_reported": "Hemelwaterafvoer staal"
+        },
+        {
+          "evidence_id": "CPE-551c8ad16137c4c8",
+          "source_type": "MJOP",
+          "assertion": "PRESENT",
+          "method_class": "SOURCE_EXPLICIT_ELEMENT",
+          "evidence_status": "PROPOSED",
+          "scope_level": "BUILDING_SCOPE",
+          "document_id": "DOC-006",
+          "page": 7,
+          "text_fragment": "5211 Hemelwaterafvoer pvc Alle gevels 91,60m1 1",
+          "element_description_as_reported": "Hemelwaterafvoer pvc"
+        },
+        {
+          "evidence_id": "CPE-61ef7b3c1a28a44d",
+          "source_type": "MJOP",
+          "assertion": "PRESENT",
+          "method_class": "SOURCE_EXPLICIT_ELEMENT",
+          "evidence_status": "PROPOSED",
+          "scope_level": "BUILDING_SCOPE",
+          "document_id": "DOC-006",
+          "page": 7,
+          "text_fragment": "5211 Hemelwaterafvoer staal Alle gevels 41,40m1 1",
+          "element_description_as_reported": "Hemelwaterafvoer staal"
+        },
+        {
+          "evidence_id": "CPE-6e7ce6d8f00f0a19",
+          "source_type": "MJOP",
+          "assertion": "PRESENT",
+          "method_class": "SOURCE_EXPLICIT_ELEMENT",
+          "evidence_status": "PROPOSED",
+          "scope_level": "BUILDING_SCOPE",
+          "document_id": "DOC-005",
+          "page": 7,
+          "text_fragment": "5211 Hemelwaterafvoer pvc Alle gevels 91,60m1 3",
+          "element_description_as_reported": "Hemelwaterafvoer pvc"
+        },
+        {
+          "evidence_id": "CPE-c1af0f2acc3b9550",
+          "source_type": "MJOP",
+          "assertion": "PRESENT",
+          "method_class": "SOURCE_EXPLICIT_ELEMENT",
+          "evidence_status": "PROPOSED",
+          "scope_level": "BUILDING_SCOPE",
+          "document_id": "DOC-005",
+          "page": 6,
+          "text_fragment": "2716 Dakgoot zink Alle gevels 165,80m1 2",
+          "element_description_as_reported": "Dakgoot zink"
+        }
+      ],
+      "material_as_reported": null,
+      "materials_as_reported": [
+        "pvc",
+        "staal",
+        "zink"
+      ],
+      "material_basis": "SOURCE_REPORTED_BUILDING_LEVEL",
+      "scope_building_id": "BAG:0363100012070344+0363100012071880+0363100012078022+0363100012091756+0363100012091974+0363100012102659+0363100012107492+0363100012121455+0363100012127361+0363100012134188+0363100012137996+0363100012140664+0363100012141419+0363100012143647+0363100012144766",
+      "last_reviewed": {
+        "state": "NOT_REVIEWED"
+      },
+      "notes": []
+    },
+    {
+      "component_type": "FACADE_MASONRY",
+      "label_nl": "Gevel metselwerk",
+      "status": "PRESENT",
+      "presence_basis": "SOURCE_EVIDENCE_NOT_CONFIRMED",
+      "user_confirmed": false,
+      "decision_ref": null,
+      "evidence_refs": [
+        "CPE-00f510a05212c582",
+        "CPE-0f5d46f82dd03f21"
+      ],
+      "source_summary": [
+        {
+          "evidence_id": "CPE-00f510a05212c582",
+          "source_type": "MJOP",
+          "assertion": "PRESENT",
+          "method_class": "SOURCE_EXPLICIT_ELEMENT",
+          "evidence_status": "PROPOSED",
+          "scope_level": "BUILDING_SCOPE",
+          "document_id": "DOC-005",
+          "page": 6,
+          "text_fragment": "2110 Gevelconstructie metselwerk Alle gevels 1631,90m2 2",
+          "element_description_as_reported": "Gevelconstructie metselwerk"
+        },
+        {
+          "evidence_id": "CPE-0f5d46f82dd03f21",
+          "source_type": "MJOP",
+          "assertion": "PRESENT",
+          "method_class": "SOURCE_EXPLICIT_ELEMENT",
+          "evidence_status": "PROPOSED",
+          "scope_level": "BUILDING_SCOPE",
+          "document_id": "DOC-006",
+          "page": 6,
+          "text_fragment": "2110 Gevelconstructie metselwerk Alle gevels 1631,90m2 1",
+          "element_description_as_reported": "Gevelconstructie metselwerk"
+        }
+      ],
+      "material_as_reported": "metselwerk",
+      "materials_as_reported": [
+        "metselwerk"
+      ],
+      "material_basis": "SOURCE_REPORTED_BUILDING_LEVEL",
+      "scope_building_id": "BAG:0363100012070344+0363100012071880+0363100012078022+0363100012091756+0363100012091974+0363100012102659+0363100012107492+0363100012121455+0363100012127361+0363100012134188+0363100012137996+0363100012140664+0363100012141419+0363100012143647+0363100012144766",
+      "last_reviewed": {
+        "state": "NOT_REVIEWED"
+      },
+      "notes": []
+    },
+    {
+      "component_type": "FACADE_CLADDING",
+      "label_nl": "Gevelbekleding",
+      "status": "PRESENT",
+      "presence_basis": "SOURCE_EVIDENCE_NOT_CONFIRMED",
+      "user_confirmed": false,
+      "decision_ref": null,
+      "evidence_refs": [
+        "CPE-8b33a580e6622fca",
+        "CPE-ebc86b07313399fa"
+      ],
+      "source_summary": [
+        {
+          "evidence_id": "CPE-8b33a580e6622fca",
+          "source_type": "MJOP",
+          "assertion": "PRESENT",
+          "method_class": "SOURCE_EXPLICIT_ELEMENT",
+          "evidence_status": "PROPOSED",
+          "scope_level": "BUILDING_SCOPE",
+          "document_id": "DOC-006",
+          "page": 6,
+          "text_fragment": "4112 Gevelbekleding hout Voorgevel - gevelbekleding 332,00m2 1",
+          "element_description_as_reported": "Gevelbekleding hout"
+        },
+        {
+          "evidence_id": "CPE-ebc86b07313399fa",
+          "source_type": "MJOP",
+          "assertion": "PRESENT",
+          "method_class": "SOURCE_EXPLICIT_ELEMENT",
+          "evidence_status": "PROPOSED",
+          "scope_level": "BUILDING_SCOPE",
+          "document_id": "DOC-005",
+          "page": 6,
+          "text_fragment": "4112 Gevelbekleding hout Voorgevel - gevelbekleding 332,00m2 1",
+          "element_description_as_reported": "Gevelbekleding hout"
+        }
+      ],
+      "material_as_reported": "hout",
+      "materials_as_reported": [
+        "hout"
+      ],
+      "material_basis": "SOURCE_REPORTED_BUILDING_LEVEL",
+      "scope_building_id": "BAG:0363100012070344+0363100012071880+0363100012078022+0363100012091756+0363100012091974+0363100012102659+0363100012107492+0363100012121455+0363100012127361+0363100012134188+0363100012137996+0363100012140664+0363100012141419+0363100012143647+0363100012144766",
+      "last_reviewed": {
+        "state": "NOT_REVIEWED"
+      },
+      "notes": []
+    },
+    {
+      "component_type": "EXTERIOR_FRAME",
+      "label_nl": "Buitenkozijn",
+      "status": "PRESENT",
+      "presence_basis": "HUMAN_DECISION",
+      "user_confirmed": false,
+      "decision_ref": "CPD-00001",
+      "evidence_refs": [
+        "CPE-1887622943b3d8bb",
+        "CPE-747f24497e7b23d4"
+      ],
+      "source_summary": [
+        {
+          "evidence_id": "CPE-1887622943b3d8bb",
+          "source_type": "MJOP",
+          "assertion": "PRESENT",
+          "method_class": "SOURCE_EXPLICIT_ELEMENT",
+          "evidence_status": "REVIEW_REQUIRED",
+          "scope_level": "BUILDING_SCOPE",
+          "document_id": "DOC-005",
+          "page": 6,
+          "text_fragment": "3120 Kozijn buiten hout Alle gevels 756,80m2 2",
+          "element_description_as_reported": "Kozijn buiten hout"
+        },
+        {
+          "evidence_id": "CPE-747f24497e7b23d4",
+          "source_type": "MJOP",
+          "assertion": "PRESENT",
+          "method_class": "SOURCE_EXPLICIT_ELEMENT",
+          "evidence_status": "PROPOSED",
+          "scope_level": "BUILDING_SCOPE",
+          "document_id": "DOC-006",
+          "page": 6,
+          "text_fragment": "3120 Kozijn buiten hout Alle gevels 756,80m2 1",
+          "element_description_as_reported": "Kozijn buiten hout"
+        }
+      ],
+      "material_as_reported": "hout",
+      "materials_as_reported": [
+        "hout"
+      ],
+      "material_basis": "SOURCE_REPORTED_BUILDING_LEVEL",
+      "scope_building_id": "BAG:0363100012070344+0363100012071880+0363100012078022+0363100012091756+0363100012091974+0363100012102659+0363100012107492+0363100012121455+0363100012127361+0363100012134188+0363100012137996+0363100012140664+0363100012141419+0363100012143647+0363100012144766",
+      "last_reviewed": {
+        "decision_id": "CPD-00001",
+        "reviewed_at": "2026-10-06T08:01:12Z",
+        "reviewer_type": "human",
+        "decision": "PRESENT"
+      },
+      "notes": []
+    },
+    {
+      "component_type": "EXTERIOR_WINDOW",
+      "label_nl": "Buitenraam / beglazing",
+      "status": "UNKNOWN",
+      "presence_basis": "NO_EVIDENCE",
+      "user_confirmed": false,
+      "decision_ref": null,
+      "evidence_refs": [],
+      "source_summary": [],
+      "material_as_reported": null,
+      "materials_as_reported": [],
+      "material_basis": null,
+      "scope_building_id": "BAG:0363100012070344+0363100012071880+0363100012078022+0363100012091756+0363100012091974+0363100012102659+0363100012107492+0363100012121455+0363100012127361+0363100012134188+0363100012137996+0363100012140664+0363100012141419+0363100012143647+0363100012144766",
+      "last_reviewed": {
+        "state": "NOT_REVIEWED"
+      },
+      "notes": [
+        "Geen enkel bewijs; stilte telt niet als afwezigheid."
+      ]
+    },
+    {
+      "component_type": "EXTERIOR_DOOR",
+      "label_nl": "Buitendeur",
+      "status": "UNKNOWN",
+      "presence_basis": "NO_EVIDENCE",
+      "user_confirmed": false,
+      "decision_ref": null,
+      "evidence_refs": [],
+      "source_summary": [],
+      "material_as_reported": null,
+      "materials_as_reported": [],
+      "material_basis": null,
+      "scope_building_id": "BAG:0363100012070344+0363100012071880+0363100012078022+0363100012091756+0363100012091974+0363100012102659+0363100012107492+0363100012121455+0363100012127361+0363100012134188+0363100012137996+0363100012140664+0363100012141419+0363100012143647+0363100012144766",
+      "last_reviewed": {
+        "state": "NOT_REVIEWED"
+      },
+      "notes": [
+        "Geen enkel bewijs; stilte telt niet als afwezigheid."
+      ]
+    },
+    {
+      "component_type": "BALCONY_RAILING",
+      "label_nl": "Balkonhekwerk / balustrade",
+      "status": "PRESENT",
+      "presence_basis": "SOURCE_EVIDENCE_NOT_CONFIRMED",
+      "user_confirmed": false,
+      "decision_ref": null,
+      "evidence_refs": [
+        "CPE-4c8ebc406e1b6249",
+        "CPE-a5c6c2b66f606c72"
+      ],
+      "source_summary": [
+        {
+          "evidence_id": "CPE-4c8ebc406e1b6249",
+          "source_type": "MJOP",
+          "assertion": "PRESENT",
+          "method_class": "SOURCE_EXPLICIT_ELEMENT",
+          "evidence_status": "PROPOSED",
+          "scope_level": "BUILDING_SCOPE",
+          "document_id": "DOC-006",
+          "page": 6,
+          "text_fragment": "3410 Balustrade staal Achtergevel - balkons 20,00m1 1",
+          "element_description_as_reported": "Balustrade staal"
+        },
+        {
+          "evidence_id": "CPE-a5c6c2b66f606c72",
+          "source_type": "MJOP",
+          "assertion": "PRESENT",
+          "method_class": "SOURCE_EXPLICIT_ELEMENT",
+          "evidence_status": "PROPOSED",
+          "scope_level": "BUILDING_SCOPE",
+          "document_id": "DOC-005",
+          "page": 6,
+          "text_fragment": "3410 Balustrade staal Achtergevel - balkons 20,00m1 2",
+          "element_description_as_reported": "Balustrade staal"
+        }
+      ],
+      "material_as_reported": "staal",
+      "materials_as_reported": [
+        "staal"
+      ],
+      "material_basis": "SOURCE_REPORTED_BUILDING_LEVEL",
+      "scope_building_id": "BAG:0363100012070344+0363100012071880+0363100012078022+0363100012091756+0363100012091974+0363100012102659+0363100012107492+0363100012121455+0363100012127361+0363100012134188+0363100012137996+0363100012140664+0363100012141419+0363100012143647+0363100012144766",
+      "last_reviewed": {
+        "state": "NOT_REVIEWED"
+      },
+      "notes": []
+    },
+    {
+      "component_type": "LIFT_INSTALLATION",
+      "label_nl": "Liftinstallatie",
+      "status": "UNKNOWN",
+      "presence_basis": "NO_EVIDENCE",
+      "user_confirmed": false,
+      "decision_ref": null,
+      "evidence_refs": [],
+      "source_summary": [],
+      "material_as_reported": null,
+      "materials_as_reported": [],
+      "material_basis": null,
+      "scope_building_id": "BAG:0363100012070344+0363100012071880+0363100012078022+0363100012091756+0363100012091974+0363100012102659+0363100012107492+0363100012121455+0363100012127361+0363100012134188+0363100012137996+0363100012140664+0363100012141419+0363100012143647+0363100012144766",
+      "last_reviewed": {
+        "state": "NOT_REVIEWED"
+      },
+      "notes": [
+        "Geen enkel bewijs; stilte telt niet als afwezigheid."
+      ]
+    },
+    {
+      "component_type": "INTERCOM_INSTALLATION",
+      "label_nl": "Intercom-/video-deuropener-installatie",
+      "status": "UNKNOWN",
+      "presence_basis": "NO_EVIDENCE",
+      "user_confirmed": false,
+      "decision_ref": null,
+      "evidence_refs": [],
+      "source_summary": [],
+      "material_as_reported": null,
+      "materials_as_reported": [],
+      "material_basis": null,
+      "scope_building_id": "BAG:0363100012070344+0363100012071880+0363100012078022+0363100012091756+0363100012091974+0363100012102659+0363100012107492+0363100012121455+0363100012127361+0363100012134188+0363100012137996+0363100012140664+0363100012141419+0363100012143647+0363100012144766",
+      "last_reviewed": {
+        "state": "NOT_REVIEWED"
+      },
+      "notes": [
+        "Geen enkel bewijs; stilte telt niet als afwezigheid."
+      ]
+    },
+    {
+      "component_type": "VENTILATION_INSTALLATION",
+      "label_nl": "Ventilatie-installatie (mechanisch)",
+      "status": "UNKNOWN",
+      "presence_basis": "NO_EVIDENCE",
+      "user_confirmed": false,
+      "decision_ref": null,
+      "evidence_refs": [],
+      "source_summary": [],
+      "material_as_reported": null,
+      "materials_as_reported": [],
+      "material_basis": null,
+      "scope_building_id": "BAG:0363100012070344+0363100012071880+0363100012078022+0363100012091756+0363100012091974+0363100012102659+0363100012107492+0363100012121455+0363100012127361+0363100012134188+0363100012137996+0363100012140664+0363100012141419+0363100012143647+0363100012144766",
+      "last_reviewed": {
+        "state": "NOT_REVIEWED"
+      },
+      "notes": [
+        "Geen enkel bewijs; stilte telt niet als afwezigheid."
+      ]
+    },
+    {
+      "component_type": "COMMON_ELECTRICAL_INSTALLATION",
+      "label_nl": "Elektrische installatie gemeenschappelijk",
+      "status": "UNKNOWN",
+      "presence_basis": "NO_EVIDENCE",
+      "user_confirmed": false,
+      "decision_ref": null,
+      "evidence_refs": [],
+      "source_summary": [],
+      "material_as_reported": null,
+      "materials_as_reported": [],
+      "material_basis": null,
+      "scope_building_id": "BAG:0363100012070344+0363100012071880+0363100012078022+0363100012091756+0363100012091974+0363100012102659+0363100012107492+0363100012121455+0363100012127361+0363100012134188+0363100012137996+0363100012140664+0363100012141419+0363100012143647+0363100012144766",
+      "last_reviewed": {
+        "state": "NOT_REVIEWED"
+      },
+      "notes": [
+        "Geen enkel bewijs; stilte telt niet als afwezigheid."
+      ]
+    },
+    {
+      "component_type": "COMMON_LIGHTING",
+      "label_nl": "Verlichting gemeenschappelijke ruimten/buiten",
+      "status": "PRESENT",
+      "presence_basis": "SOURCE_EVIDENCE_NOT_CONFIRMED",
+      "user_confirmed": false,
+      "decision_ref": null,
+      "evidence_refs": [
+        "CPE-41d1a4a52a0654bf",
+        "CPE-abee7bed2303ed8a"
+      ],
+      "source_summary": [
+        {
+          "evidence_id": "CPE-41d1a4a52a0654bf",
+          "source_type": "MJOP",
+          "assertion": "PRESENT",
+          "method_class": "SOURCE_EXPLICIT_ELEMENT_WITH_INFERENCE",
+          "evidence_status": "REVIEW_REQUIRED",
+          "scope_level": "BUILDING_SCOPE",
+          "document_id": "DOC-006",
+          "page": 7,
+          "text_fragment": "6311 Elektra armaturen buiten LED Voorgevel - trappenhuizen 1,00 st 1",
+          "element_description_as_reported": "Elektra armaturen buiten LED"
+        },
+        {
+          "evidence_id": "CPE-abee7bed2303ed8a",
+          "source_type": "MJOP",
+          "assertion": "PRESENT",
+          "method_class": "SOURCE_EXPLICIT_ELEMENT_WITH_INFERENCE",
+          "evidence_status": "REVIEW_REQUIRED",
+          "scope_level": "BUILDING_SCOPE",
+          "document_id": "DOC-005",
+          "page": 7,
+          "text_fragment": "6311 Elektra armaturen buiten LED Voorgevel - trappenhuizen 1,00st 1",
+          "element_description_as_reported": "Elektra armaturen buiten LED"
+        }
+      ],
+      "material_as_reported": null,
+      "materials_as_reported": [],
+      "material_basis": null,
+      "scope_building_id": "BAG:0363100012070344+0363100012071880+0363100012078022+0363100012091756+0363100012091974+0363100012102659+0363100012107492+0363100012121455+0363100012127361+0363100012134188+0363100012137996+0363100012140664+0363100012141419+0363100012143647+0363100012144766",
+      "last_reviewed": {
+        "state": "NOT_REVIEWED"
+      },
+      "notes": []
+    },
+    {
+      "component_type": "COMMON_WATER_INSTALLATION",
+      "label_nl": "Waterinstallatie gemeenschappelijk",
+      "status": "UNKNOWN",
+      "presence_basis": "NO_EVIDENCE",
+      "user_confirmed": false,
+      "decision_ref": null,
+      "evidence_refs": [],
+      "source_summary": [],
+      "material_as_reported": null,
+      "materials_as_reported": [],
+      "material_basis": null,
+      "scope_building_id": "BAG:0363100012070344+0363100012071880+0363100012078022+0363100012091756+0363100012091974+0363100012102659+0363100012107492+0363100012121455+0363100012127361+0363100012134188+0363100012137996+0363100012140664+0363100012141419+0363100012143647+0363100012144766",
+      "last_reviewed": {
+        "state": "NOT_REVIEWED"
+      },
+      "notes": [
+        "Geen enkel bewijs; stilte telt niet als afwezigheid."
+      ]
+    },
+    {
+      "component_type": "SEWERAGE_DRAINAGE_INTERNAL",
+      "label_nl": "Binnenriolering",
+      "status": "UNKNOWN",
+      "presence_basis": "NO_EVIDENCE",
+      "user_confirmed": false,
+      "decision_ref": null,
+      "evidence_refs": [],
+      "source_summary": [],
+      "material_as_reported": null,
+      "materials_as_reported": [],
+      "material_basis": null,
+      "scope_building_id": "BAG:0363100012070344+0363100012071880+0363100012078022+0363100012091756+0363100012091974+0363100012102659+0363100012107492+0363100012121455+0363100012127361+0363100012134188+0363100012137996+0363100012140664+0363100012141419+0363100012143647+0363100012144766",
+      "last_reviewed": {
+        "state": "NOT_REVIEWED"
+      },
+      "notes": [
+        "Geen enkel bewijs; stilte telt niet als afwezigheid."
+      ]
+    },
+    {
+      "component_type": "COLLECTIVE_HEATING_INSTALLATION",
+      "label_nl": "Collectieve verwarmingsinstallatie",
+      "status": "UNKNOWN",
+      "presence_basis": "NO_EVIDENCE",
+      "user_confirmed": false,
+      "decision_ref": null,
+      "evidence_refs": [],
+      "source_summary": [],
+      "material_as_reported": null,
+      "materials_as_reported": [],
+      "material_basis": null,
+      "scope_building_id": "BAG:0363100012070344+0363100012071880+0363100012078022+0363100012091756+0363100012091974+0363100012102659+0363100012107492+0363100012121455+0363100012127361+0363100012134188+0363100012137996+0363100012140664+0363100012141419+0363100012143647+0363100012144766",
+      "last_reviewed": {
+        "state": "NOT_REVIEWED"
+      },
+      "notes": [
+        "Geen enkel bewijs; stilte telt niet als afwezigheid."
+      ]
+    },
+    {
+      "component_type": "FIRE_SAFETY_INSTALLATION",
+      "label_nl": "Brandveiligheidsvoorzieningen",
+      "status": "UNKNOWN",
+      "presence_basis": "NO_EVIDENCE",
+      "user_confirmed": false,
+      "decision_ref": null,
+      "evidence_refs": [],
+      "source_summary": [],
+      "material_as_reported": null,
+      "materials_as_reported": [],
+      "material_basis": null,
+      "scope_building_id": "BAG:0363100012070344+0363100012071880+0363100012078022+0363100012091756+0363100012091974+0363100012102659+0363100012107492+0363100012121455+0363100012127361+0363100012134188+0363100012137996+0363100012140664+0363100012141419+0363100012143647+0363100012144766",
+      "last_reviewed": {
+        "state": "NOT_REVIEWED"
+      },
+      "notes": [
+        "Geen enkel bewijs; stilte telt niet als afwezigheid."
+      ]
+    },
+    {
+      "component_type": "COMMON_STAIRWELL_ENTRANCE",
+      "label_nl": "Trappenhuis en entree",
+      "status": "UNKNOWN",
+      "presence_basis": "NO_EVIDENCE",
+      "user_confirmed": false,
+      "decision_ref": null,
+      "evidence_refs": [],
+      "source_summary": [],
+      "material_as_reported": null,
+      "materials_as_reported": [],
+      "material_basis": null,
+      "scope_building_id": "BAG:0363100012070344+0363100012071880+0363100012078022+0363100012091756+0363100012091974+0363100012102659+0363100012107492+0363100012121455+0363100012127361+0363100012134188+0363100012137996+0363100012140664+0363100012141419+0363100012143647+0363100012144766",
+      "last_reviewed": {
+        "state": "NOT_REVIEWED"
+      },
+      "notes": [
+        "Geen enkel bewijs; stilte telt niet als afwezigheid."
+      ]
+    },
+    {
+      "component_type": "COMMON_FLOOR_FINISH",
+      "label_nl": "Vloerafwerking gemeenschappelijke ruimten",
+      "status": "UNKNOWN",
+      "presence_basis": "NO_EVIDENCE",
+      "user_confirmed": false,
+      "decision_ref": null,
+      "evidence_refs": [],
+      "source_summary": [],
+      "material_as_reported": null,
+      "materials_as_reported": [],
+      "material_basis": null,
+      "scope_building_id": "BAG:0363100012070344+0363100012071880+0363100012078022+0363100012091756+0363100012091974+0363100012102659+0363100012107492+0363100012121455+0363100012127361+0363100012134188+0363100012137996+0363100012140664+0363100012141419+0363100012143647+0363100012144766",
+      "last_reviewed": {
+        "state": "NOT_REVIEWED"
+      },
+      "notes": [
+        "Geen enkel bewijs; stilte telt niet als afwezigheid."
+      ]
+    },
+    {
+      "component_type": "SITE_PAVING",
+      "label_nl": "Bestrating/terreinverharding",
+      "status": "PRESENT",
+      "presence_basis": "SOURCE_EVIDENCE_NOT_CONFIRMED",
+      "user_confirmed": false,
+      "decision_ref": null,
+      "evidence_refs": [
+        "CPE-68e58c7c09bcb9d0",
+        "CPE-864018717f71d676"
+      ],
+      "source_summary": [
+        {
+          "evidence_id": "CPE-68e58c7c09bcb9d0",
+          "source_type": "MJOP",
+          "assertion": "PRESENT",
+          "method_class": "SOURCE_EXPLICIT_ELEMENT",
+          "evidence_status": "PROPOSED",
+          "scope_level": "BUILDING_SCOPE",
+          "document_id": "DOC-005",
+          "page": 7,
+          "text_fragment": "9041 Betontegels Terrein 200,00m2 1",
+          "element_description_as_reported": "Betontegels"
+        },
+        {
+          "evidence_id": "CPE-864018717f71d676",
+          "source_type": "MJOP",
+          "assertion": "PRESENT",
+          "method_class": "SOURCE_EXPLICIT_ELEMENT",
+          "evidence_status": "PROPOSED",
+          "scope_level": "BUILDING_SCOPE",
+          "document_id": "DOC-006",
+          "page": 7,
+          "text_fragment": "9041 Betontegels Terrein 200,00m2 1",
+          "element_description_as_reported": "Betontegels"
+        }
+      ],
+      "material_as_reported": null,
+      "materials_as_reported": [],
+      "material_basis": null,
+      "scope_building_id": "BAG:0363100012070344+0363100012071880+0363100012078022+0363100012091756+0363100012091974+0363100012102659+0363100012107492+0363100012121455+0363100012127361+0363100012134188+0363100012137996+0363100012140664+0363100012141419+0363100012143647+0363100012144766",
+      "last_reviewed": {
+        "state": "NOT_REVIEWED"
+      },
+      "notes": []
+    },
+    {
+      "component_type": "BICYCLE_STORAGE",
+      "label_nl": "Fietsenstalling en bergingen",
+      "status": "UNKNOWN",
+      "presence_basis": "NO_EVIDENCE",
+      "user_confirmed": false,
+      "decision_ref": null,
+      "evidence_refs": [],
+      "source_summary": [],
+      "material_as_reported": null,
+      "materials_as_reported": [],
+      "material_basis": null,
+      "scope_building_id": "BAG:0363100012070344+0363100012071880+0363100012078022+0363100012091756+0363100012091974+0363100012102659+0363100012107492+0363100012121455+0363100012127361+0363100012134188+0363100012137996+0363100012140664+0363100012141419+0363100012143647+0363100012144766",
+      "last_reviewed": {
+        "state": "NOT_REVIEWED"
+      },
+      "notes": [
+        "Geen enkel bewijs; stilte telt niet als afwezigheid."
+      ]
+    }
+  ],
+  "maintenance_requirements": [
+    {
+      "app_element_id": "dak-plat",
+      "app_label": "Dakbedekking plat dak",
+      "classification": "PHYSICAL_COMPONENT_MAINTENANCE",
+      "activation_mode": "PRESENCE_DRIVEN_ALL",
+      "required_components": [
+        "ROOF_FLAT_COVERING"
+      ],
+      "required_any_components": [],
+      "inventory_result": "APPLICABLE",
+      "reason": "Alle benodigde bouwdelen PRESENT.",
+      "component_status": {
+        "ROOF_FLAT_COVERING": "PRESENT"
+      }
+    },
+    {
+      "app_element_id": "dak-hellend",
+      "app_label": "Dakbedekking hellend dak (pannen)",
+      "classification": "PHYSICAL_COMPONENT_MAINTENANCE",
+      "activation_mode": "PRESENCE_DRIVEN_ALL",
+      "required_components": [
+        "ROOF_SLOPED_COVERING"
+      ],
+      "required_any_components": [],
+      "inventory_result": "APPLICABLE",
+      "reason": "Alle benodigde bouwdelen PRESENT.",
+      "component_status": {
+        "ROOF_SLOPED_COVERING": "PRESENT"
+      }
+    },
+    {
+      "app_element_id": "dakinspectie",
+      "app_label": "Dakinspectie en klein onderhoud",
+      "classification": "COMPONENT_SERVICE",
+      "activation_mode": "PRESENCE_DRIVEN_ANY",
+      "required_components": [],
+      "required_any_components": [
+        "ROOF_FLAT_COVERING",
+        "ROOF_SLOPED_COVERING"
+      ],
+      "inventory_result": "APPLICABLE",
+      "reason": "Minstens één bouwdeel PRESENT.",
+      "component_status": {
+        "ROOF_FLAT_COVERING": "PRESENT",
+        "ROOF_SLOPED_COVERING": "PRESENT"
+      }
+    },
+    {
+      "app_element_id": "dakisolatie",
+      "app_label": "Dakisolatie na-isoleren",
+      "classification": "OPTIONAL_IMPROVEMENT",
+      "activation_mode": "USER_SELECTED",
+      "required_components": [],
+      "required_any_components": [],
+      "inventory_result": "USER_SELECTED",
+      "reason": "Optionele verbetering; alleen via gebruikerskeuze.",
+      "component_status": {
+        "ROOF_FLAT_COVERING": "PRESENT",
+        "ROOF_SLOPED_COVERING": "PRESENT"
+      }
+    },
+    {
+      "app_element_id": "dakgoten",
+      "app_label": "Dakgoten en hemelwaterafvoeren",
+      "classification": "PHYSICAL_COMPONENT_MAINTENANCE",
+      "activation_mode": "PRESENCE_DRIVEN_ALL",
+      "required_components": [
+        "RAINWATER_DRAINAGE"
+      ],
+      "required_any_components": [],
+      "inventory_result": "APPLICABLE",
+      "reason": "Alle benodigde bouwdelen PRESENT.",
+      "component_status": {
+        "RAINWATER_DRAINAGE": "PRESENT"
+      }
+    },
+    {
+      "app_element_id": "gevel-metselwerk",
+      "app_label": "Gevelreiniging en metselwerkherstel",
+      "classification": "PHYSICAL_COMPONENT_MAINTENANCE",
+      "activation_mode": "PRESENCE_DRIVEN_ALL",
+      "required_components": [
+        "FACADE_MASONRY"
+      ],
+      "required_any_components": [],
+      "inventory_result": "APPLICABLE",
+      "reason": "Alle benodigde bouwdelen PRESENT.",
+      "component_status": {
+        "FACADE_MASONRY": "PRESENT"
+      }
+    },
+    {
+      "app_element_id": "schilderwerk-buiten",
+      "app_label": "Schilderwerk buitenkozijnen en gevelhoutwerk",
+      "classification": "ATTRIBUTE_DEPENDENT_MAINTENANCE",
+      "activation_mode": "PRESENCE_AND_ATTRIBUTE",
+      "required_components": [],
+      "required_any_components": [
+        "EXTERIOR_FRAME",
+        "FACADE_CLADDING"
+      ],
+      "inventory_result": "NEEDS_ATTRIBUTE_CONFIRMATION",
+      "reason": "Bouwdeel PRESENT (EXTERIOR_FRAME, FACADE_CLADDING) maar materiaal/afwerking is alleen door de bron gemeld (geen vastgestelde afwerking); presence alleen volstaat niet.",
+      "component_status": {
+        "EXTERIOR_FRAME": "PRESENT",
+        "FACADE_CLADDING": "PRESENT"
+      },
+      "attribute_basis": {
+        "EXTERIOR_FRAME": [
+          "hout"
+        ],
+        "FACADE_CLADDING": [
+          "hout"
+        ]
+      }
+    },
+    {
+      "app_element_id": "kozijnen-onderhoud",
+      "app_label": "Onderhoud buitenkozijnen",
+      "classification": "PHYSICAL_COMPONENT_MAINTENANCE",
+      "activation_mode": "PRESENCE_DRIVEN_ALL",
+      "required_components": [
+        "EXTERIOR_FRAME"
+      ],
+      "required_any_components": [],
+      "inventory_result": "APPLICABLE",
+      "reason": "Alle benodigde bouwdelen PRESENT.",
+      "component_status": {
+        "EXTERIOR_FRAME": "PRESENT"
+      },
+      "legacy_estimate_fallback_id": "LEF-kozijnen-appartementen-factor"
+    },
+    {
+      "app_element_id": "steiger",
+      "app_label": "Steiger of hoogwerker",
+      "classification": "SUPPORT_SERVICE",
+      "activation_mode": "NOT_PRESENCE_DRIVEN",
+      "required_components": [],
+      "required_any_components": [],
+      "inventory_result": "NOT_PRESENCE_DRIVEN",
+      "reason": "Ondersteunende kostenpost; niet door aanwezigheid bepaald.",
+      "component_status": {}
+    },
+    {
+      "app_element_id": "voegwerk",
+      "app_label": "Voegwerk buitengevel",
+      "classification": "PHYSICAL_COMPONENT_MAINTENANCE",
+      "activation_mode": "PRESENCE_DRIVEN_ALL",
+      "required_components": [
+        "FACADE_MASONRY"
+      ],
+      "required_any_components": [],
+      "inventory_result": "APPLICABLE",
+      "reason": "Alle benodigde bouwdelen PRESENT.",
+      "component_status": {
+        "FACADE_MASONRY": "PRESENT"
+      }
+    },
+    {
+      "app_element_id": "balkonhekken",
+      "app_label": "Balkonhekken en borstweringen",
+      "classification": "PHYSICAL_COMPONENT_MAINTENANCE",
+      "activation_mode": "PRESENCE_DRIVEN_ALL",
+      "required_components": [
+        "BALCONY_RAILING"
+      ],
+      "required_any_components": [],
+      "inventory_result": "APPLICABLE",
+      "reason": "Alle benodigde bouwdelen PRESENT.",
+      "component_status": {
+        "BALCONY_RAILING": "PRESENT"
+      }
+    },
+    {
+      "app_element_id": "intercom",
+      "app_label": "Intercom en video-deuropener",
+      "classification": "PHYSICAL_COMPONENT_MAINTENANCE",
+      "activation_mode": "PRESENCE_DRIVEN_ALL",
+      "required_components": [
+        "INTERCOM_INSTALLATION"
+      ],
+      "required_any_components": [],
+      "inventory_result": "NEEDS_CONFIRMATION",
+      "reason": "Aanwezigheid van het benodigde bouwdeel is UNKNOWN; niet als afwezig behandeld.",
+      "component_status": {
+        "INTERCOM_INSTALLATION": "UNKNOWN"
+      }
+    },
+    {
+      "app_element_id": "riolering",
+      "app_label": "Riolering en hemelwaterafvoer (inpandig)",
+      "classification": "PHYSICAL_COMPONENT_MAINTENANCE",
+      "activation_mode": "PRESENCE_DRIVEN_ALL",
+      "required_components": [
+        "SEWERAGE_DRAINAGE_INTERNAL"
+      ],
+      "required_any_components": [],
+      "inventory_result": "NEEDS_CONFIRMATION",
+      "reason": "Aanwezigheid van het benodigde bouwdeel is UNKNOWN; niet als afwezig behandeld.",
+      "component_status": {
+        "SEWERAGE_DRAINAGE_INTERNAL": "UNKNOWN"
+      }
+    },
+    {
+      "app_element_id": "elektra",
+      "app_label": "Elektrische installatie gemeenschappelijk",
+      "classification": "PHYSICAL_COMPONENT_MAINTENANCE",
+      "activation_mode": "PRESENCE_DRIVEN_ALL",
+      "required_components": [
+        "COMMON_ELECTRICAL_INSTALLATION"
+      ],
+      "required_any_components": [],
+      "inventory_result": "NEEDS_CONFIRMATION",
+      "reason": "Aanwezigheid van het benodigde bouwdeel is UNKNOWN; niet als afwezig behandeld.",
+      "component_status": {
+        "COMMON_ELECTRICAL_INSTALLATION": "UNKNOWN"
+      }
+    },
+    {
+      "app_element_id": "verlichting",
+      "app_label": "Verlichting gemeenschappelijke ruimten",
+      "classification": "PHYSICAL_COMPONENT_MAINTENANCE",
+      "activation_mode": "PRESENCE_DRIVEN_ALL",
+      "required_components": [
+        "COMMON_LIGHTING"
+      ],
+      "required_any_components": [],
+      "inventory_result": "APPLICABLE",
+      "reason": "Alle benodigde bouwdelen PRESENT.",
+      "component_status": {
+        "COMMON_LIGHTING": "PRESENT"
+      }
+    },
+    {
+      "app_element_id": "waterleiding",
+      "app_label": "Waterleiding gemeenschappelijk",
+      "classification": "PHYSICAL_COMPONENT_MAINTENANCE",
+      "activation_mode": "PRESENCE_DRIVEN_ALL",
+      "required_components": [
+        "COMMON_WATER_INSTALLATION"
+      ],
+      "required_any_components": [],
+      "inventory_result": "NEEDS_CONFIRMATION",
+      "reason": "Aanwezigheid van het benodigde bouwdeel is UNKNOWN; niet als afwezig behandeld.",
+      "component_status": {
+        "COMMON_WATER_INSTALLATION": "UNKNOWN"
+      }
+    },
+    {
+      "app_element_id": "brandveiligheid",
+      "app_label": "Brandveiligheid (blusmiddelen, vluchtwegverlichting)",
+      "classification": "PHYSICAL_COMPONENT_MAINTENANCE",
+      "activation_mode": "PRESENCE_DRIVEN_ALL",
+      "required_components": [
+        "FIRE_SAFETY_INSTALLATION"
+      ],
+      "required_any_components": [],
+      "inventory_result": "NEEDS_CONFIRMATION",
+      "reason": "Aanwezigheid van het benodigde bouwdeel is UNKNOWN; niet als afwezig behandeld.",
+      "component_status": {
+        "FIRE_SAFETY_INSTALLATION": "UNKNOWN"
+      }
+    },
+    {
+      "app_element_id": "cv-installatie",
+      "app_label": "Collectieve cv-installatie (ketel)",
+      "classification": "PHYSICAL_COMPONENT_MAINTENANCE",
+      "activation_mode": "PRESENCE_DRIVEN_ALL",
+      "required_components": [
+        "COLLECTIVE_HEATING_INSTALLATION"
+      ],
+      "required_any_components": [],
+      "inventory_result": "NEEDS_CONFIRMATION",
+      "reason": "Aanwezigheid van het benodigde bouwdeel is UNKNOWN; niet als afwezig behandeld.",
+      "component_status": {
+        "COLLECTIVE_HEATING_INSTALLATION": "UNKNOWN"
+      }
+    },
+    {
+      "app_element_id": "ventilatie",
+      "app_label": "Mechanische ventilatie",
+      "classification": "PHYSICAL_COMPONENT_MAINTENANCE",
+      "activation_mode": "PRESENCE_DRIVEN_ALL",
+      "required_components": [
+        "VENTILATION_INSTALLATION"
+      ],
+      "required_any_components": [],
+      "inventory_result": "NEEDS_CONFIRMATION",
+      "reason": "Aanwezigheid van het benodigde bouwdeel is UNKNOWN; niet als afwezig behandeld.",
+      "component_status": {
+        "VENTILATION_INSTALLATION": "UNKNOWN"
+      }
+    },
+    {
+      "app_element_id": "lift",
+      "app_label": "Liftinstallatie — onderhoud en modernisering",
+      "classification": "PHYSICAL_COMPONENT_MAINTENANCE",
+      "activation_mode": "PRESENCE_DRIVEN_ALL",
+      "required_components": [
+        "LIFT_INSTALLATION"
+      ],
+      "required_any_components": [],
+      "inventory_result": "NEEDS_CONFIRMATION",
+      "reason": "Aanwezigheid van het benodigde bouwdeel is UNKNOWN; niet als afwezig behandeld.",
+      "component_status": {
+        "LIFT_INSTALLATION": "UNKNOWN"
+      }
+    },
+    {
+      "app_element_id": "trappenhuis",
+      "app_label": "Trappenhuis en entree",
+      "classification": "PHYSICAL_COMPONENT_MAINTENANCE",
+      "activation_mode": "PRESENCE_DRIVEN_ALL",
+      "required_components": [
+        "COMMON_STAIRWELL_ENTRANCE"
+      ],
+      "required_any_components": [],
+      "inventory_result": "NEEDS_CONFIRMATION",
+      "reason": "Aanwezigheid van het benodigde bouwdeel is UNKNOWN; niet als afwezig behandeld.",
+      "component_status": {
+        "COMMON_STAIRWELL_ENTRANCE": "UNKNOWN"
+      }
+    },
+    {
+      "app_element_id": "vloerafwerking",
+      "app_label": "Vloerafwerking gemeenschappelijke ruimten",
+      "classification": "PHYSICAL_COMPONENT_MAINTENANCE",
+      "activation_mode": "PRESENCE_DRIVEN_ALL",
+      "required_components": [
+        "COMMON_FLOOR_FINISH"
+      ],
+      "required_any_components": [],
+      "inventory_result": "NEEDS_CONFIRMATION",
+      "reason": "Aanwezigheid van het benodigde bouwdeel is UNKNOWN; niet als afwezig behandeld.",
+      "component_status": {
+        "COMMON_FLOOR_FINISH": "UNKNOWN"
+      }
+    },
+    {
+      "app_element_id": "bestrating",
+      "app_label": "Bestrating en terreininrichting",
+      "classification": "PHYSICAL_COMPONENT_MAINTENANCE",
+      "activation_mode": "PRESENCE_DRIVEN_ALL",
+      "required_components": [
+        "SITE_PAVING"
+      ],
+      "required_any_components": [],
+      "inventory_result": "APPLICABLE",
+      "reason": "Alle benodigde bouwdelen PRESENT.",
+      "component_status": {
+        "SITE_PAVING": "PRESENT"
+      }
+    },
+    {
+      "app_element_id": "fietsenstalling",
+      "app_label": "Fietsenstalling en bergingen",
+      "classification": "PHYSICAL_COMPONENT_MAINTENANCE",
+      "activation_mode": "PRESENCE_DRIVEN_ALL",
+      "required_components": [
+        "BICYCLE_STORAGE"
+      ],
+      "required_any_components": [],
+      "inventory_result": "NEEDS_CONFIRMATION",
+      "reason": "Aanwezigheid van het benodigde bouwdeel is UNKNOWN; niet als afwezig behandeld.",
+      "component_status": {
+        "BICYCLE_STORAGE": "UNKNOWN"
+      }
+    }
+  ],
+  "frame_status": {
+    "component_type": "EXTERIOR_FRAME",
+    "presence": "PRESENT",
+    "presence_decision_ref": "CPD-00001",
+    "material_as_reported": "hout",
+    "material_basis": "SOURCE_REPORTED_BUILDING_LEVEL",
+    "photo_visible_evidence": {
+      "count_basis": "PHOTO_VISIBLE_CONFIRMED_COUNT",
+      "photo": "maldenhof_2.jpg",
+      "is_building_total": false,
+      "PHOTO_VISIBLE_FRAME_COUNT": 11,
+      "PHOTO_VISIBLE_WINDOW_COUNT": 11,
+      "PHOTO_VISIBLE_EXTERIOR_DOOR_COUNT": 1,
+      "provenance": "USER_ASSISTED_PHOTO",
+      "store": "data/frame_inventory/maldenhof_photo_frame_instances_v1.json"
+    },
+    "building_totals": {
+      "FRAME_COUNT": {
+        "status": "UNKNOWN",
+        "value": null
+      },
+      "WINDOW_COUNT": {
+        "status": "UNKNOWN",
+        "value": null
+      },
+      "EXTERIOR_DOOR_COUNT": {
+        "status": "UNKNOWN",
+        "value": null
+      }
+    },
+    "building_total_note": "Gebouwtotalen zijn UNKNOWN; geen extrapolatie, geen vermenigvuldiging over panden, geen repeat multiplier.",
+    "historical_reported_quantity_context": [
+      {
+        "evidence_id": "CPE-1887622943b3d8bb",
+        "quantity_observation_id": "QO-DOC-005-EL-007",
+        "quantity_as_stated": "756,80",
+        "quantity_value": "756.80",
+        "unit": "m2",
+        "interpretation": "HISTORICAL_REPORTED_QUANTITY_CONTEXT",
+        "comparability_to_frame_count": "NOT_COMPARABLE",
+        "not_interpreted_as": [
+          "MEASURED_QUANTITY",
+          "GEOMETRY_QUANTITY",
+          "FRAME_COUNT",
+          "WINDOW_OPENING_AREA",
+          "FRAME_SURFACE_AREA",
+          "FRAME_PAINTING_AREA",
+          "MEASURED_FRAME_AREA"
+        ]
+      },
+      {
+        "evidence_id": "CPE-747f24497e7b23d4",
+        "quantity_observation_id": "QO-DOC-006-EL-007",
+        "quantity_as_stated": "756,80",
+        "quantity_value": "756.80",
+        "unit": "m2",
+        "interpretation": "HISTORICAL_REPORTED_QUANTITY_CONTEXT",
+        "comparability_to_frame_count": "NOT_COMPARABLE",
+        "not_interpreted_as": [
+          "MEASURED_QUANTITY",
+          "GEOMETRY_QUANTITY",
+          "FRAME_COUNT",
+          "WINDOW_OPENING_AREA",
+          "FRAME_SURFACE_AREA",
+          "FRAME_PAINTING_AREA",
+          "MEASURED_FRAME_AREA"
+        ]
+      }
+    ],
+    "repeat_groups": "NOT_ACTIVE",
+    "quantity_resolution": "NOT_WRITTEN",
+    "legacy_estimate_fallback": {
+      "fallback_id": "LEF-kozijnen-appartementen-factor",
+      "classification": "LEGACY_ESTIMATE_FALLBACK",
+      "method_class": "ESTIMATED",
+      "ui_label_nl": "Schatting op basis van aantal appartementen",
+      "factors": [
+        1,
+        0.25,
+        0.125,
+        0.125
+      ],
+      "minima": [
+        1,
+        0,
+        1,
+        0
+      ],
+      "types": [
+        "Draaiend raam",
+        "Vast glas",
+        "Deur",
+        "Dakkapel"
+      ],
+      "formula": "max(minimum, round(appartementen × vaste factor))",
+      "forbidden_labels": [
+        "gemeten",
+        "bevestigd",
+        "uit foto bepaald"
+      ],
+      "behaviour": "App-gedrag ongewijzigd; blijft beschikbaar als gelabelde schatting."
+    },
+    "source_priority": [
+      "USER_CONFIRMED_MANUAL",
+      "DRAWING_MEASURED",
+      "USER_ASSISTED_PHOTO",
+      "SOURCE_REPORTED_HISTORICAL",
+      "LEGACY_ESTIMATE_FALLBACK"
+    ],
+    "source_priority_scope": "Alleen binnen EXACT hetzelfde quantity-subject (zelfde concept, zelfde gebouw/scope). Geen automatische vergelijking van bijv. FRAME_COUNT met een historische m2."
+  },
+  "policy": {
+    "unknown_is_not_absent": true,
+    "only_explicit_absent_yields_not_applicable": true,
+    "no_silent_removal_of_maintenance_items": true,
+    "user_confirmation": "Gebruikerskeuze JA/NEE/ONBEKEND wordt in de app als USER_CONFIRMED_MANUAL vastgelegd en overschrijft deze bundel binnen hetzelfde component; de bundel zelf wordt niet gewijzigd.",
+    "prices": "NOT_CHANGED",
+    "kengetallen": "NOT_CHANGED",
+    "quantity_resolutions": "NOT_WRITTEN"
+  }
+}
