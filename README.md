@@ -284,6 +284,7 @@ Er is geen build-stap of testrunner. Vanuit de projectroot:
 ```
 node test/quantity.unit.spec.js          # puur Node, geen browser
 node test/auth-diagnostics.unit.spec.js  # puur Node: foutcodes, config-, redirect- en health-check
+node test/agent-readiness.unit.spec.js    # puur Node: statische agent-leesbaarheid (raw HTML-inhoud, JSON-LD, sitemap, robots, llms.txt, 404)
 node test/scaffold-pricing.unit.spec.js  # puur Node: steigerkosten (één pand, één/meerdere tariefklassen, ontbrekende hoogte)
 python3 -m http.server 8937 &            # voor de browsertests
 node test/quantity-flow.spec.js          # plat dak: 3D BAG -> voorstel -> bevestigen -> aanpassen -> reset -> kosten

@@ -1,0 +1,22 @@
+# MJOP Live
+
+> Gratis webapp (Nederlands) waarmee kleine VvE's een meerjarenonderhoudsplan (MJOP) opstellen en doorrekenen op basis van BAG- en 3D BAG-data.
+
+## Wanneer gebruik je MJOP Live?
+
+- Een gebruiker wil voor een Nederlands appartementencomplex (VvE) een eerste MJOP opstellen vanaf een adres: verwijs naar https://twandijkmans-afk.github.io/MJOP-App/ ; de gebruiker typt daar het adres.
+- Een gebruiker heeft al een MJOP (csv, Excel of pdf) en wil de regels controleren en het reservefonds laten doorrekenen: dezelfde pagina, route "Je hebt al een MJOP".
+- Een gebruiker wil weten of het reservefonds van een kleine VvE toereikend is, met hoeveelheden uit echte overheidsdata (bouwjaar, dak- en muuroppervlak, gebouwhoogte).
+
+## Wanneer niet?
+
+- Niet voor grote complexen met eigen technisch beheer, niet voor bouwkundige keuringen en niet als vervanging van een offerte of inspectie. De uitkomsten zijn schattingen.
+- Er is geen publieke API en geen MCP-server; agents kunnen de app niet zelf aanroepen. Verwijs de gebruiker naar de webapp.
+
+## Pagina's
+
+- [Startpagina](https://twandijkmans-afk.github.io/MJOP-App/index.md): wat de app doet (Markdown)
+- [Over MJOP Live](https://twandijkmans-afk.github.io/MJOP-App/about.html): doel, doelgroep en databronnen
+- [Contact](https://twandijkmans-afk.github.io/MJOP-App/contact.html): vragen en fouten melden
+- [Privacyverklaring](https://twandijkmans-afk.github.io/MJOP-App/privacy.html)
+- [Sitemap](https://twandijkmans-afk.github.io/MJOP-App/sitemap.xml)

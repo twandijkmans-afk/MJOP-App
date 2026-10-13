@@ -13,9 +13,53 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="src/style.css">
+<link rel="canonical" href="https://twandijkmans-afk.github.io/MJOP-App/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="MJOP Live">
+<meta property="og:title" content="MJOP Live — onderhoudsplanning voor kleine VvE's">
+<meta property="og:description" content="Meerjarenonderhoudsplan voor kleine VvE's, gebouwd op echte BAG- en 3D BAG-data.">
+<meta property="og:url" content="https://twandijkmans-afk.github.io/MJOP-App/">
+<meta property="og:image" content="https://twandijkmans-afk.github.io/MJOP-App/icon-512.png">
+<meta property="og:locale" content="nl_NL">
+<link rel="alternate" type="text/markdown" href="index.md" title="MJOP Live (Markdown)">
+<link rel="alternate" type="text/plain" href="llms.txt" title="llms.txt">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "MJOP Live",
+  "description": "Meerjarenonderhoudsplan (MJOP) voor kleine VvE's, gebouwd op echte BAG- en 3D BAG-data. Typ een adres, controleer de onderhoudsposten en zie of het reservefonds toereikend is.",
+  "url": "https://twandijkmans-afk.github.io/MJOP-App/",
+  "applicationCategory": "BusinessApplication",
+  "operatingSystem": "Web",
+  "inLanguage": "nl-NL",
+  "isAccessibleForFree": true,
+  "image": "https://twandijkmans-afk.github.io/MJOP-App/icon-512.png",
+  "sameAs": ["https://github.com/twandijkmans-afk/MJOP-App"]
+}
+</script>
 </head>
 <body>
-<div id="root"></div>
+<div id="root"><!-- Statische inhoud voor bezoekers en agents zonder JavaScript; app.js vervangt dit bij het opstarten door de app. -->
+<main>
+<h1>MJOP Live — meerjarenonderhoudsplan voor kleine VvE's</h1>
+<p>MJOP Live helpt kleine Verenigingen van Eigenaren (VvE's) aan een meerjarenonderhoudsplan (MJOP). Typ het adres van het complex: de app haalt bouwjaar en aantal appartementen op uit de BAG en het werkelijke dakoppervlak, muuroppervlak en de gebouwhoogte uit 3D BAG, zet de onderhoudsposten klaar en rekent uit of het reservefonds toereikend is.</p>
+<h2>Twee ingangen</h2>
+<ul>
+<li><strong>Nog geen MJOP:</strong> zoek het adres van het complex op en laat het plan opbouwen uit overheidsdata.</li>
+<li><strong>Je hebt al een MJOP:</strong> upload je bestaande plan (csv, Excel of pdf) en controleer elke regel voordat er iets in het plan komt.</li>
+</ul>
+<h2>Wat je krijgt</h2>
+<p>Een overzicht van onderhoudsposten per jaar, hoeveelheden uit echte data (ontbrekende gegevens worden getoond als onbekend, nooit als € 0), een reservefondsberekening en een uitleg per post. Doorrekenen is gratis en kan zonder account; met een account bewaar je je plannen.</p>
+<h2>Meer informatie</h2>
+<ul>
+<li><a href="about.html">Over MJOP Live</a></li>
+<li><a href="contact.html">Contact</a></li>
+<li><a href="privacy.html">Privacyverklaring</a></li>
+<li><a href="llms.txt">llms.txt voor AI-agents</a></li>
+</ul>
+</main>
+</div>
 <!-- Client-side parsers for "upload een bestaand MJOP" (xlsx/csv + pdf tekstextractie).
      Op jsdelivr i.p.v. cdnjs en met Subresource Integrity: jsdelivr's npm-CDN
      serveert de bestanden ongewijzigd zoals gepubliceerd op npm, dus de hash

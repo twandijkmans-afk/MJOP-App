@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<title>Over MJOP Live — MJOP Live</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Wat MJOP Live is, voor wie het bedoeld is en welke data het gebruikt.">
+<link rel="canonical" href="https://twandijkmans-afk.github.io/MJOP-App/about.html">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Over MJOP Live — MJOP Live">
+<meta property="og:description" content="Wat MJOP Live is, voor wie het bedoeld is en welke data het gebruikt.">
+<meta property="og:url" content="https://twandijkmans-afk.github.io/MJOP-App/about.html">
+<meta property="og:image" content="https://twandijkmans-afk.github.io/MJOP-App/icon-512.png">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="icon" href="icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="theme-color" content="#1F5FA8">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="src/style.css">
+<script>
+  // Zelfde donker/licht-keuze als in de app (die slaat 'm op onder mjop-theme).
+  try {
+    var t = localStorage.getItem('mjop-theme');
+    document.documentElement.setAttribute('data-theme', t === 'dark' ? 'dark' : 'light');
+  } catch (e) { document.documentElement.setAttribute('data-theme', 'light'); }
+</script>
+<style>
+  body { margin: 0; background: var(--page); color: var(--ink); }
+  .pv-wrap { max-width: 760px; margin: 0 auto; padding: 32px 24px 80px; }
+  .pv-top { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+  .pv-logo { display: inline-flex; align-items: center; gap: 10px; color: var(--ink); text-decoration: none; }
+  .pv-logo .mark { display: flex; align-items: center; justify-content: center; flex: none; width: 30px; height: 30px; border-radius: 6px; background: var(--blue); color: #fff; font: 700 15px/1 var(--heading); }
+  .pv-logo .word { font: 700 16px/1 var(--heading); letter-spacing: -.01em; }
+  .pv-back { color: var(--link); font: 600 15px/1 var(--sans); text-decoration: none; }
+  .pv-back:hover { text-decoration: underline; }
+  .pv-title { margin: 48px 0 0; font: 800 clamp(32px, 5vw, 44px)/1.08 var(--heading); letter-spacing: -.03em; text-wrap: balance; }
+  .pv-updated { margin: 12px 0 0; font: 400 14px/1.5 var(--sans); color: var(--ink-60); }
+  .pv-summary { margin-top: 32px; padding: 24px; border: 1px solid var(--ink-10); border-radius: 10px; background: var(--card); }
+  .pv-wrap h2 { margin: 48px 0 12px; font: 700 21px/1.3 var(--heading); letter-spacing: -.01em; }
+  .pv-wrap .pv-summary h2 { margin: 0 0 8px; font-size: 18px; }
+  .pv-wrap p, .pv-wrap li { font: 400 16px/1.7 var(--sans); color: var(--ink-60); }
+  .pv-wrap p { margin: 0 0 12px; }
+  .pv-wrap ul { margin: 8px 0 12px; padding-left: 22px; }
+  .pv-wrap li { margin: 6px 0; }
+  .pv-wrap strong { color: var(--ink); font-weight: 600; }
+  .pv-wrap a { color: var(--link); }
+  .pv-summary ul { margin-bottom: 0; }
+  .pv-todo { margin: 12px 0 0; padding: 16px 18px; border-radius: 8px; background: var(--warn-bg); color: var(--warn-fg); font: 500 14px/1.6 var(--sans); }
+  .pv-todo strong { color: inherit; }
+  .pv-todo ul { margin: 8px 0 0; }
+  .pv-todo li { font: 500 14px/1.6 var(--sans); color: inherit; }
+  .pv-scroll { overflow-x: auto; margin: 12px 0; border: 1px solid var(--ink-10); border-radius: 10px; background: var(--card); }
+  .pv-table { width: 100%; border-collapse: collapse; }
+  .pv-table th, .pv-table td { padding: 12px 16px; border-top: 1px solid var(--ink-08); text-align: left; vertical-align: top; font: 400 14.5px/1.55 var(--sans); color: var(--ink-60); }
+  .pv-table tr:first-child th { border-top: 0; }
+  .pv-table th { background: var(--panel); color: var(--ink); font-weight: 600; font-size: 14px; }
+  .pv-table td:first-child { color: var(--ink); font-weight: 600; white-space: nowrap; }
+  @media (max-width: 640px) { .pv-table td:first-child { white-space: normal; } }
+</style>
+</head>
+<body>
+<div class="pv-wrap">
+  <div class="pv-top">
+    <a class="pv-logo" href="index.html"><span class="mark">M</span><span class="word">MJOP Live</span></a>
+    <a class="pv-back" href="index.html">‹ Terug naar MJOP Live</a>
+  </div>
+  <h1 class="pv-title">Over MJOP Live</h1>
+  <p class="pv-updated">Laatst bijgewerkt: 13 oktober 2026</p>
+  <h2>Wat is MJOP Live?</h2>
+  <p>MJOP Live is een gratis webapp waarmee kleine Verenigingen van Eigenaren (VvE's) een meerjarenonderhoudsplan (MJOP) opstellen en doorrekenen. Je typt het adres van het complex; de app zoekt zelf de bouwgegevens op en zet een eerste set onderhoudsposten klaar.</p>
+  <h2>Welke data gebruiken we?</h2>
+  <p>Bouwjaar en aantal appartementen komen uit de Basisregistratie Adressen en Gebouwen (BAG) van het Kadaster. Dakoppervlak, muuroppervlak en gebouwhoogte komen uit 3D BAG van de TU Delft. Adressen worden opgezocht via PDOK. Ontbrekende gegevens tonen we als onbekend; de app rekent daar nooit stilzwijgend met € 0.</p>
+  <h2>Voor wie is het bedoeld?</h2>
+  <p>Voor besturen en beheerders van kleine VvE's die een MJOP willen opstellen of controleren, en voor eigenaren die willen begrijpen of het reservefonds toereikend is. Heb je al een plan, dan kun je het als csv, Excel of pdf uploaden en elke regel controleren voordat die wordt overgenomen.</p>
+  <h2>Wat de app niet is</h2>
+  <p>De berekeningen zijn schattingen op basis van openbare data en richtprijzen. Ze vervangen geen technische inspectie of offerte van een aannemer. Eigen invoer en offertebedragen hebben altijd voorrang op de schattingen van de app.</p>
+  <h2>Contact en privacy</h2>
+  <p>Vragen of opmerkingen? Zie de <a href="contact.html">contactpagina</a>. Hoe we met gegevens omgaan staat in de <a href="privacy.html">privacyverklaring</a>.</p>
+</div>
+</body>
+</html>

@@ -1,0 +1,5 @@
+# Alle crawlers en AI-agents mogen de site lezen.
+User-agent: *
+Allow: /
+
+Sitemap: https://twandijkmans-afk.github.io/MJOP-App/sitemap.xml
