@@ -1398,7 +1398,10 @@
   // geheime sleutel) of SDK_NOT_LOADED (CDN-script niet geladen).
   var AD = window.MJOPAuthDiagnostics;
   var authInit = AD.initStatus(window);
-  var sb = authInit.ok ? window.supabase.createClient(window.SUPABASE_CONFIG.url, window.SUPABASE_CONFIG.anonKey) : null;
+  // In de iPhone-app (MJOP Live) via PKCE inloggen: de e-maillink opent in Safari en geeft alleen een eenmalige code door aan de app, die de
+  // sessie in de WebView afrondt met de code-verifier die daar is bewaard. Daarbuiten blijft de standaard-flow ongewijzigd.
+  var inApp = AD.isInApp(window);
+  var sb = authInit.ok ? window.supabase.createClient(window.SUPABASE_CONFIG.url, window.SUPABASE_CONFIG.anonKey, inApp ? { auth: { flowType: 'pkce' } } : undefined) : null;
   if (!authInit.ok) AD.log(window, AD.forCode(authInit.code, { action: 'init', host: authInit.config.host }));
 
   // Een auth-fout indelen (NETWORK_ERROR, SUPABASE_AUTH_ERROR, …) en een
@@ -1414,7 +1417,7 @@
 
   // De terugkeer-URL voor inlog-/bevestigings-/resetlinks (zie AD.redirectUrlFor).
   function authRedirect(target, action) {
-    var rd = AD.redirectUrlFor(window.location);
+    var rd = AD.redirectUrlFor(window.location, { inApp: inApp });
     if (!rd.ok) { authFail(target, action, AD.forCode(rd.code, { action: action, host: authInit.config.host })); return null; }
     return rd.url;
   }

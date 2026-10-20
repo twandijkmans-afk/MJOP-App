@@ -66,6 +66,24 @@ test('redirect: file:// -> REDIRECT_CONFIGURATION_ERROR', function () {
   assert.strictEqual(r.code, 'REDIRECT_CONFIGURATION_ERROR');
 });
 
+test('redirect in de app: brugpagina app-callback.html naast de pagina; zonder inApp ongewijzigd', function () {
+  var gh = { protocol: 'https:', origin: 'https://twandijkmans-afk.github.io', pathname: '/MJOP-App/' };
+  assert.strictEqual(AD.redirectUrlFor(gh, { inApp: true }).url, 'https://twandijkmans-afk.github.io/MJOP-App/app-callback.html');
+  gh.pathname = '/MJOP-App/index.html';
+  assert.strictEqual(AD.redirectUrlFor(gh, { inApp: true }).url, 'https://twandijkmans-afk.github.io/MJOP-App/app-callback.html');
+  assert.strictEqual(AD.redirectUrlFor(gh).url, 'https://twandijkmans-afk.github.io/MJOP-App/');
+  assert.strictEqual(AD.redirectUrlFor(gh, { inApp: false }).url, 'https://twandijkmans-afk.github.io/MJOP-App/');
+  assert.strictEqual(AD.redirectUrlFor({ protocol: 'file:', origin: 'null', pathname: '/x/index.html' }, { inApp: true }).code, 'REDIRECT_CONFIGURATION_ERROR');
+});
+test('isInApp: alleen met MJOPLiveApp/<n> in de User-Agent', function () {
+  var ua = function (u) { return { navigator: { userAgent: u } }; };
+  assert.strictEqual(AD.isInApp(ua('Mozilla/5.0 (iPhone) AppleWebKit/605.1.15 Mobile/15E148 MJOPLiveApp/1')), true);
+  assert.strictEqual(AD.isInApp(ua('Mozilla/5.0 (iPhone) Safari/604.1')), false);
+  assert.strictEqual(AD.isInApp(ua('XMJOPLiveApp/1')), false);
+  assert.strictEqual(AD.isInApp({}), false);
+  assert.strictEqual(AD.isInApp(null), false);
+});
+
 // --- fouten indelen -------------------------------------------------------
 test('"Failed to fetch" (AuthRetryableFetchError, status 0) -> NETWORK_ERROR met NL-melding', function () {
   var e = { name: 'AuthRetryableFetchError', message: 'Failed to fetch', status: 0 };

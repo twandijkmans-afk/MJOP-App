@@ -121,13 +121,22 @@
   // De pagina zonder query/hash. '/index.html' wordt '/', zodat de app via
   // https://<host>/<repo>/ en via https://<host>/<repo>/index.html dezelfde
   // terugkeer-URL geeft (anders moeten beide op de Supabase-allowlist staan).
-  function redirectUrlFor(loc) {
+  // Draait de pagina in de iPhone-app (MJOP Live)? De app voegt "MJOPLiveApp/1" aan de User-Agent toe.
+  function isInApp(win) {
+    var ua = win && win.navigator && win.navigator.userAgent;
+    return typeof ua === 'string' && /\bMJOPLiveApp\/\d+/.test(ua);
+  }
+
+  // opts.inApp: de inloglink moet via de brugpagina app-callback.html naar de app terugkeren (mjoplive://), want een e-maillink opent in
+  // Safari en een sessie in Safari bereikt de WebView van de app niet. Zonder opts.inApp is het gedrag ongewijzigd.
+  function redirectUrlFor(loc, opts) {
     var proto = loc && loc.protocol;
     if (proto !== 'https:' && proto !== 'http:') {
       return { ok: false, code: CODES.REDIRECT_CONFIGURATION_ERROR, url: null,
         reason: 'pagina is niet via http(s) geopend (' + (proto || 'onbekend') + '): een inloglink kan hier niet naar terugkeren' };
     }
     var path = String(loc.pathname || '/').replace(/\/index\.html$/, '/');
+    if (opts && opts.inApp) path = path.replace(/[^/]*$/, '') + 'app-callback.html';
     return { ok: true, code: null, url: loc.origin + path };
   }
 
@@ -227,7 +236,7 @@
 
   var api = {
     CODES: CODES, MESSAGES: MESSAGES, sanitize: sanitize, checkConfig: checkConfig, initStatus: initStatus,
-    redirectUrlFor: redirectUrlFor, classifyAuthError: classifyAuthError, forCode: forCode,
+    isInApp: isInApp, redirectUrlFor: redirectUrlFor, classifyAuthError: classifyAuthError, forCode: forCode,
     debugEnabled: debugEnabled, log: log, healthCheck: healthCheck,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

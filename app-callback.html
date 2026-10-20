@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Terug naar MJOP Live</title>
+<style>
+  body { font-family: -apple-system, system-ui, sans-serif; margin: 0; padding: 32px 24px; background: #F2F3EF; color: #101211; text-align: center; }
+  a.btn { display: inline-block; margin-top: 20px; padding: 14px 22px; border-radius: 12px; background: #C2410C; color: #fff; text-decoration: none; font-weight: 600; }
+  p { max-width: 28em; margin: 12px auto; line-height: 1.45; }
+</style>
+</head>
+<body>
+<h1 id="titel">Inloggen afronden…</h1>
+<p id="tekst">Je wordt teruggestuurd naar de MJOP Live-app.</p>
+<a id="open" class="btn" href="#" hidden>Open MJOP Live</a>
+<script>
+// Brugpagina voor inloggen in de iPhone-app: een e-maillink opent in Safari. Deze pagina geeft ALLEEN de eenmalige code (of een foutmelding)
+// door aan de app via mjoplive://auth-callback. Er worden geen sessietokens doorgegeven en niets opgeslagen; de app wisselt de code zelf in
+// met de code-verifier die in haar eigen WebView staat.
+(function () {
+  var q = new URLSearchParams(window.location.search);
+  var h = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+  var code = q.get('code');
+  var fout = q.get('error_description') || h.get('error_description') || q.get('error') || h.get('error');
+  var target = null;
+  if (fout) target = 'mjoplive://auth-callback?error_description=' + encodeURIComponent(String(fout).slice(0, 200));
+  else if (code && /^[A-Za-z0-9._~-]{8,256}$/.test(code)) target = 'mjoplive://auth-callback?code=' + encodeURIComponent(code);
+  var open = document.getElementById('open');
+  if (!target) {
+    document.getElementById('titel').textContent = 'Deze inloglink is niet geldig';
+    document.getElementById('tekst').textContent = 'Vraag in de app een nieuwe inloglink aan.';
+    return;
+  }
+  open.href = target; open.hidden = false;
+  document.getElementById('tekst').textContent = fout
+    ? 'Inloggen is niet gelukt. Tik op de knop om terug te gaan naar de app.'
+    : 'Tik op de knop als de app niet vanzelf opent. Staat MJOP Live niet op deze telefoon, open de link dan op het toestel waarop je de app gebruikt.';
+  window.location.replace(target);
+})();
+</script>
+</body>
+</html>
