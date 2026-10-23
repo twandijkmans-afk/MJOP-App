@@ -982,6 +982,8 @@
     bundleUi: null, // { fout } | { melding }: resultaat van het importeren van een bronnenbundel
     inventory: null, // component-inventaris (zie src/inventory.js); null = legacy gedrag, plan werkt zoals voorheen
     inventoryUi: null, // { fout } | { melding }: resultaat van het importeren van een inventarisbundel
+    photoRound: null, // Fotoronde (zie src/photo-round.js): { planRef, proposals:[{p,ui}], rounds, planned:[{name,orientation}] }; zit in het plan en wordt dus mee opgeslagen
+    photoRoundUi: { melding: '', fout: '', bezig: false, native: null },
     accountMenuOpen: false, // mini-menu (Account/Uitloggen) onder het gebruikersblok in de zijbalk
     buildingSwitcherOpen: false, // dropdown van de gebouwkiezer boven in de zijbalk
     accountSubTab: 'profiel', // links sub-menu binnen de samengevoegde Account-pagina (zie renderAccount())
@@ -1135,6 +1137,8 @@
     };
     // Alleen opnemen als er een inventaris is: plannen zonder inventaris blijven byte-identiek aan vroeger.
     if (state.inventory) blob.inventory = state.inventory;
+    // Idem voor de Fotoronde: alleen als de gebruiker er iets mee gedaan heeft.
+    if (state.photoRound) blob.photoRound = state.photoRound;   // bestaat pas na een gebruikershandeling; de planRef moet bewaard blijven om scans aan dit plan te koppelen
     return blob;
   }
 
@@ -1149,6 +1153,9 @@
     state.bijvullen = blob.bijvullen || {};
     // Plannen van vóór Building Element Inventory UI v1 hebben geen inventaris: dan geldt het legacy gedrag.
     state.inventory = blob.inventory && blob.inventory.bundle_version === INV.BUNDLE_VERSION ? blob.inventory : null;
+    state.photoRound = blob.photoRound && typeof blob.photoRound.planRef === 'string' && Array.isArray(blob.photoRound.proposals) ? blob.photoRound : null;
+    if (state.photoRound && !Array.isArray(state.photoRound.planned)) state.photoRound.planned = [];
+    if (state.photoRound && !Array.isArray(state.photoRound.rounds)) state.photoRound.rounds = [];
     // Plannen van vóór Quantity Foundation v1: kale hoeveelheden omzetten
     // naar het hoeveelheidsobject (handmatige afwijkingen blijven staan).
     state.elements.forEach(function (el) { ensureQuantity(el, state.building); });
@@ -2276,16 +2283,190 @@
     // gebouwen het enige zinnige scherm, dus val daarop terug i.p.v. te
     // crashen als de tabbalk (die alle tabs toont, ook zonder gebouw) naar
     // zo'n tab probeert te schakelen.
-    var needsBuilding = state.tab === 'home' || state.tab === 'gebouw' || state.tab === 'planning' || state.tab === 'rapport';
+    var needsBuilding = state.tab === 'home' || state.tab === 'gebouw' || state.tab === 'fotoronde' || state.tab === 'planning' || state.tab === 'rapport';
     if (needsBuilding && !state.building) state.tab = 'mijngebouwen';
     if (state.tab === 'home') html += renderHome();
     else if (state.tab === 'gebouw') html += renderGebouw();
+    else if (state.tab === 'fotoronde') html += renderFotoronde();
     else if (state.tab === 'planning') html += renderPlanning();
     else if (state.tab === 'rapport') html += renderRapport();
     else if (state.tab === 'account' || state.tab === 'instellingen') html += renderAccount();
     else if (state.tab === 'mijngebouwen') html += renderMijnGebouwen();
     html += renderTabBar();
     html += '</div>';
+    return html;
+  }
+
+  // ---------------------------------------------------------------------
+  // Fotoronde — foto's maken met de LiDAR-scanner van de iPhone-app (MJOP Live) en de uitkomst als VOORSTEL in dit plan.
+  // Logica (validatie, samenvoegen, brug) staat in src/photo-round.js; hier alleen scherm en acties.
+  // Fases die de gebruiker te zien krijgt: detectie -> meting -> voorstel -> eigen bevestiging -> effectieve hoeveelheid. Een scan boekt nooit zelf.
+  // ---------------------------------------------------------------------
+  var PR = window.MJOPPhotoRound;
+
+  function newPlanRef() {
+    var hex = '';
+    try { var a = new Uint8Array(12); (window.crypto || window.msCrypto).getRandomValues(a); a.forEach(function (x) { hex += ('0' + x.toString(16)).slice(-2); }); }
+    catch (e) { hex = (Date.now().toString(16) + Math.random().toString(16).slice(2)).padEnd(24, '0'); }
+    return 'plan-' + hex.slice(0, 24);
+  }
+  // De projectreferentie hoort bij dit plan (blijft bij opslaan/heropenen gelijk) en koppelt scans aan het juiste project.
+  function ensurePhotoRound() {
+    if (!state.photoRound) state.photoRound = PR.newState(newPlanRef());
+    return state.photoRound;
+  }
+  function prEntry(id) { return ((state.photoRound && state.photoRound.proposals) || []).filter(function (x) { return x.p.proposal_id === id; })[0]; }
+  function prTargetQuantity(entry) {
+    var t = entry.ui.targetId; if (!t) return null;
+    var parts = t.split(':'), el = findEl(parts[0]);
+    return el && el.koz && el.koz[+parts[1]] ? { el: el, row: el.koz[+parts[1]], q: el.koz[+parts[1]].quantity } : null;
+  }
+  function prContext(mode, el) {
+    var pr = ensurePhotoRound(), b = state.building || {};
+    var ctx = { planRef: pr.planRef, mjopPlanId: state.currentPlanId || null, buildingLabel: String(b.adres || 'Gebouw').slice(0, 200),
+      bagPandId: /^\d{16}$/.test(String(b.identificatie || '')) ? String(b.identificatie) : null, mode: mode,
+      element: null, plannedFacades: (pr.planned || []).slice(0, 20).map(function (f) { return { name: String(f.name).slice(0, 60), orientation: f.orientation || null }; }) };
+    if (el) ctx.element = { key: el.id, name: String(el.naam).slice(0, 120), unit: 'st' };
+    return ctx;
+  }
+  function prStart(mode, el) {
+    var ui = state.photoRoundUi;
+    ui.fout = ''; ui.melding = '';
+    if (!PR.available()) { ui.fout = 'De LiDAR-scanner werkt alleen in de MJOP Live-app op de iPhone.'; render(); return; }
+    if (!state.building) return;
+    var id = PR.send(mode === 'element' ? 'startElementScan' : 'startPhotoRound', prContext(mode, el));
+    ui.melding = id ? 'Camera wordt geopend… Na afloop kom je hier terug met voorstellen.' : '';
+    render();
+  }
+  function prRefresh() {
+    if (!PR.available() || !state.photoRound) return;
+    PR.send('listProposals', { planRef: state.photoRound.planRef });
+  }
+  // Antwoorden van de app: contract-, versie- en projectcontrole gebeurt in PR.merge; hier alleen verwerken en bevestigen.
+  function prOnMessage(msg) {
+    var ui = state.photoRoundUi, pr = state.photoRound;
+    if (msg.type === 'capabilities') { ui.native = { lidar: !!msg.lidar, appVersion: String(msg.appVersion || '').slice(0, 20) }; render(); return; }
+    if (msg.type === 'error') { ui.fout = String(msg.message || 'De app meldde een fout.').slice(0, 200); render(); return; }
+    if (!pr || msg.planRef !== pr.planRef) return;                       // niet voor dit project: negeren
+    if (msg.type === 'round-status') { pr.rounds = (msg.rounds || []).filter(function (r) { return r && typeof r.roundId === 'string'; }).slice(0, 30); render(); return; }
+    if (msg.type === 'proposals') {
+      var rep = PR.merge(pr, msg.proposals || [], pr.planRef);
+      if (Array.isArray(msg.rounds)) pr.rounds = msg.rounds.filter(function (r) { return r && typeof r.roundId === 'string'; }).slice(0, 30);
+      var known = (msg.proposals || []).filter(function (p) { return p && p.project && p.project.plan_ref === pr.planRef && prEntry(p.proposal_id); }).map(function (p) { return p.proposal_id; });
+      if (known.length) PR.send('ackProposals', { planRef: pr.planRef, proposalIds: known });
+      ui.fout = rep.foreign ? rep.foreign + ' voorstel(len) hoorden bij een ander project en zijn niet toegepast.' : (rep.invalid.length ? rep.invalid.length + ' ongeldig voorstel(len) genegeerd.' : '');
+      ui.melding = rep.added.length ? rep.added.length + ' nieuw ' + meervoud(rep.added.length, 'voorstel', 'voorstellen') + ' uit de fotoronde. Controleer ze hieronder; er is nog niets overgenomen.' : '';
+      render();
+    }
+  }
+
+  function renderFotoronde() {
+    var b = state.building, pr = state.photoRound, ui = state.photoRoundUi;
+    var inApp = PR.available();
+    var html = pgOpen(true);
+    html += '<div class="ov-page-head"><div><h1 class="page-title">Fotoronde</h1>';
+    html += '<p class="page-sub">' + esc(b.adres) + ' · foto\'s van de gevels worden voorstellen voor het aantal en de oppervlakte van de kozijnen</p></div></div>';
+    html += '<section class="ov-card" data-fotoronde style="padding:16px;margin-top:12px">';
+    if (inApp) {
+      html += '<p class="hint" style="margin:0 0 10px">Loop langs de gevels en maak per gevel een of meer foto\'s met de iPhone-camera en LiDAR. Herkende kozijnen worden als <b>voorstel</b> getoond; jij controleert, corrigeert, sluit foutieve detecties uit en beslist.</p>';
+      html += '<div class="btn-row"><button type="button" class="primary-btn" data-act="photo-round-start">Fotoronde starten</button><button type="button" class="ghost-btn" data-act="photo-round-refresh">Voorstellen ophalen</button></div>';
+    } else {
+      html += '<p class="hint" data-fotoronde-niet-in-app style="margin:0 0 8px">De LiDAR-scanner werkt in de <b>MJOP Live-app op de iPhone</b>. Op deze website kun je de ronde alvast voorbereiden: noteer hieronder welke gevels je gaat fotograferen. De lijst wordt met het plan bewaard en in de app voorgesteld. Voorstellen uit de app verschijnen na synchronisatie hier.</p>';
+    }
+    if (ui.melding) html += '<div class="notice" data-fotoronde-melding style="margin-top:10px">' + esc(ui.melding) + '</div>';
+    if (ui.fout) html += '<div class="notice error" data-fotoronde-fout style="margin-top:10px">' + esc(ui.fout) + '</div>';
+    html += '<div class="label" style="margin-top:14px">Gevels om te fotograferen</div>';
+    var planned = pr ? pr.planned : [];
+    planned.forEach(function (f, i) {
+      html += '<div class="input-row" data-pr-planned="' + i + '"><div class="label">' + esc(f.name) + (f.orientation ? ' (' + esc(PR.ORIENT_LABELS[f.orientation]) + ')' : '') + '</div><span class="linkish" data-act="pr-plan-remove" data-i="' + i + '">verwijderen</span></div>';
+    });
+    if (!planned.length) html += '<div class="hint">Nog geen gevels genoteerd.</div>';
+    html += '<div class="input-row"><input id="pr-plan-naam" data-bind="pr-plan-naam" placeholder="bv. Voorgevel" value="' + esc((ui.planNaam) || '') + '" style="min-width:0;flex:1" />';
+    html += '<select id="pr-plan-orient" data-change="pr-plan-orient" aria-label="Windrichting"><option value="">richting?</option>';
+    PR.ORIENTATIONS.forEach(function (o) { html += '<option value="' + o + '"' + (ui.planOrient === o ? ' selected' : '') + '>' + esc(PR.ORIENT_LABELS[o]) + '</option>'; });
+    html += '</select><button type="button" class="ghost-btn" data-act="pr-plan-add">Toevoegen</button></div>';
+    html += '</section>';
+
+    if (pr && pr.rounds && pr.rounds.length) {
+      html += '<section class="ov-card" style="padding:16px;margin-top:12px" data-fotoronde-rondes><div class="label">Rondes op dit toestel</div>';
+      pr.rounds.forEach(function (r) {
+        html += '<div class="hint" data-pr-round="' + esc(r.roundId) + '">' + esc(r.status === 'COMPLETED' ? 'Afgerond' : 'Onderbroken, kan worden hervat') + ' · ' + (r.photos | 0) + ' foto\'s · ' + (r.objects | 0) + ' kozijnen' +
+          (r.synced === false ? ' · <b>alleen lokaal op dit toestel (nog niet overgedragen)</b>' : '') + '</div>';
+      });
+      html += '</section>';
+    }
+
+    var list = pr ? pr.proposals.slice().reverse() : [];
+    if (list.length) {
+      var lokaal = isDirty();
+      html += '<div class="label" style="margin-top:16px">Voorstellen</div>';
+      if (lokaal) html += '<div class="hint" data-fotoronde-lokaal>Nog niet opgeslagen: deze voorstellen staan alleen op dit toestel tot je het plan opslaat.</div>';
+      list.forEach(function (entry) { html += renderPrCard(entry); });
+    }
+    html += PG_CLOSE;
+    return html;
+  }
+
+  function stageBadge(label, on) { return '<span class="origin-tag origin-' + (on ? 'bag' : 'schatting') + '" style="margin-right:6px">' + esc(label) + '</span>'; }
+
+  function renderPrCard(entry) {
+    var p = entry.p, u = entry.ui, id = p.proposal_id, unit = Q.unitLabel(p.target.unit);
+    var val = PR.effectiveValue(entry);
+    var html = '<section class="ov-card" data-pr-card="' + esc(id) + '" data-pr-status="' + u.status + '" style="padding:16px;margin-top:10px' + (u.status === 'REJECTED' || u.status === 'SUPERSEDED' ? ';opacity:.6' : '') + '">';
+    html += '<div class="label">' + esc(PR.KIND_LABELS[p.target.quantity_kind]) + ' · ' + esc(PR.scopeLabel(p)) + (p.target.element_key ? '' : '') + '</div>';
+    html += '<div class="ov-big" data-pr-value style="font-size:26px;margin:4px 0">' + (val == null ? 'Niet te bepalen' : Q.formatNumber(val) + ' ' + esc(unit)) + '</div>';
+    if (val == null && p.partial_value != null) html += '<div class="hint" data-pr-partial>Alleen de gemeten kozijnen samen: ' + Q.formatNumber(p.partial_value) + ' ' + esc(unit) + ' — onvolledig, wordt niet als hoeveelheid aangeboden.</div>';
+    html += '<div style="margin:6px 0 8px">' + stageBadge('Detectie: ' + p.evidence.detection.auto_detected + ' automatisch', true) + stageBadge('Meting: ' + (p.measurement.dimension_status === 'UNKNOWN' ? 'geen maat' : 'LiDAR, geschat'), p.measurement.dimension_status !== 'UNKNOWN') +
+      stageBadge('Voorstel', true) + stageBadge('Bevestiging: ' + (u.status === 'IN_USE' ? 'door jou' : 'nog niet'), u.status === 'IN_USE') + '</div>';
+    PR.describeReasons(p).forEach(function (r) { html += '<div class="hint" data-pr-reason>• ' + esc(r) + '</div>'; });
+    html += '<details class="ov-details"><summary>Waarop is dit gebaseerd?</summary><p>' + p.basis.objects_total + ' ' + meervoud(p.basis.objects_total, 'kozijn', 'kozijnen') + ' (' + p.basis.objects_measured + ' gemeten, ' + p.basis.objects_unmeasured + ' zonder maat) op ' + p.basis.photos + ' ' + meervoud(p.basis.photos, 'foto', 'foto\'s') +
+      '; ' + p.basis.excluded_objects + ' door jou uitgesloten. Methode: ' + esc(p.measurement.methods.join(', ') || 'geen') + '. ' +
+      (p.measurement.uncertainty.area_sigma_m2 != null ? 'Onzekerheid oppervlak ≈ ' + Q.formatNumber(p.measurement.uncertainty.area_sigma_m2) + ' m² (modelgebaseerd, niet gevalideerd). ' : '') +
+      'Bronfoto\'s: ' + esc(p.evidence.photo_ids.join(', ')) + '.</p></details>';
+
+    if (u.status === 'PROPOSED') {
+      html += '<div class="input-row"><div class="label">Corrigeer waarde (optioneel)</div><input id="pr-corr-' + esc(id) + '" data-bind="pr-corr" data-id="' + esc(id) + '" inputmode="decimal" placeholder="' + (p.value == null ? 'vul zelf in' : Q.formatNumber(p.value)) + '" value="' + (u.corrected != null ? esc(String(u.corrected).replace('.', ',')) : '') + '" style="width:110px;text-align:right" /></div>';
+      if (u.corrFout) html += '<div class="notice error" data-pr-fout>' + esc(u.corrFout) + '</div>';
+      var targets = PR.targetsFor(p, state.elements);
+      if (p.target.unit === 'st') {
+        if (targets.length) {
+          html += '<div class="input-row"><div class="label">Als bron toevoegen bij</div><select id="pr-target-' + esc(id) + '" data-change="pr-target" data-id="' + esc(id) + '"><option value="">kies een post…</option>';
+          targets.forEach(function (t) { html += '<option value="' + esc(t.id) + '"' + (u.targetId === t.id ? ' selected' : '') + '>' + esc(t.label) + '</option>'; });
+          html += '</select></div>';
+          html += '<div class="hint">Het totaal over alle kozijnen komt op één rij te staan; verdeel het zo nodig daarna zelf over de rijen.</div>';
+        } else html += '<div class="hint" data-pr-notarget>Geen passende kozijnpost in dit plan.</div>';
+      } else html += '<div class="hint" data-pr-referentie>Oppervlak is bruto kozijnoppervlak en geen buitenmuur-oppervlak: het wordt niet automatisch in een bestaande post gebruikt.</div>';
+      var kan = val != null && (p.target.unit !== 'st' || !!u.targetId);
+      html += '<div class="btn-row">' + (p.target.unit === 'st' ? '<button type="button" class="primary-btn"' + (kan ? '' : ' disabled') + ' data-act="pr-add-source" data-id="' + esc(id) + '">Voeg toe als bron</button>' : '<button type="button" class="primary-btn"' + (val != null ? '' : ' disabled') + ' data-act="pr-keep" data-id="' + esc(id) + '">Bewaar als referentie</button>') +
+        '<button type="button" class="ghost-btn" data-act="pr-reject" data-id="' + esc(id) + '">Afwijzen</button></div>';
+    } else if (u.status === 'SOURCE_ADDED') {
+      var tq = prTargetQuantity(entry);
+      html += '<div class="hint" data-pr-bron>Staat als bron' + (tq ? ' bij ' + esc(tq.el.naam + ' — ' + tq.row.naam) : '') + ', naast de huidige hoeveelheid. Nog niet gebruikt voor de kosten.</div>';
+      if (tq && tq.q && tq.q.manual) html += '<label class="ov-row"><span>Mijn ingevulde waarde (' + Q.formatNumber(tq.q.manual.value) + ') vervangen door de keuze (blijft als bron bewaard)</span><input type="checkbox" id="pr-replace-' + esc(id) + '" data-change="pr-replace" data-id="' + esc(id) + '"' + (u.replaceManual ? ' checked' : '') + ' /></label>';
+      html += '<label class="ov-row"><span>Ik begrijp dat dit een voorlopige, niet-gevalideerde LiDAR-meting is</span><input type="checkbox" id="pr-ack-' + esc(id) + '" data-change="pr-ack" data-id="' + esc(id) + '"' + (u.ack ? ' checked' : '') + ' /></label>';
+      if (u.useFout) html += '<div class="notice error" data-pr-fout>' + esc(u.useFout) + '</div>';
+      html += '<div class="btn-row"><button type="button" class="primary-btn" data-act="pr-use" data-id="' + esc(id) + '">Gebruik als hoeveelheid</button><button type="button" class="ghost-btn" data-act="pr-reject" data-id="' + esc(id) + '">Afwijzen</button></div>';
+    } else if (u.status === 'IN_USE') {
+      var tq2 = prTargetQuantity(entry);
+      html += '<div class="hint" data-pr-gebruikt>Gebruikt als hoeveelheid' + (tq2 ? ' bij ' + esc(tq2.el.naam + ' — ' + tq2.row.naam) : '') + ' (door jou gekozen' + (u.decidedAt ? ' op ' + esc(String(u.decidedAt).slice(0, 10)) : '') + '). Aanpassen kan bij die post.</div>';
+    } else if (u.status === 'REJECTED') {
+      html += '<div class="hint">Afgewezen.</div><div class="btn-row"><button type="button" class="ghost-btn" data-act="pr-restore" data-id="' + esc(id) + '">Weer in behandeling nemen</button></div>';
+    } else if (u.status === 'SUPERSEDED') html += '<div class="hint">Vervangen door een nieuwere fotoronde.</div>';
+    html += '</section>';
+    return html;
+  }
+
+  // Op de detailpagina van een kozijnpost: scan starten met de context van die post.
+  function renderFotorondeKaart(el) {
+    var inApp = PR.available();
+    var html = '<div class="section" data-fotoronde-kaart><div class="section-title">Scannen met camera</div><div class="card pad" style="margin-top:11px">';
+    if (inApp) {
+      html += '<p class="hint" style="margin:0 0 10px">Maak foto\'s van de gevels; de gevonden kozijnen komen als voorstel bij deze post terug. Er verandert niets aan je hoeveelheden tot jij een voorstel kiest.</p>';
+      html += '<div class="btn-row"><button type="button" class="primary-btn" data-act="photo-scan-element" data-id="' + esc(el.id) + '">Scannen met camera</button></div>';
+    } else html += '<p class="hint" data-fotoronde-niet-in-app style="margin:0">Scannen met de camera en LiDAR kan in de MJOP Live-app op de iPhone. Bereid de ronde voor via het tabblad Fotoronde.</p>';
+    var mine = ((state.photoRound && state.photoRound.proposals) || []).filter(function (x) { return x.p.target.element_key === el.id && x.ui.status !== 'SUPERSEDED' && x.ui.status !== 'REJECTED'; });
+    if (mine.length) html += '<div class="hint" data-pr-bij-post style="margin-top:8px">' + mine.length + ' ' + meervoud(mine.length, 'voorstel', 'voorstellen') + ' uit de fotoronde — <span class="linkish" data-act="set-tab" data-tab="fotoronde">bekijken</span>.</div>';
+    html += '</div></div>';
     return html;
   }
 
@@ -2331,6 +2512,7 @@
     var tabs = [
       ['home', 'Overzicht'],
       ['gebouw', 'Gebouw'],
+      ['fotoronde', 'Fotoronde'],
       ['planning', 'Planning'],
       ['rapport', 'Rapport'],
     ];
@@ -3264,6 +3446,7 @@
     html += '</div></div>';
 
     if (el.type === 'kozijnen') html += renderKozijnen(el);
+    if (el.type === 'kozijnen') html += renderFotorondeKaart(el);
     if (el.type === 'dak' || el.type === 'gevel' || el.type === 'per-unit') html += renderHoeveelheidKengetal(el);
     if (el.type === 'steiger') html += renderSteiger(el);
     if (el.type === 'vast-variabel') html += renderVastVariabel(el);
@@ -4191,6 +4374,42 @@
   var factuurZoekTimer = null;
 
   var ACTIONS = {
+    // --- Fotoronde -------------------------------------------------
+    'photo-round-start': function () { prStart('round', null); },
+    'photo-scan-element': function (d) { var el = findEl(d.id); if (el) prStart('element', el); },
+    'photo-round-refresh': function () { prRefresh(); state.photoRoundUi.melding = 'Gevraagd aan de app…'; render(); },
+    'pr-plan-add': function () {
+      var ui = state.photoRoundUi, naam = String(ui.planNaam || '').trim();
+      if (!naam) return;
+      var pr = ensurePhotoRound();
+      if (pr.planned.length >= 20) return;
+      pr.planned.push({ name: naam.slice(0, 60), orientation: ui.planOrient || null });
+      ui.planNaam = ''; ui.planOrient = ''; render();
+    },
+    'pr-plan-remove': function (d) { var pr = state.photoRound; if (pr) { pr.planned.splice(+d.i, 1); render(); } },
+    'pr-add-source': function (d) {
+      var e = prEntry(d.id); if (!e || e.ui.status !== 'PROPOSED') return;
+      var val = PR.effectiveValue(e); if (val == null) return;
+      var tq = prTargetQuantity(e); if (!tq || !tq.q) return;
+      var ev = PR.evidenceFor(e, Q);
+      Q.addEvidence(tq.q, ev);                       // alleen een bron erbij: de effectieve hoeveelheid verandert niet
+      e.ui.status = 'SOURCE_ADDED'; e.ui.evidenceId = ev.id; e.ui.ack = false; e.ui.replaceManual = false;
+      render();
+    },
+    'pr-keep': function (d) { var e = prEntry(d.id); if (e && e.ui.status === 'PROPOSED' && PR.effectiveValue(e) != null) { e.ui.status = 'IN_USE'; e.ui.decidedAt = new Date().toISOString(); e.ui.referenceOnly = true; render(); } },
+    'pr-use': function (d) {
+      var e = prEntry(d.id); if (!e || e.ui.status !== 'SOURCE_ADDED') return;
+      var tq = prTargetQuantity(e); if (!tq || !tq.q) return;
+      e.ui.useFout = '';
+      if (!e.ui.ack) { e.ui.useFout = 'Bevestig eerst dat je de voorlopige LiDAR-meting begrijpt.'; render(); return; }
+      if (tq.q.manual && !e.ui.replaceManual) { e.ui.useFout = 'Er staat een door jou ingevulde waarde. Bevestig dat die vervangen mag worden (hij blijft als bron bewaard).'; render(); return; }
+      var r = Q.selectEvidence(tq.q, e.ui.evidenceId, undefined, { acknowledgeUncertainty: true });
+      if (!r.ok) { e.ui.useFout = r.error === 'andere_eenheid' ? 'Andere eenheid dan deze post.' : 'Deze bron kan niet gekozen worden.'; render(); return; }
+      e.ui.status = 'IN_USE'; e.ui.decidedAt = new Date().toISOString();
+      render();
+    },
+    'pr-reject': function (d) { var e = prEntry(d.id); if (e && (e.ui.status === 'PROPOSED' || e.ui.status === 'SOURCE_ADDED')) { e.ui.status = 'REJECTED'; e.ui.decidedAt = new Date().toISOString(); render(); } },
+    'pr-restore': function (d) { var e = prEntry(d.id); if (e && e.ui.status === 'REJECTED') { e.ui.status = e.ui.evidenceId ? 'SOURCE_ADDED' : 'PROPOSED'; render(); } },
     // Opent het voorbeeldgebouw; vanuit de homepage en vanuit het adresscherm.
     'open-voorbeeld': function () {
       var vers = !state.elements.length;
@@ -4294,7 +4513,7 @@
       state.currentPlanId = null; state.lastSavedSnapshot = null;
       state.building = null; state.elements = [];
       state.fonds = 0; state.bijdrage = 55; state.invul = { fonds: false, bijdrage: false };
-      state.offertes = {}; state.bijvullen = {}; state.inventory = null; state.inventoryUi = null;
+      state.offertes = {}; state.bijvullen = {}; state.inventory = null; state.inventoryUi = null; state.photoRound = null;
       state.activeElementId = null; state.filter = 'Alles'; state.gebrekenFilter = false; state.addForm = null;
       render();
     },
@@ -4352,6 +4571,7 @@
       // bestaande ingangen (accountmenu, tandwiel-icoon) blijven werken.
       if (d.tab === 'account') state.accountSubTab = 'profiel';
       if (d.tab === 'instellingen') state.accountSubTab = 'weergave';
+      if (d.tab === 'fotoronde') { state.photoRoundUi.fout = ''; state.photoRoundUi.melding = ''; prRefresh(); }
       render();
     },
     'toggle-account-menu': function () { state.accountMenuOpen = !state.accountMenuOpen; render(); },
@@ -4845,6 +5065,16 @@
   }
 
   var BINDS = {
+    'pr-plan-naam': function (t) { state.photoRoundUi.planNaam = t.value; },
+    'pr-corr': function (t, d) {
+      var e = prEntry(d.id); if (!e || e.ui.status !== 'PROPOSED') return;
+      var txt = String(t.value).trim();
+      e.ui.corrFout = '';
+      if (!txt) { e.ui.corrected = null; return; }
+      var r = Q.parseQuantity(txt);
+      if (!r.ok) { e.ui.corrected = null; e.ui.corrFout = Q.parseErrorText(r.error); return; }
+      e.ui.corrected = r.value;
+    },
     'addr-q': function (t) {
       var s = state.onboarding;
       s.q = t.value; s.fout = ''; s.gezocht = false;
@@ -4910,6 +5140,10 @@
   };
 
   var CHANGES = {
+    'pr-plan-orient': function (t) { state.photoRoundUi.planOrient = t.value; },
+    'pr-target': function (t, d) { var e = prEntry(d.id); if (e && e.ui.status === 'PROPOSED') { e.ui.targetId = t.value || null; render(); } },
+    'pr-ack': function (t, d) { var e = prEntry(d.id); if (e) { e.ui.ack = !!t.checked; e.ui.useFout = ''; render(); } },
+    'pr-replace': function (t, d) { var e = prEntry(d.id); if (e) { e.ui.replaceManual = !!t.checked; e.ui.useFout = ''; render(); } },
     'bijdrage': function (t) { state.bijdrage = +t.value; state.invul.bijdrage = true; render(); },
     'bijdrage-bedrag': function (t) { state.bijdrage = clamp(num(t.value), 10, 400); state.invul.bijdrage = true; render(); },
     // Hoeveelheid handmatig aanpassen: strikt lezen, nooit raden. Ongeldige
@@ -5203,6 +5437,11 @@
       var handler = CHANGES[t.dataset.change];
       if (handler) handler(t, t.dataset);
     });
+    // Fotoronde: berichten van de iPhone-app (alleen aanwezig in MJOP Live); bij terugkeren in de app opnieuw voorstellen ophalen.
+    PR.onMessage(prOnMessage);
+    if (PR.available()) {
+      document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') prRefresh(); });
+    }
     render();
   });
 })();
