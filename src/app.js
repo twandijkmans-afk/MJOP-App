@@ -324,10 +324,30 @@
     });
   }
 
+  // Maximale wachttijd per bron (ms). Een verzoek dat nooit antwoordt (trage verbinding in de WebView, hangende server) liet het laadscherm
+  // eeuwig staan; nu loopt elke stap af. De 3D BAG is aanvullend: zonder antwoord rekent de app met de schatting uit het grondvlak.
+  function lookupLimits() {
+    var o = (typeof window !== 'undefined' && window.__mjopLookupMs) || {};
+    return { pdok: o.pdok || 10000, bag: o.bag || 12000, d3: o.d3 || 8000, totaal: o.totaal || 30000 };
+  }
+  // JSON ophalen met tijdslimiet over het hele verzoek (incl. lezen van de body). nullOnHttpError: HTTP-fout geeft null i.p.v. een fout.
+  function fetchJsonTimeout(url, ms, nullOnHttpError) {
+    return new Promise(function (resolve, reject) {
+      var ctl = typeof AbortController === 'function' ? new AbortController() : null;
+      var klaar = false;
+      var t = setTimeout(function () { if (klaar) return; klaar = true; try { if (ctl) ctl.abort(); } catch (e) {} reject(new Error('timeout')); }, ms);
+      fetch(url, ctl ? { signal: ctl.signal } : undefined).then(function (r) {
+        if (!r.ok && nullOnHttpError) return null;
+        return r.json();
+      }).then(function (j) { if (klaar) return; klaar = true; clearTimeout(t); resolve(j); },
+        function (e) { if (klaar) return; klaar = true; clearTimeout(t); reject(e); });
+    });
+  }
+
   function lookupBuilding(id, naam) {
-    return fetch('https://api.pdok.nl/bzk/locatieserver/search/v3_1/lookup?id='
-      + encodeURIComponent(id) + '&fl=weergavenaam,centroide_ll,postcode,woonplaatsnaam')
-      .then(function (r) { return r.json(); })
+    var lim = lookupLimits();
+    return fetchJsonTimeout('https://api.pdok.nl/bzk/locatieserver/search/v3_1/lookup?id='
+      + encodeURIComponent(id) + '&fl=weergavenaam,centroide_ll,postcode,woonplaatsnaam', lim.pdok)
       .then(function (lj) {
         var doc = lj.response.docs[0];
         var m = /POINT\(([-0-9.]+) ([-0-9.]+)\)/.exec(doc.centroide_ll);
@@ -335,8 +355,7 @@
         var lon = parseFloat(m[1]), lat = parseFloat(m[2]);
         var d = 0.00018;
         var bbox = [lon - d, lat - d, lon + d, lat + d].join(',');
-        return fetch('https://api.pdok.nl/kadaster/bag/ogc/v2/collections/pand/items?f=json&limit=20&bbox=' + bbox)
-          .then(function (r) { return r.json(); })
+        return fetchJsonTimeout('https://api.pdok.nl/kadaster/bag/ogc/v2/collections/pand/items?f=json&limit=20&bbox=' + bbox, lim.bag)
           .then(function (pj) {
             var feats = (pj.features || []).filter(function (f) { return f.geometry; });
             if (!feats.length) throw new Error('geen pand gevonden op dit adres');
@@ -354,8 +373,7 @@
             var afterD3 = Promise.resolve(null);
             var d3RawCapture = null;
             if (p.identificatie) {
-              afterD3 = fetch('https://api.3dbag.nl/collections/pand/items/NL.IMBAG.Pand.' + p.identificatie)
-                .then(function (tr) { return tr.ok ? tr.json() : null; })
+              afterD3 = fetchJsonTimeout('https://api.3dbag.nl/collections/pand/items/NL.IMBAG.Pand.' + p.identificatie, lim.d3, true)
                 .then(function (tj) {
                   if (!tj) return null;
                   var co = tj.feature.CityObjects['NL.IMBAG.Pand.' + p.identificatie];
@@ -1524,16 +1542,31 @@
       try { focusInfo.start = active.selectionStart; focusInfo.end = active.selectionEnd; } catch (e) {}
     }
     var screen = currentScreen();
-    var mainHtml;
-    if (screen === 'marketing') mainHtml = renderMarketing();
-    else if (screen === 'login') mainHtml = renderLoginScreen();
-    else if (screen === 'onboarding') mainHtml = renderOnboarding();
-    else mainHtml = renderApp();
-    var printHtml = (screen === 'app' && state.building) ? renderPrintReport() : '';
+    var mainHtml, printHtml = '';
+    try {
+      if (screen === 'marketing') mainHtml = renderMarketing();
+      else if (screen === 'login') mainHtml = renderLoginScreen();
+      else if (screen === 'onboarding') mainHtml = renderOnboarding();
+      else mainHtml = renderApp();
+      printHtml = (screen === 'app' && state.building) ? renderPrintReport() : '';
+    } catch (e) {
+      // Een fout bij het opbouwen van een scherm liet vroeger het vorige scherm (bijv. een laadscherm) staan zonder uitleg. Nu altijd een melding met een weg terug.
+      try { console.error('render', e); } catch (e2) {}
+      mainHtml = '<div class="entry-screen"><div class="ov-card st-card" data-render-fout role="alert"><h2 class="ov-h2">Dit scherm kon niet worden getoond</h2><p class="ov-hint">Je gegevens zijn niet kwijt. Ga terug naar Start en probeer het opnieuw.</p><button type="button" class="ov-btn st-groot" data-act="render-herstel">Terug naar Start</button></div></div>';
+      printHtml = '';
+    }
     // Geen root.innerHTML = …: dat vernietigde het invoerveld waarin je typt bij elke toetsaanslag en elke resize (iOS: toetsenbord valt terug naar ABC,
     // cursor springt). MJOPDomPatch werkt de bestaande DOM bij en laat het actieve veld ongemoeid (zie src/dom-patch.js).
     lastRenderedScreen = screen;
-    var patched = window.MJOPDomPatch.patch(root, '<div class="screen-view">' + mainHtml + '</div>' + printHtml);
+    var patched;
+    try {
+      patched = window.MJOPDomPatch.patch(root, '<div class="screen-view">' + mainHtml + '</div>' + printHtml);
+    } catch (e) {
+      // Mislukt het bijwerken van de bestaande DOM (bijv. een WebView-eigenaardigheid), dan toch het nieuwe scherm tonen i.p.v. het oude te laten staan.
+      try { console.error('dom-patch', e); } catch (e2) {}
+      root.innerHTML = '<div class="screen-view">' + mainHtml + '</div>' + printHtml;
+      patched = { pendingSync: false };
+    }
     syncAfterBlur = patched.pendingSync;
     // Na elke render() alsnog tabindex/role toevoegen aan wat dat nog mist,
     // i.p.v. elke afzonderlijke data-act-plek in de render*()-functies
@@ -2126,7 +2159,7 @@
     if (s.gezocht && !s.sug.length && !s.bezig && !s.fout) {
       html += '<div class="notice">Geen adressen gevonden voor "' + esc(s.q) + '". Controleer de spelling, of bekijk eerst het voorbeeldgebouw.</div>';
     }
-    if (s.bezig) html += '<div class="notice">' + esc(s.bezigTekst) + '</div>';
+    if (s.bezig) html += '<div class="notice" data-zoeken-bezig role="status">' + esc(s.bezigTekst) + ' <span class="linkish" role="button" tabindex="0" data-act="annuleer-zoeken">Annuleren</span></div>';
     if (s.fout) html += '<div class="notice error">' + esc(s.fout) + '</div>';
 
     html += '<div class="entry-alt">';
@@ -3055,7 +3088,7 @@
   function startProjectRij(pr, na, knop) {
     if (!na && pr.wizard) na = 'wizard';
     var html = '<div class="st-proj">';
-    html += '<div class="st-proj-tekst"><div class="st-proj-adres">' + esc(pr.adres) + '</div>';
+    html += '<div class="st-proj-tekst"><span class="st-badge ' + (pr.id ? 'opgeslagen' : 'nieuw') + '" data-st-soort="' + (pr.id ? 'opgeslagen' : 'nieuw') + '">' + (pr.id ? 'Opgeslagen project' : 'Nieuw, nog niet opgeslagen') + '</span><div class="st-proj-adres">' + esc(pr.adres) + '</div>';
     html += '<div class="st-proj-meta">' + (pr.bijgewerkt ? 'Laatst bewerkt ' + esc(relatieveDatum(pr.bijgewerkt)) : 'Nog niet opgeslagen') + '</div>';
     html += '<div class="st-proj-volgende"><span>Volgende stap</span> ' + esc(volgendeStapTekst(pr.plan)) + '</div></div>';
     if (pr.id) html += '<button type="button" class="ov-btn st-proj-knop" data-act="open-plan" data-id="' + pr.id + '"' + (na ? ' data-na="' + na + '"' : '') + '>' + knop + '</button>';
@@ -3176,6 +3209,7 @@
       html += feitRij('Appartementen', String(b.units), vb ? 'voorbeeld' : (b.unitsBron != null && b.units !== b.unitsBron ? 'zelf' : 'bekend'));
       html += feitRij('Dakoppervlak', b.dakM2 ? Math.round(b.dakM2) + ' m²' : '—', b.dakM2 ? (vb ? 'voorbeeld' : 'geschat') : 'onbekend');
       html += feitRij('Gevel', b.gevelM2 ? Math.round(b.gevelM2) + ' m²' : '—', b.gevelM2 ? (vb ? 'voorbeeld' : 'geschat') : 'onbekend');
+      if (!vb && !b.d3) html += '<p class="ov-hint" data-wz-geen-3d>De 3D BAG gaf geen gegevens voor dit pand (of antwoordde niet op tijd). Dak en gevel zijn daarom geschat uit het grondvlak.</p>';
       html += '</section>';
       html += '<div class="wz-voet"><button type="button" class="ov-btn st-groot" data-act="wizard-volgende">Ja, dit is mijn gebouw</button>';
       html += '<button type="button" class="ov-btn secondary st-groot" data-act="wijzig-adres">Ander adres zoeken</button></div>';
@@ -4909,6 +4943,10 @@
     // Het live-doorzoeken tijdens het typen (BINDS['addr-q']) blijft de
     // eigenlijke weg naartoe; dit is enkel de expliciete knop ernaast die
     // dezelfde zoekopdracht direct uitvoert i.p.v. na de debounce.
+    'render-herstel': function () { state.screen = state.session ? 'app' : 'onboarding'; state.tab = 'start'; state.activeElementId = null; render(); },
+    'annuleer-zoeken': function () {
+      var s = state.onboarding; s.lookupNr = (s.lookupNr || 0) + 1; s.bezig = false; s.fout = ''; render();
+    },
     'zoek-adres': function () {
       var s = state.onboarding;
       clearTimeout(searchTimer);
@@ -4920,6 +4958,7 @@
     'kies-adres': function (d) {
       var s = state.onboarding;
       s.sug = []; s.q = d.naam; s.bezig = true; s.bezigTekst = 'Pand opzoeken in de BAG…'; s.fout = '';
+      var lookupNr = s.lookupNr = (s.lookupNr || 0) + 1;     // een geannuleerde of verlopen zoekopdracht mag later niets meer overschrijven
       render();
       // Puur cosmetisch: dit tikt alleen de bezigTekst door terwijl
       // lookupBuilding() draait, los van de echte fetch-keten daarbinnen
@@ -4930,18 +4969,26 @@
         setTimeout(function () { if (state.onboarding === s && s.bezig) { s.bezigTekst = 'Bouwjaar en appartementen ophalen uit de BAG…'; render(); } }, 700),
         setTimeout(function () { if (state.onboarding === s && s.bezig) { s.bezigTekst = 'Dakoppervlak, gevels en hoogte berekenen uit de 3D BAG…'; render(); } }, 1800),
       ];
+      var mislukt = function (err) {
+        stapTimers.forEach(clearTimeout); clearTimeout(watchdog);
+        if (s.lookupNr !== lookupNr) return;
+        s.lookupNr++;
+        s.bezig = false;
+        var timeout = err && err.message === 'timeout';
+        s.fout = timeout ? 'Het opzoeken duurt te lang. Controleer je verbinding en probeer het opnieuw.'
+          : 'Dit adres lukt niet: ' + (err && err.message ? err.message : 'onbekende fout') + '. Probeer een ander huisnummer, of begin met een voorbeeldgebouw.';
+        render();
+      };
+      var watchdog = setTimeout(function () { mislukt(new Error('timeout')); }, lookupLimits().totaal);
       lookupBuilding(d.id, d.naam).then(function (building) {
-        stapTimers.forEach(clearTimeout);
+        stapTimers.forEach(clearTimeout); clearTimeout(watchdog);
+        if (s.lookupNr !== lookupNr) return;
         s.bezig = false;
         applyBuilding(building);
+        // Begeleide stappen: het gevonden gebouw wordt eerst bevestigd ("Is dit je gebouw?").
         if (state.wizard) { state.wizard.stap = 1; state.tab = 'wizard'; }
         render();
-      }).catch(function (err) {
-        stapTimers.forEach(clearTimeout);
-        s.bezig = false;
-        s.fout = 'Dit adres lukt niet: ' + (err && err.message ? err.message : 'onbekende fout') + '. Probeer een ander huisnummer, of begin met een voorbeeldgebouw.';
-        render();
-      });
+      }).catch(mislukt);
     },
     'set-tab': function (d) {
       state.tab = d.tab; state.activeElementId = null; state.confirmDeleteId = null;
