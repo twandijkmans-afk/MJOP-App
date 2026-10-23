@@ -29,6 +29,8 @@ async function newPage(browser, inApp, oldApp) {
   var page = await ctx.newPage();
   page.__errors = [];
   page.on('pageerror', function (e) { page.__errors.push(String(e)); });
+  // Dit spec dekt de volledige (uitgebreide) weergave; de eenvoudige weergave heeft fotoronde-simpel.spec.js.
+  await page.addInitScript(function () { try { localStorage.setItem('mjop-instellingen', JSON.stringify({ toonCbsBron: true, eenvoudig: false })); } catch (e) {} });
   if (inApp) await page.addInitScript('(' + BRIDGE_STUB.toString() + ')(' + (oldApp ? 'false' : 'true') + ')');
   await page.route(/^https?:\/\/(?!localhost)/, function (r) { return r.abort(); });
   await page.goto(BASE + 'index.html'); await page.waitForTimeout(300);
