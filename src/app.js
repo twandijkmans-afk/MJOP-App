@@ -960,7 +960,7 @@
     // uit localStorage gelezen en als data-theme op <html> gezet, nog vóór
     // de eerste render(), zodat de pagina niet eerst licht opflitst.
     theme: 'light',
-    settings: { toonCbsBron: true },
+    settings: { toonCbsBron: true, eenvoudig: true },
     onboarding: { q: '', sug: [], bezig: false, bezigTekst: '', fout: '', gezocht: false },
     upload: null, // zie renderUploadWizard voor de vorm van dit object
     building: null,
@@ -971,7 +971,7 @@
     invul: { fonds: false, bijdrage: false },
     bijdrage: 55,
     elements: [],
-    tab: 'home',
+    tab: 'start',
     activeElementId: null,
     filter: 'Alles',
     gebrekenFilter: false, // "Met gebreken"-filter op het Gebouw-scherm, los van de categorie-chips
@@ -1050,6 +1050,9 @@
     var opgeslagenInstellingen = JSON.parse(localStorage.getItem('mjop-instellingen') || 'null');
     if (opgeslagenInstellingen && typeof opgeslagenInstellingen.toonCbsBron === 'boolean') {
       state.settings.toonCbsBron = opgeslagenInstellingen.toonCbsBron;
+    }
+    if (opgeslagenInstellingen && typeof opgeslagenInstellingen.eenvoudig === 'boolean') {
+      state.settings.eenvoudig = opgeslagenInstellingen.eenvoudig;
     }
   } catch (e) { /* localStorage niet beschikbaar (bv. privénavigatie) — gewoon bij de standaardwaarden blijven */ }
   document.documentElement.setAttribute('data-theme', state.theme);
@@ -1235,7 +1238,14 @@
     if (!sb || !state.session) return;
     state.plansUi.bezig = true; state.plansUi.fout = '';
     render();
-    sb.from('saved_plans').select('id,label,adres,updated_at').order('updated_at', { ascending: false }).then(function (res) {
+    // 'invul' (alleen dat kleine veld uit de blob) laat de startpagina per
+    // gebouw de logische volgende stap tonen. Lukt die kolomverwijzing niet,
+    // dan valt het terug op de oude, lichte select — de lijst blijft werken.
+    var lijst = function (kolommen) { return sb.from('saved_plans').select(kolommen).order('updated_at', { ascending: false }); };
+    lijst('id,label,adres,updated_at,invul:state->invul').then(function (res) {
+      if (res.error) return lijst('id,label,adres,updated_at');
+      return res;
+    }).then(function (res) {
       state.plansUi.bezig = false;
       state.plansLoaded = true;
       if (res.error) { state.plansUi.fout = res.error.message; render(); return; }
@@ -1476,7 +1486,7 @@
   // staat, bv. na het smaller maken van het venster.
   function currentScreen() {
     if (state.screen === 'marketing' || state.screen === 'login') {
-      if (!isDesktopWidth()) return 'onboarding';
+      if (!isDesktopWidth()) return state.session ? 'app' : 'onboarding';
       return state.screen;
     }
     return state.screen;
@@ -2284,8 +2294,9 @@
     // crashen als de tabbalk (die alle tabs toont, ook zonder gebouw) naar
     // zo'n tab probeert te schakelen.
     var needsBuilding = state.tab === 'home' || state.tab === 'gebouw' || state.tab === 'fotoronde' || state.tab === 'planning' || state.tab === 'rapport';
-    if (needsBuilding && !state.building) state.tab = 'mijngebouwen';
-    if (state.tab === 'home') html += renderHome();
+    if (needsBuilding && !state.building) state.tab = state.session ? 'start' : 'mijngebouwen';
+    if (state.tab === 'start') html += renderStart();
+    else if (state.tab === 'home') html += renderHome();
     else if (state.tab === 'gebouw') html += renderGebouw();
     else if (state.tab === 'fotoronde') html += renderFotoronde();
     else if (state.tab === 'planning') html += renderPlanning();
@@ -2518,12 +2529,15 @@
 
   function renderTabBar() {
     var tabs = [
+      ['start', 'Start'],
       ['home', 'Overzicht'],
       ['gebouw', 'Gebouw'],
       ['fotoronde', 'Fotoronde'],
       ['planning', 'Planning'],
       ['rapport', 'Rapport'],
     ];
+    // Eenvoudige weergave: Fotoronde bereik je via Start en Gebouw, niet via een eigen tab.
+    if (state.settings.eenvoudig) tabs = tabs.filter(function (t) { return t[0] !== 'fotoronde' || state.tab === 'fotoronde'; });
     var html = '<div class="tab-bar">';
     html += '<div class="tab-brand">' + mktLogo() + (state.building ? renderBuildingSwitcher('sidebar') : '') + '</div>';
     html += '<div class="tab-main">';
@@ -2850,6 +2864,10 @@
     html += '<span class="tab-icon" style="width:20px;height:20px;color:var(--ink-45)">' + (state.theme === 'dark' ? NAV_ICONS.maan : NAV_ICONS.zon) + '</span>';
     html += '<div class="grow"><div class="name">Donker thema</div><div class="meta">' + (state.theme === 'dark' ? 'Nu aan' : 'Nu uit') + '</div></div>';
     html += '<div class="toggle' + (state.theme === 'dark' ? ' on' : '') + '" data-act="toggle-theme"><div class="knob"></div></div>';
+    html += '</div>';
+    html += '<div class="row">';
+    html += '<div class="grow"><div class="name">Eenvoudige weergave</div><div class="meta">' + (state.settings.eenvoudig ? 'Aan: minder tabs en technische details. Alle opties blijven bereikbaar via “Meer opties”.' : 'Uit: alle tabs en technische details zijn zichtbaar.') + '</div></div>';
+    html += '<div class="toggle' + (state.settings.eenvoudig ? ' on' : '') + '" data-act="toggle-eenvoudig" role="switch" aria-checked="' + (state.settings.eenvoudig ? 'true' : 'false') + '" aria-label="Eenvoudige weergave"><div class="knob"></div></div>';
     html += '</div></div>';
     return html;
   }
@@ -2927,9 +2945,102 @@
   // sessie na een klik op de link automatisch uit de url
   // (detectSessionInUrl, standaard aan) en meldt dat via de
   // onAuthStateChange-listener, net als bij elke andere in-/uitlog-actie.
+
+  // ---------------------------------------------------------------------
+  // Start — de eerste pagina na het inloggen: drie duidelijke keuzes in
+  // gewone taal. Rekent niets; toont alleen waar de gebruiker verder kan.
+  // ---------------------------------------------------------------------
+  function relatieveDatum(iso) {
+    var t = new Date(iso), nu = new Date();
+    if (isNaN(t.getTime())) return '';
+    var dagen = Math.floor((new Date(nu.getFullYear(), nu.getMonth(), nu.getDate()) - new Date(t.getFullYear(), t.getMonth(), t.getDate())) / 86400000);
+    if (dagen <= 0) return 'vandaag';
+    if (dagen === 1) return 'gisteren';
+    if (dagen < 14) return dagen + ' dagen geleden';
+    return 'op ' + t.toLocaleDateString('nl-NL');
+  }
+
+  var VOLGENDE_STAP = ['Vul het saldo van de reservekas in', 'Vul de maandelijkse bijdrage in', 'Beoordeel het onderhoud', 'Bekijk je voorstel'];
+  function volgendeStapTekst(p) {
+    if (p.id === state.currentPlanId && state.building) return VOLGENDE_STAP[stappenModel().eersteOpen] || VOLGENDE_STAP[3];
+    var iv = p.invul;
+    if (iv && typeof iv === 'object') {
+      if (!iv.fonds) return VOLGENDE_STAP[0];
+      if (!iv.bijdrage) return VOLGENDE_STAP[1];
+      return 'Controleer het onderhoud en bekijk je voorstel';
+    }
+    return 'Open het gebouw en ga verder';
+  }
+
+  // Alle gebouwen waar iemand mee verder kan: opgeslagen plannen, plus het
+  // plan dat nu in het geheugen staat als dat nog niet is opgeslagen.
+  function startProjecten() {
+    var lijst = state.savedPlans.map(function (p) { return { id: p.id, adres: p.label || p.adres || 'Gebouw zonder naam', bijgewerkt: p.updated_at, plan: p, huidig: p.id === state.currentPlanId }; });
+    if (state.building && !state.currentPlanId && !state.building.isVoorbeeld) {
+      lijst.unshift({ id: null, adres: state.building.adres, bijgewerkt: null, plan: { id: null }, huidig: true });
+    }
+    lijst.sort(function (a, b) { return (b.huidig ? 1 : 0) - (a.huidig ? 1 : 0); });
+    return lijst;
+  }
+
+  function startProjectRij(pr, na, knop) {
+    var html = '<div class="st-proj">';
+    html += '<div class="st-proj-tekst"><div class="st-proj-adres">' + esc(pr.adres) + '</div>';
+    html += '<div class="st-proj-meta">' + (pr.bijgewerkt ? 'Laatst bewerkt ' + esc(relatieveDatum(pr.bijgewerkt)) : 'Nog niet opgeslagen') + '</div>';
+    html += '<div class="st-proj-volgende"><span>Volgende stap</span> ' + esc(volgendeStapTekst(pr.plan)) + '</div></div>';
+    if (pr.id) html += '<button type="button" class="ov-btn st-proj-knop" data-act="open-plan" data-id="' + pr.id + '"' + (na ? ' data-na="' + na + '"' : '') + '>' + knop + '</button>';
+    else html += '<button type="button" class="ov-btn st-proj-knop" data-act="set-tab" data-tab="' + (na || 'home') + '">' + knop + '</button>';
+    return html + '</div>';
+  }
+
+  function renderStart() {
+    var projecten = startProjecten();
+    var html = pgOpen(true);
+    html += '<div class="pg-head st-kop"><h1 class="page-title">Wat wil je doen?</h1>';
+    html += '<div class="page-sub">Kies waar je mee verder wilt. Alles wat je invult wordt bewaard.</div></div>';
+    if (state.plansUi.fout) html += '<div class="section"><div class="notice error">' + esc(state.plansUi.fout) + '</div></div>';
+
+    // Keuze-weergave voor "Gebouw inspecteren" zonder geopend gebouw.
+    if (state.startKeuze === 'inspecteren') {
+      html += '<section class="ov-card st-card"><h2 class="ov-h2">Welk gebouw wil je inspecteren?</h2>';
+      if (projecten.length) projecten.forEach(function (pr) { html += startProjectRij(pr, 'fotoronde', 'Inspecteren'); });
+      else html += '<p class="ov-hint">Je hebt nog geen gebouw. Maak eerst een nieuw MJOP; daarna kun je het gebouw inspecteren.</p><button type="button" class="ov-btn st-groot" data-act="goto-onboarding">Nieuw MJOP maken</button>';
+      html += '<p class="ov-more"><span class="linkish" data-act="start-terug" role="button" tabindex="0">‹ Terug naar Start</span></p></section>';
+      return html + PG_CLOSE;
+    }
+
+    // 1. Verder met mijn gebouw
+    html += '<section class="ov-card st-card" aria-labelledby="st-h-verder"><h2 class="ov-h2" id="st-h-verder">Verder met mijn gebouw</h2>';
+    if (!state.session) {
+      html += '<p class="ov-hint">Log in om je opgeslagen gebouwen te zien en verder te gaan waar je gebleven was.</p>';
+      html += '<button type="button" class="ov-btn st-groot" data-act="goto-login">Inloggen</button>';
+      if (state.building) html += '<button type="button" class="ov-btn secondary st-groot" data-act="set-tab" data-tab="home">Verder met ' + esc(state.building.adres) + '</button>';
+    } else if (state.plansUi.bezig && !state.plansLoaded) {
+      html += '<p class="ov-hint">Je gebouwen worden geladen…</p>';
+    } else if (!projecten.length) {
+      html += '<p class="ov-hint">Je hebt nog geen gebouw. Begin met een nieuw MJOP.</p>';
+    } else {
+      projecten.slice(0, 2).forEach(function (pr) { html += startProjectRij(pr, null, 'Verder'); });
+      if (projecten.length > 2) html += '<p class="ov-more"><span class="linkish" data-act="goto-mijngebouwen" role="button" tabindex="0">Alle ' + projecten.length + ' gebouwen bekijken</span></p>';
+    }
+    html += '</section>';
+
+    // 2. Nieuw MJOP maken
+    html += '<section class="ov-card st-card" aria-labelledby="st-h-nieuw"><h2 class="ov-h2" id="st-h-nieuw">Nieuw MJOP maken</h2>';
+    html += '<p class="ov-hint">Zoek het adres van het gebouw. De gegevens uit de BAG vullen we alvast voor je in.</p>';
+    html += '<button type="button" class="ov-btn st-groot" data-act="goto-onboarding">Nieuw MJOP starten</button></section>';
+
+    // 3. Gebouw inspecteren
+    html += '<section class="ov-card st-card" aria-labelledby="st-h-insp"><h2 class="ov-h2" id="st-h-insp">Gebouw inspecteren</h2>';
+    html += '<p class="ov-hint">Maak foto’s van de gevel met je iPhone. De app telt de mogelijke kozijnen; jij controleert ze.</p>';
+    html += '<button type="button" class="ov-btn secondary st-groot" data-act="start-inspecteer">Inspectie starten</button></section>';
+
+    return html + PG_CLOSE;
+  }
+
   function renderMijnGebouwen() {
     var html = pgOpen(true);
-    html += '<div class="top-nav"><div class="back-link" data-act="set-tab" data-tab="home">‹ Overzicht</div></div>';
+    html += '<div class="top-nav"><div class="back-link" data-act="set-tab" data-tab="start">‹ Start</div></div>';
     html += '<div class="pg-head">';
     html += '<h1 class="page-title">Mijn gebouwen</h1>';
     html += '<div class="page-sub">Opgeslagen plannen — openen, hernoemen of verwijderen.</div>';
@@ -4460,7 +4571,7 @@
         applyPlanBlob(res.data.state);
         state.currentPlanId = res.data.id;
         state.lastSavedSnapshot = JSON.stringify(res.data.state);
-        state.screen = 'app'; state.tab = 'home';
+        state.screen = 'app'; state.tab = d.na === 'fotoronde' || d.na === 'gebouw' ? d.na : 'home'; state.startKeuze = null;
         render();
       }).catch(function () {
         state.plansUi.bezig = false; state.plansUi.fout = 'Kon geen verbinding maken. Probeer het opnieuw.'; render();
@@ -4493,7 +4604,7 @@
     // — dan is "opnieuw inloggen" niet van toepassing, ga direct terug
     // naar het gebouw dat al in het geheugen staat, of anders (nog geen
     // gebouw gekozen deze sessie) naar het adresscherm.
-    'goto-app': function () { state.screen = state.building ? 'app' : 'onboarding'; render(); },
+    'goto-app': function () { state.screen = (state.building || state.session) ? 'app' : 'onboarding'; if (!state.building && state.session) state.tab = 'start'; render(); },
     // renderMijnGebouwen() staat los van state.building, dus dit is veilig
     // vanaf het adresscherm te bereiken vóórdat er deze sessie al een
     // gebouw gekozen is.
@@ -4734,7 +4845,7 @@
         // "Inloggen", geen mail-omweg waarbij op deze pagina blijven staan
         // zinvol is.
         a.password = '';
-        state.screen = state.building ? 'app' : 'onboarding';
+        state.screen = 'app'; state.tab = 'start';
         render();
       }).catch(function (err) {
         a.bezig = false; authFail(a, 'signInWithPassword', err); render();
@@ -4758,7 +4869,7 @@
         // en gaan we net als bij login-password meteen door. Staat
         // bevestiging aan, dan is er nog geen sessie en tonen we de
         // "check je mail"-stap.
-        if (res.data && res.data.session) { state.screen = state.building ? 'app' : 'onboarding'; }
+        if (res.data && res.data.session) { state.screen = 'app'; state.tab = 'start'; }
         else { a.stap = 'signup-sent'; }
         render();
       }).catch(function (err) {
@@ -4885,6 +4996,16 @@
       try { localStorage.setItem('mjop-theme', state.theme); } catch (e) {}
       render();
     },
+    'toggle-eenvoudig': function () {
+      state.settings.eenvoudig = !state.settings.eenvoudig;
+      try { localStorage.setItem('mjop-instellingen', JSON.stringify(state.settings)); } catch (e) {}
+      render();
+    },
+    'start-inspecteer': function () {
+      if (state.building) { state.tab = 'fotoronde'; state.startKeuze = null; render(); return; }
+      state.startKeuze = 'inspecteren'; render();
+    },
+    'start-terug': function () { state.startKeuze = null; render(); },
     'toggle-cbs-bron': function () {
       state.settings.toonCbsBron = !state.settings.toonCbsBron;
       try { localStorage.setItem('mjop-instellingen', JSON.stringify(state.settings)); } catch (e) {}
