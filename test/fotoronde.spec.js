@@ -15,17 +15,21 @@ var AREA = JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures', 'photo-ro
 var checks = [];
 function check(n, ok, d) { checks.push([n, !!ok, d]); }
 
-var BRIDGE_STUB = function () {
+// Nieuwe app: antwoordt op getCapabilities. Oude app (alleen afdrukken): de brug bestaat maar er komt nooit een antwoord.
+var BRIDGE_STUB = function (answers) {
   window.__posted = [];
-  window.webkit = { messageHandlers: { mjopNative: { postMessage: function (m) { window.__posted.push(JSON.parse(JSON.stringify(m))); } } } };
+  window.webkit = { messageHandlers: { mjopNative: { postMessage: function (m) {
+    window.__posted.push(JSON.parse(JSON.stringify(m)));
+    if (answers && m.action === 'getCapabilities') setTimeout(function () { window.MJOPNativeBridge.receive({ v: 1, type: 'capabilities', requestId: m.requestId, lidar: true, appVersion: '1' }); }, 10);
+  } } } };
 };
 
-async function newPage(browser, inApp) {
+async function newPage(browser, inApp, oldApp) {
   var ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, userAgent: inApp ? APP_UA : undefined, isMobile: true, hasTouch: true });
   var page = await ctx.newPage();
   page.__errors = [];
   page.on('pageerror', function (e) { page.__errors.push(String(e)); });
-  if (inApp) await page.addInitScript(BRIDGE_STUB);
+  if (inApp) await page.addInitScript('(' + BRIDGE_STUB.toString() + ')(' + (oldApp ? 'false' : 'true') + ')');
   await page.route(/^https?:\/\/(?!localhost)/, function (r) { return r.abort(); });
   await page.goto(BASE + 'index.html'); await page.waitForTimeout(300);
   return page;
@@ -147,7 +151,7 @@ async function main() {
   await click(page, '[data-act=skip-onboarding]');
   await click(page, '[data-act=set-tab][data-tab=fotoronde]');
   await click(page, '[data-act=photo-round-start]');
-  planRef = (await posted(page))[0].payload.planRef;
+  planRef = (await posted(page)).filter(function (m) { return m.action === 'startPhotoRound'; })[0].payload.planRef;
   await click(page, '[data-act=set-tab][data-tab=gebouw]');
   await click(page, '[data-act=open-element][data-id=kozijnen-onderhoud]');
   await click(page, '[data-act=koz-plus][data-id=kozijnen-onderhoud][data-i="0"]');
@@ -179,6 +183,18 @@ async function main() {
   var repl = await rows(page);
   check('Pas na uitdrukkelijke keuze vervangt de scan de handmatige waarde (12)', repl.vals[0] === '12' && !/Door jou aangepast/.test(repl.hint0), JSON.stringify(repl.vals) + ' ' + repl.hint0);
   check('Geen JavaScript-fouten (handmatig-scenario)', page.__errors.length === 0, page.__errors.join('; '));
+  await page.context().close();
+
+  // ===== oude versie van de app (brug bestaat, Fotoronde niet): geen knoppen die niets doen =====
+  page = await newPage(browser, true, true);
+  await click(page, '[data-act=skip-onboarding]');
+  await click(page, '[data-act=set-tab][data-tab=fotoronde]');
+  await page.waitForTimeout(300);
+  check('Oude app: geen start-knop, wel uitleg over de nieuwste versie', !(await page.$('[data-act=photo-round-start]')) && !!(await page.$('[data-fotoronde-app-oud]')) && /nieuwste versie/.test(await text(page)));
+  await click(page, '[data-act=set-tab][data-tab=gebouw]');
+  await click(page, '[data-act=open-element][data-id=kozijnen-onderhoud]');
+  check('Oude app: ook op het element geen scanknop', !(await page.$('[data-act=photo-scan-element]')) && /nieuwste versie/.test(await text(page)));
+  check('Oude app: er is niets naar de app gestuurd behalve de capabilities-vraag', (await posted(page)).every(function (m) { return m.action === 'getCapabilities' || m.action === 'listProposals'; }));
   await page.context().close();
 
   // ===== gewone website (geen app) =====

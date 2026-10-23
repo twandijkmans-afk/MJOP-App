@@ -2333,15 +2333,21 @@
     var ui = state.photoRoundUi;
     ui.fout = ''; ui.melding = '';
     if (!PR.available()) { ui.fout = 'De LiDAR-scanner werkt alleen in de MJOP Live-app op de iPhone.'; render(); return; }
+    if (!prAppReady()) { ui.fout = 'Deze versie van de app ondersteunt de Fotoronde nog niet. Installeer de nieuwste versie van MJOP Live.'; render(); return; }
     if (!state.building) return;
     var id = PR.send(mode === 'element' ? 'startElementScan' : 'startPhotoRound', prContext(mode, el));
     ui.melding = id ? 'Camera wordt geopend… Na afloop kom je hier terug met voorstellen.' : '';
     render();
   }
   function prRefresh() {
-    if (!PR.available() || !state.photoRound) return;
-    PR.send('listProposals', { planRef: state.photoRound.planRef });
+    if (!PR.available()) return;
+    prProbe();
+    if (state.photoRound) PR.send('listProposals', { planRef: state.photoRound.planRef });
   }
+  // Oudere versies van de app hebben wel de brug (voor afdrukken) maar kennen de Fotoronde niet en antwoorden nooit: pas na een antwoord op
+  // getCapabilities tonen we de knoppen. Zo ontstaan er geen knoppen die niets doen als de website eerder is bijgewerkt dan de app.
+  function prProbe() { if (PR.available() && !state.photoRoundUi.native) PR.send('getCapabilities', {}); }
+  function prAppReady() { return PR.available() && !!state.photoRoundUi.native; }
   // Antwoorden van de app: contract-, versie- en projectcontrole gebeurt in PR.merge; hier alleen verwerken en bevestigen.
   function prOnMessage(msg) {
     var ui = state.photoRoundUi, pr = state.photoRound;
@@ -2367,7 +2373,9 @@
     html += '<div class="ov-page-head"><div><h1 class="page-title">Fotoronde</h1>';
     html += '<p class="page-sub">' + esc(b.adres) + ' · foto\'s van de gevels worden voorstellen voor het aantal en de oppervlakte van de kozijnen</p></div></div>';
     html += '<section class="ov-card" data-fotoronde style="padding:16px;margin-top:12px">';
-    if (inApp) {
+    if (inApp && !prAppReady()) {
+      html += '<p class="hint" data-fotoronde-app-oud style="margin:0 0 10px">Controleren of deze versie van de app de Fotoronde ondersteunt… Blijft dit staan, installeer dan de nieuwste versie van MJOP Live. Je kunt de ronde intussen voorbereiden.</p>';
+    } else if (inApp) {
       html += '<p class="hint" style="margin:0 0 10px">Loop langs de gevels en maak per gevel een of meer foto\'s met de iPhone-camera en LiDAR. Herkende kozijnen worden als <b>voorstel</b> getoond; jij controleert, corrigeert, sluit foutieve detecties uit en beslist.</p>';
       html += '<div class="btn-row"><button type="button" class="primary-btn" data-act="photo-round-start">Fotoronde starten</button><button type="button" class="ghost-btn" data-act="photo-round-refresh">Voorstellen ophalen</button></div>';
     } else {
@@ -2458,12 +2466,12 @@
 
   // Op de detailpagina van een kozijnpost: scan starten met de context van die post.
   function renderFotorondeKaart(el) {
-    var inApp = PR.available();
+    var inApp = prAppReady();
     var html = '<div class="section" data-fotoronde-kaart><div class="section-title">Scannen met camera</div><div class="card pad" style="margin-top:11px">';
     if (inApp) {
       html += '<p class="hint" style="margin:0 0 10px">Maak foto\'s van de gevels; de gevonden kozijnen komen als voorstel bij deze post terug. Er verandert niets aan je hoeveelheden tot jij een voorstel kiest.</p>';
       html += '<div class="btn-row"><button type="button" class="primary-btn" data-act="photo-scan-element" data-id="' + esc(el.id) + '">Scannen met camera</button></div>';
-    } else html += '<p class="hint" data-fotoronde-niet-in-app style="margin:0">Scannen met de camera en LiDAR kan in de MJOP Live-app op de iPhone. Bereid de ronde voor via het tabblad Fotoronde.</p>';
+    } else html += '<p class="hint" data-fotoronde-niet-in-app style="margin:0">' + (PR.available() ? 'Scannen met de camera kan zodra de nieuwste versie van de MJOP Live-app is geïnstalleerd.' : 'Scannen met de camera en LiDAR kan in de MJOP Live-app op de iPhone.') + ' Bereid de ronde voor via het tabblad Fotoronde.</p>';
     var mine = ((state.photoRound && state.photoRound.proposals) || []).filter(function (x) { return x.p.target.element_key === el.id && x.ui.status !== 'SUPERSEDED' && x.ui.status !== 'REJECTED'; });
     if (mine.length) html += '<div class="hint" data-pr-bij-post style="margin-top:8px">' + mine.length + ' ' + meervoud(mine.length, 'voorstel', 'voorstellen') + ' uit de fotoronde — <span class="linkish" data-act="set-tab" data-tab="fotoronde">bekijken</span>.</div>';
     html += '</div></div>';
@@ -5440,6 +5448,7 @@
     // Fotoronde: berichten van de iPhone-app (alleen aanwezig in MJOP Live); bij terugkeren in de app opnieuw voorstellen ophalen.
     PR.onMessage(prOnMessage);
     if (PR.available()) {
+      prProbe();
       document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') prRefresh(); });
     }
     render();
