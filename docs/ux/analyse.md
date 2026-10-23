@@ -31,3 +31,19 @@ Legenda: **T** = te technisch · **O** = onduidelijk · **E** = overbodig · **V
 3. Vereenvoudigde Fotoronde (web + iPhone)
 4. Begrijpelijke hoeveelheidscontrole en bevestiging
 5. Duidelijkere planning en rapportage
+
+## Resultaat per stap (draft-PR's, gestapeld)
+| Stap | PR | Kern |
+|------|----|------|
+| 1 | MJOP-App #17 | Start-pagina (drie keuzes), projectkeuze met laatste activiteit en volgende stap, eenvoudige/uitgebreide weergave |
+| 2 | MJOP-App #18 | Begeleide stappen: gebouw kiezen → controleren → inspecteren → onderhoudsplan |
+| 3 | MJOP-App #19 + mjop-learning #60 | Eenvoudige Fotoronde (web + iPhone) in gewone taal, technische details op verzoek |
+| 4 | MJOP-App #20 | "Dit is gevonden" + één bevestiging "Toevoegen aan MJOP" met verplichte erkenning |
+| 5 | MJOP-App #21 | Planning "In het kort" en Rapport-checklist |
+
+Schermafbeeldingen na de wijzigingen (375×667): `docs/ux/na/` — `start-375`, `wizard-1…4`, `fotoronde-simpel-375`, `controle-375`, `planning-375`, `rapport-375`.
+
+## Wat nog op een echte iPhone beoordeeld moet worden
+- De camera die direct opent en de duidelijkheid van de overlay-tekst in daglicht.
+- Of de eerste gevel "Gevel 1" voor de gebruiker logisch is als de website er geen plande.
+- Het gedrag van "Toevoegen aan MJOP" na terugkeer in de WebView (voorstellen ophalen).
