@@ -210,7 +210,7 @@ async function main() {
   async function bridgeHref(q) {
     await bp.goto(BASE + 'app-callback.html' + q, { waitUntil: 'domcontentloaded' }).catch(function () {});
     await bp.waitForTimeout(150);
-    return bp.evaluate(function () { var a = document.getElementById('open'); return a && !a.hidden ? a.getAttribute('href') : null; });
+    return bp.evaluate(function () { var k = document.getElementById('knoppen'); var a = document.getElementById('open'); return k && !k.hidden ? a.getAttribute('href') : null; });
   }
   check('Brugpagina: geldige code -> mjoplive://auth-callback?code=…', (await bridgeHref('?code=3f1c2d7e-1111-2222-3333-444455556666')) === 'mjoplive://auth-callback?code=3f1c2d7e-1111-2222-3333-444455556666');
   check('Brugpagina: tokens in de hash worden niet doorgegeven', (await bridgeHref('#access_token=abcdefghij&refresh_token=klmnopqrst')) === null);

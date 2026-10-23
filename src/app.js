@@ -1422,6 +1422,12 @@
     return rd.url;
   }
 
+  // In de iPhone-app: wat te doen als de e-maillink niet vanzelf in de app opent (ingebouwde e-mailbrowser, andere app, linkscanner).
+  function inAppLoginHint() {
+    if (!inApp) return '';
+    return '<p class="entry-sent" data-inapp-login-hint style="margin-top:10px">Open de link op <strong>deze iPhone</strong>, bij voorkeur in Safari. Opent MJOP Live niet vanzelf? Tik op de pagina op <em>Open MJOP Live</em>, of kopieer de link of code en kies hier in de app het menu <strong>&#8226;&#8226;&#8226; &rarr; Inloglink of code plakken</strong>.</p>';
+  }
+
   function authErrorNotice(a, marginTop) {
     if (!a.fout) return '';
     var code = a.foutVoor === a.fout ? (a.foutCode || '') : '';
@@ -1997,6 +2003,7 @@
       html += '<button type="button" class="ov-btn entry-submit" data-act="set-new-password">' + (a.bezig ? 'Bezig…' : 'Wachtwoord instellen') + '</button>';
     } else if (a.stap === 'sent') {
       html += '<p class="entry-sent">Naar <strong>' + esc(a.email) + '</strong>. Open de e-mail en klik op de link, dan kom je hier terug en ben je ingelogd. Geen mail ontvangen? Controleer de spamfolder.</p>';
+      html += inAppLoginHint();
       html += authErrorNotice(a, '12px');
       html += '<div class="entry-links"><span class="entry-link" data-act="auth-mode-magic">Ander e-mailadres of opnieuw versturen</span></div>';
     } else if (a.stap === 'signup-sent') {
@@ -2459,6 +2466,7 @@
       } else if (a.stap === 'sent') {
         html += '<div style="font:500 13.5px/1.35 var(--sans)">Inloglink verstuurd naar ' + esc(a.email) + '</div>';
         html += '<div class="hint" style="margin-top:6px">Open de e-mail en klik op de link — je komt dan hier terug, automatisch ingelogd. De link is eenmalig geldig; kom je op een foutmelding uit, vraag dan hieronder een nieuwe aan.</div>';
+        html += inAppLoginHint();
         html += authErrorNotice(a, '10px');
         html += '<div class="btn-row"><div class="ghost-btn" data-act="login-change-email">Andere e-mail / opnieuw versturen</div></div>';
       } else if (a.stap === 'signup-sent') {
