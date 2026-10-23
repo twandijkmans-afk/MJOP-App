@@ -984,7 +984,7 @@
     inventory: null, // component-inventaris (zie src/inventory.js); null = legacy gedrag, plan werkt zoals voorheen
     inventoryUi: null, // { fout } | { melding }: resultaat van het importeren van een inventarisbundel
     photoRound: null, // Fotoronde (zie src/photo-round.js): { planRef, proposals:[{p,ui}], rounds, planned:[{name,orientation}] }; zit in het plan en wordt dus mee opgeslagen
-    photoRoundUi: { melding: '', fout: '', bezig: false, native: null },
+    photoRoundUi: { melding: '', fout: '', bezig: false, native: null, opties: false, tech: {} },
     accountMenuOpen: false, // mini-menu (Account/Uitloggen) onder het gebruikersblok in de zijbalk
     buildingSwitcherOpen: false, // dropdown van de gebouwkiezer boven in de zijbalk
     accountSubTab: 'profiel', // links sub-menu binnen de samengevoegde Account-pagina (zie renderAccount())
@@ -2379,7 +2379,7 @@
       var known = (msg.proposals || []).filter(function (p) { return p && p.project && p.project.plan_ref === pr.planRef && prEntry(p.proposal_id); }).map(function (p) { return p.proposal_id; });
       if (known.length) PR.send('ackProposals', { planRef: pr.planRef, proposalIds: known });
       ui.fout = rep.foreign ? rep.foreign + ' voorstel(len) hoorden bij een ander project en zijn niet toegepast.' : (rep.invalid.length ? rep.invalid.length + ' ongeldig voorstel(len) genegeerd.' : '');
-      ui.melding = rep.added.length ? rep.added.length + ' nieuw ' + meervoud(rep.added.length, 'voorstel', 'voorstellen') + ' uit de fotoronde. Controleer ze hieronder; er is nog niets overgenomen.' : '';
+      ui.melding = rep.added.length ? rep.added.length + ' ' + meervoud(rep.added.length, 'nieuw voorstel', 'nieuwe voorstellen') + ' uit de fotoronde. Controleer ze hieronder; er is nog niets overgenomen.' : '';
       render();
     }
   }
@@ -2388,35 +2388,45 @@
     var b = state.building, pr = state.photoRound, ui = state.photoRoundUi;
     var inApp = PR.available();
     var html = pgOpen(true);
-    html += '<div class="ov-page-head"><div><h1 class="page-title">Fotoronde</h1>';
-    html += '<p class="page-sub">' + esc(b.adres) + ' · foto\'s van de gevels worden voorstellen voor het aantal en de oppervlakte van de kozijnen</p></div></div>';
+    var simpel = state.settings.eenvoudig;
+    html += '<div class="ov-page-head"><div><h1 class="page-title">' + (simpel ? 'Gebouw inspecteren' : 'Fotoronde') + '</h1>';
+    html += '<p class="page-sub">' + esc(b.adres) + (simpel ? ' · maak foto\'s van de gevel; de app telt de mogelijke kozijnen en jij controleert ze' : ' · foto\'s van de gevels worden voorstellen voor het aantal en de oppervlakte van de kozijnen') + '</p></div></div>';
     html += '<section class="ov-card" data-fotoronde style="padding:16px;margin-top:12px">';
     if (inApp && !prAppReady()) {
       html += '<p class="hint" data-fotoronde-app-oud style="margin:0 0 10px">Controleren of deze versie van de app de Fotoronde ondersteunt… Blijft dit staan, installeer dan de nieuwste versie van MJOP Live. Je kunt de ronde intussen voorbereiden.</p>';
     } else if (inApp) {
-      html += '<p class="hint" style="margin:0 0 10px">Loop langs de gevels en maak per gevel een of meer foto\'s met de iPhone-camera en LiDAR. Herkende kozijnen worden als <b>voorstel</b> getoond; jij controleert, corrigeert, sluit foutieve detecties uit en beslist.</p>';
-      html += '<div class="btn-row"><button type="button" class="primary-btn" data-act="photo-round-start">Fotoronde starten</button><button type="button" class="ghost-btn" data-act="photo-round-refresh">Voorstellen ophalen</button></div>';
+      if (simpel) {
+        html += '<p class="hint" style="margin:0 0 10px">De camera opent meteen. Zorg dat het hele kozijn in beeld staat en loop langs de gevels. Daarna controleer jij wat de app gevonden heeft.</p>';
+        html += '<div class="btn-row"><button type="button" class="primary-btn" data-act="photo-round-start">Foto\'s maken</button><button type="button" class="ghost-btn" data-act="photo-round-refresh">Nieuwe resultaten ophalen</button></div>';
+      } else {
+        html += '<p class="hint" style="margin:0 0 10px">Loop langs de gevels en maak per gevel een of meer foto\'s met de iPhone-camera en LiDAR. Herkende kozijnen worden als <b>voorstel</b> getoond; jij controleert, corrigeert, sluit foutieve detecties uit en beslist.</p>';
+        html += '<div class="btn-row"><button type="button" class="primary-btn" data-act="photo-round-start">Fotoronde starten</button><button type="button" class="ghost-btn" data-act="photo-round-refresh">Voorstellen ophalen</button></div>';
+      }
     } else {
       html += '<p class="hint" data-fotoronde-niet-in-app style="margin:0 0 8px">De LiDAR-scanner werkt in de <b>MJOP Live-app op de iPhone</b>. Op deze website kun je de ronde alvast voorbereiden: noteer hieronder welke gevels je gaat fotograferen. De lijst wordt met het plan bewaard en in de app voorgesteld. Voorstellen uit de app verschijnen na synchronisatie hier.</p>';
     }
     if (ui.melding) html += '<div class="notice" data-fotoronde-melding style="margin-top:10px">' + esc(ui.melding) + '</div>';
     if (ui.fout) html += '<div class="notice error" data-fotoronde-fout style="margin-top:10px">' + esc(ui.fout) + '</div>';
-    html += '<div class="label" style="margin-top:14px">Gevels om te fotograferen</div>';
-    var planned = pr ? pr.planned : [];
-    planned.forEach(function (f, i) {
-      html += '<div class="input-row" data-pr-planned="' + i + '"><div class="label">' + esc(f.name) + (f.orientation ? ' (' + esc(PR.ORIENT_LABELS[f.orientation]) + ')' : '') + '</div><span class="linkish" data-act="pr-plan-remove" data-i="' + i + '">verwijderen</span></div>';
-    });
-    if (!planned.length) html += '<div class="hint">Nog geen gevels genoteerd.</div>';
-    html += '<div class="input-row"><input id="pr-plan-naam" data-bind="pr-plan-naam" placeholder="bv. Voorgevel" value="' + esc((ui.planNaam) || '') + '" style="min-width:0;flex:1" />';
-    html += '<select id="pr-plan-orient" data-change="pr-plan-orient" aria-label="Windrichting"><option value="">richting?</option>';
-    PR.ORIENTATIONS.forEach(function (o) { html += '<option value="' + o + '"' + (ui.planOrient === o ? ' selected' : '') + '>' + esc(PR.ORIENT_LABELS[o]) + '</option>'; });
-    html += '</select><button type="button" class="ghost-btn" data-act="pr-plan-add">Toevoegen</button></div>';
+    var gevelsZichtbaar = !simpel || ui.opties;
+    if (simpel) html += '<p class="ov-more" style="margin-top:10px"><span class="linkish" role="button" tabindex="0" data-act="pr-opties" aria-expanded="' + (ui.opties ? 'true' : 'false') + '">' + (ui.opties ? 'Minder opties' : 'Meer opties: gevels vooraf noteren') + '</span></p>';
+    if (gevelsZichtbaar) {
+      html += '<div class="label" style="margin-top:14px">Gevels om te fotograferen</div>';
+      var planned = pr ? pr.planned : [];
+      planned.forEach(function (f, i) {
+        html += '<div class="input-row" data-pr-planned="' + i + '"><div class="label">' + esc(f.name) + (f.orientation ? ' (' + esc(PR.ORIENT_LABELS[f.orientation]) + ')' : '') + '</div><span class="linkish" data-act="pr-plan-remove" data-i="' + i + '">verwijderen</span></div>';
+      });
+      if (!planned.length) html += '<div class="hint">Nog geen gevels genoteerd.</div>';
+      html += '<div class="input-row"><input id="pr-plan-naam" data-bind="pr-plan-naam" placeholder="bv. Voorgevel" value="' + esc((ui.planNaam) || '') + '" style="min-width:0;flex:1" />';
+      html += '<select id="pr-plan-orient" data-change="pr-plan-orient" aria-label="Windrichting"><option value="">richting?</option>';
+      PR.ORIENTATIONS.forEach(function (o) { html += '<option value="' + o + '"' + (ui.planOrient === o ? ' selected' : '') + '>' + esc(PR.ORIENT_LABELS[o]) + '</option>'; });
+      html += '</select><button type="button" class="ghost-btn" data-act="pr-plan-add">Toevoegen</button></div>';
+    }
     html += '</section>';
 
     if (pr && pr.rounds && pr.rounds.length) {
-      html += '<section class="ov-card" style="padding:16px;margin-top:12px" data-fotoronde-rondes><div class="label">Rondes op dit toestel</div>';
+      html += '<section class="ov-card" style="padding:16px;margin-top:12px" data-fotoronde-rondes><div class="label">' + (simpel ? 'Eerdere foto\'s op dit toestel' : 'Rondes op dit toestel') + '</div>';
       pr.rounds.forEach(function (r) {
-        html += '<div class="hint" data-pr-round="' + esc(r.roundId) + '">' + esc(r.status === 'COMPLETED' ? 'Afgerond' : 'Onderbroken, kan worden hervat') + ' · ' + (r.photos | 0) + ' foto\'s · ' + (r.objects | 0) + ' kozijnen' +
+        html += '<div class="hint" data-pr-round="' + esc(r.roundId) + '">' + esc(r.status === 'COMPLETED' ? 'Afgerond' : 'Onderbroken, kan worden hervat') + ' · ' + (r.photos | 0) + ' foto\'s · ' + (r.objects | 0) + (simpel ? ' mogelijke kozijnen' : ' kozijnen') +
           (r.synced === false ? ' · <b>alleen lokaal op dit toestel (nog niet overgedragen)</b>' : '') + '</div>';
       });
       html += '</section>';
@@ -2425,7 +2435,7 @@
     var list = pr ? pr.proposals.slice().reverse() : [];
     if (list.length) {
       var lokaal = isDirty();
-      html += '<div class="label" style="margin-top:16px">Voorstellen</div>';
+      html += '<div class="label" style="margin-top:16px">' + (simpel ? 'Resultaten van de foto\'s' : 'Voorstellen') + '</div>';
       if (lokaal) html += '<div class="hint" data-fotoronde-lokaal>Nog niet opgeslagen: deze voorstellen staan alleen op dit toestel tot je het plan opslaat.</div>';
       list.forEach(function (entry) { html += renderPrCard(entry); });
     }
@@ -2439,13 +2449,16 @@
     var p = entry.p, u = entry.ui, id = p.proposal_id, unit = Q.unitLabel(p.target.unit);
     var val = PR.effectiveValue(entry);
     var html = '<section class="ov-card" data-pr-card="' + esc(id) + '" data-pr-status="' + u.status + '" style="padding:16px;margin-top:10px' + (u.status === 'REJECTED' || u.status === 'SUPERSEDED' ? ';opacity:.6' : '') + '">';
-    html += '<div class="label">' + esc(PR.KIND_LABELS[p.target.quantity_kind]) + ' · ' + esc(PR.scopeLabel(p)) + (p.target.element_key ? '' : '') + '</div>';
+    var simpel = state.settings.eenvoudig, techOpen = !simpel || !!state.photoRoundUi.tech[id];
+    html += '<div class="label">' + esc(simpel ? (p.target.unit === 'st' ? 'Mogelijke kozijnen' : 'Geschat oppervlak van de kozijnen') : PR.KIND_LABELS[p.target.quantity_kind]) + ' · ' + esc(PR.scopeLabel(p)) + '</div>';
     html += '<div class="ov-big" data-pr-value style="font-size:26px;margin:4px 0">' + (val == null ? 'Niet te bepalen' : Q.formatNumber(val) + ' ' + esc(unit)) + '</div>';
     if (val == null && p.partial_value != null) html += '<div class="hint" data-pr-partial>Alleen de gemeten kozijnen samen: ' + Q.formatNumber(p.partial_value) + ' ' + esc(unit) + ' — onvolledig, wordt niet als hoeveelheid aangeboden.</div>';
-    html += '<div style="margin:6px 0 8px">' + stageBadge('Detectie: ' + p.evidence.detection.auto_detected + ' automatisch', true) + stageBadge('Meting: ' + (p.measurement.dimension_status === 'UNKNOWN' ? 'geen maat' : 'LiDAR, geschat'), p.measurement.dimension_status !== 'UNKNOWN') +
+    if (simpel) html += '<p class="hint" data-pr-controleer>' + (val == null ? 'Deze maat is nog niet betrouwbaar genoeg.' : (u.status === 'PROPOSED' ? 'Controleer of alle kozijnen kloppen.' : 'Voorlopig resultaat van de foto\'s.')) + '</p>';
+    if (simpel) html += '<p class="ov-more"><span class="linkish" role="button" tabindex="0" data-act="pr-tech" data-id="' + esc(id) + '" aria-expanded="' + (techOpen ? 'true' : 'false') + '">' + (techOpen ? 'Technische details verbergen' : 'Technische details') + '</span></p>';
+    if (techOpen) html += '<div style="margin:6px 0 8px">' + stageBadge('Detectie: ' + p.evidence.detection.auto_detected + ' automatisch', true) + stageBadge('Meting: ' + (p.measurement.dimension_status === 'UNKNOWN' ? 'geen maat' : 'LiDAR, geschat'), p.measurement.dimension_status !== 'UNKNOWN') +
       stageBadge('Voorstel', true) + stageBadge('Bevestiging: ' + (u.status === 'IN_USE' ? 'door jou' : 'nog niet'), u.status === 'IN_USE') + '</div>';
     PR.describeReasons(p).forEach(function (r) { html += '<div class="hint" data-pr-reason>• ' + esc(r) + '</div>'; });
-    html += '<details class="ov-details"><summary>Waarop is dit gebaseerd?</summary><p>' + p.basis.objects_total + ' ' + meervoud(p.basis.objects_total, 'kozijn', 'kozijnen') + ' (' + p.basis.objects_measured + ' gemeten, ' + p.basis.objects_unmeasured + ' zonder maat) op ' + p.basis.photos + ' ' + meervoud(p.basis.photos, 'foto', 'foto\'s') +
+    if (techOpen) html += '<details class="ov-details"><summary>Waarop is dit gebaseerd?</summary><p>' + p.basis.objects_total + ' ' + meervoud(p.basis.objects_total, 'kozijn', 'kozijnen') + ' (' + p.basis.objects_measured + ' gemeten, ' + p.basis.objects_unmeasured + ' zonder maat) op ' + p.basis.photos + ' ' + meervoud(p.basis.photos, 'foto', 'foto\'s') +
       '; ' + p.basis.excluded_objects + ' door jou uitgesloten. Methode: ' + esc(p.measurement.methods.join(', ') || 'geen') + '. ' +
       (p.measurement.uncertainty.area_sigma_m2 != null ? 'Onzekerheid oppervlak ≈ ' + Q.formatNumber(p.measurement.uncertainty.area_sigma_m2) + ' m² (modelgebaseerd, niet gevalideerd). ' : '') +
       'Bronfoto\'s: ' + esc(p.evidence.photo_ids.join(', ')) + '.</p></details>';
@@ -2544,7 +2557,11 @@
       ['rapport', 'Rapport'],
     ];
     // Eenvoudige weergave: Fotoronde bereik je via Start en Gebouw, niet via een eigen tab.
-    if (state.settings.eenvoudig) tabs = tabs.filter(function (t) { return t[0] !== 'fotoronde' || state.tab === 'fotoronde'; });
+    if (state.settings.eenvoudig) {
+      var heeftResultaat = !!(state.photoRound && state.photoRound.proposals && state.photoRound.proposals.length);
+      tabs = tabs.filter(function (t) { return t[0] !== 'fotoronde' || state.tab === 'fotoronde' || heeftResultaat; });
+      tabs.forEach(function (t) { if (t[0] === 'fotoronde') t[1] = 'Inspectie'; });
+    }
     var html = '<div class="tab-bar">';
     html += '<div class="tab-brand">' + mktLogo() + (state.building ? renderBuildingSwitcher('sidebar') : '') + '</div>';
     html += '<div class="tab-main">';
@@ -5166,6 +5183,8 @@
       }
       render();
     },
+    'pr-opties': function () { state.photoRoundUi.opties = !state.photoRoundUi.opties; render(); },
+    'pr-tech': function (d) { var t = state.photoRoundUi.tech; t[d.id] = !t[d.id]; render(); },
     'toggle-eenvoudig': function () {
       state.settings.eenvoudig = !state.settings.eenvoudig;
       try { localStorage.setItem('mjop-instellingen', JSON.stringify(state.settings)); } catch (e) {}

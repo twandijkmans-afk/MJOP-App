@@ -107,8 +107,8 @@ async function main() {
   await shot(page, 'start-kies-gebouw');
   await click(page, '[data-act=open-plan][data-id=p1][data-na=fotoronde]'); await page.waitForTimeout(500);
   var act = await page.evaluate(function () { var e = document.querySelector('.tab-item.active'); return e ? e.textContent.trim() : ''; });
-  check('4. na kiezen: Fotoronde van dat gebouw open', act === 'Fotoronde', act);
-  check('4. gebouw is geladen (geen lege staat)', /Fotoronde/.test(await text(page)));
+  check('4. na kiezen: Fotoronde van dat gebouw open', act === 'Inspectie', act);
+  check('4. gebouw is geladen (geen lege staat)', /Gebouw inspecteren/.test(await text(page)));
 
   // 5. Verder met mijn gebouw -> Overzicht van het gekozen gebouw
   await fresh(page);
@@ -118,7 +118,7 @@ async function main() {
   await click(page, '[data-act=set-tab][data-tab=start]');
   t = await text(page);
   check('5. terug naar Start: geopend gebouw staat bovenaan', /Wat wil je doen\?/.test(t) && t.indexOf('Maldenhof 3') > -1);
-  check('5. gebouw met een open plan: "Gebouw inspecteren" gaat direct naar de Fotoronde', await (async function () { await click(page, '[data-act=start-inspecteer]'); return (await page.evaluate(function () { return document.querySelector('.tab-item.active').textContent; })) === 'Fotoronde'; })());
+  check('5. gebouw met een open plan: "Gebouw inspecteren" gaat direct naar de Fotoronde', await (async function () { await click(page, '[data-act=start-inspecteer]'); return (await page.evaluate(function () { return document.querySelector('.tab-item.active').textContent; })) === 'Inspectie'; })());
 
   // 6. uitgebreide weergave: alle tabs
   await click(page, '[data-act=set-tab][data-tab=instellingen]');
