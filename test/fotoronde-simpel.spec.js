@@ -70,8 +70,8 @@ async function main() {
   t = await text(page);
   check('"Technische details" toont fasen en bron op verzoek', /Detectie: 11 automatisch/.test(t) && /Meting: LiDAR, geschat/.test(t) && /Bevestiging: nog niet/.test(t) && /Waarop is dit gebaseerd/.test(t));
   if (SHOTS) await page.screenshot({ path: SHOTS + '/fotoronde-simpel-details-375.png' });
-  var kan = await page.evaluate(function () { return !!document.querySelector('[data-act=pr-add-source]'); });
-  check('Het voorstel blijft een voorstel: bevestigen/gebruiken werkt zoals voorheen (knop "Voeg toe als bron")', kan);
+  var kan = await page.evaluate(function () { return !!document.querySelector('[data-act=pr-toevoegen]') && !document.querySelector('[data-pr-status=IN_USE]'); });
+  check('Het voorstel blijft een voorstel: niets is toegevoegd zolang de gebruiker niet bevestigt (zie quantity-check.spec.js)', kan);
   check('Geen JavaScript-fouten', errors.length === 0, errors.join('; '));
   await ctx.close();
 
