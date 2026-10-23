@@ -1487,6 +1487,9 @@
     return false;
   }
 
+  var lastRenderedScreen = null;
+  var syncAfterBlur = false;   // het actieve veld wijkt af van wat state toont: pas na blur gelijktrekken (nooit tijdens het typen)
+
   function render() {
     persistWorkSession();
     scheduleAutoSave();
@@ -1507,7 +1510,11 @@
     else if (screen === 'onboarding') mainHtml = renderOnboarding();
     else mainHtml = renderApp();
     var printHtml = (screen === 'app' && state.building) ? renderPrintReport() : '';
-    root.innerHTML = '<div class="screen-view">' + mainHtml + '</div>' + printHtml;
+    // Geen root.innerHTML = …: dat vernietigde het invoerveld waarin je typt bij elke toetsaanslag en elke resize (iOS: toetsenbord valt terug naar ABC,
+    // cursor springt). MJOPDomPatch werkt de bestaande DOM bij en laat het actieve veld ongemoeid (zie src/dom-patch.js).
+    lastRenderedScreen = screen;
+    var patched = window.MJOPDomPatch.patch(root, '<div class="screen-view">' + mainHtml + '</div>' + printHtml);
+    syncAfterBlur = patched.pendingSync;
     // Na elke render() alsnog tabindex/role toevoegen aan wat dat nog mist,
     // i.p.v. elke afzonderlijke data-act-plek in de render*()-functies
     // hierboven aan te passen — dekt ook nieuwe data-act's vanzelf mee.
@@ -5104,9 +5111,16 @@
     // resizen zelf triggert geen render — zonder deze listener zou de
     // marketing-gate pas verschijnen/verdwijnen bij de eerstvolgende klik.
     var resizeTimer;
+    // Alleen opnieuw renderen als de resize het scherm echt verandert (marketing <-> app bij de 900px-grens). Een resize door het iOS-toetsenbord
+    // (hoogte verandert, ook bij wisselen tussen ABC en 123) laat de breedte gelijk en mag NIETS opnieuw opbouwen.
     window.addEventListener('resize', function () {
       clearTimeout(resizeTimer);
-      resizeTimer = setTimeout(render, 150);
+      resizeTimer = setTimeout(function () { if (currentScreen() !== lastRenderedScreen) render(); }, 150);
+    });
+    // Waarde in het zojuist verlaten veld alsnog gelijktrekken met state (bv. genormaliseerd getal), nu er niet meer getypt wordt.
+    root.addEventListener('focusout', function () {
+      if (!syncAfterBlur) return;
+      setTimeout(function () { var a = document.activeElement; if (syncAfterBlur && !(a && root.contains(a) && /^(INPUT|TEXTAREA)$/.test(a.tagName))) render(); }, 0);
     });
     root.addEventListener('click', function (e) {
       var gp = e.target.closest('[data-gb-filter]');
@@ -5158,6 +5172,7 @@
     root.addEventListener('change', function (e) {
       if (e.target && e.target.id === 'qty-bundle-input') {
         var bf = e.target.files && e.target.files[0];
+        e.target.value = '';   // DOM blijft bestaan (zie dom-patch): zo werkt opnieuw kiezen van hetzelfde bestand
         if (bf) readFileAsText(bf).then(function (txt) {
           var parsed;
           try { parsed = JSON.parse(txt); } catch (err) { state.bundleUi = { fout: 'Dit bestand is geen geldige JSON.' }; render(); return; }
@@ -5168,6 +5183,7 @@
       }
       if (e.target && e.target.id === 'inv-bundle-input') {
         var inf = e.target.files && e.target.files[0];
+        e.target.value = '';
         if (inf) readFileAsText(inf).then(function (txt) {
           var parsed;
           try { parsed = JSON.parse(txt); } catch (err) { state.inventoryUi = { fout: 'Dit bestand is geen geldige JSON.' }; render(); return; }
@@ -5178,6 +5194,7 @@
       }
       if (e.target && e.target.id === 'mjop-file-input') {
         var file = e.target.files && e.target.files[0];
+        e.target.value = '';
         if (file) handleUploadFile(file);
         return;
       }
