@@ -2437,9 +2437,30 @@
       var lokaal = isDirty();
       html += '<div class="label" style="margin-top:16px">' + (simpel ? 'Resultaten van de foto\'s' : 'Voorstellen') + '</div>';
       if (lokaal) html += '<div class="hint" data-fotoronde-lokaal>Nog niet opgeslagen: deze voorstellen staan alleen op dit toestel tot je het plan opslaat.</div>';
+      if (simpel) html += renderPrSamenvatting(list);
       list.forEach(function (entry) { html += renderPrCard(entry); });
     }
     html += PG_CLOSE;
+    return html;
+  }
+
+  // Overzicht in gewone taal van wat de foto's hebben opgeleverd (alleen voor het hele gebouw; nooit gevels bij elkaar opgeteld).
+  function renderPrSamenvatting(list) {
+    var actief = list.filter(function (x) { return x.ui.status !== 'REJECTED' && x.ui.status !== 'SUPERSEDED' && x.p.target.scope.type === 'BUILDING'; });
+    var aantal = actief.filter(function (x) { return x.p.target.unit === 'st'; })[0];
+    var opp = actief.filter(function (x) { return x.p.target.unit !== 'st'; })[0];
+    if (!aantal && !opp) return '';
+    var html = '<section class="ov-card pr-samenvatting" data-pr-samenvatting style="padding:16px;margin-top:12px"><h2 class="ov-h2">Dit is gevonden</h2>';
+    if (aantal) {
+      var av = PR.effectiveValue(aantal);
+      html += '<p data-pr-sam-aantal>' + (av == null ? 'Aantal kozijnen: nog niet te bepalen.' : 'Aantal kozijnen: <b>' + Q.formatNumber(av) + '</b> (voorlopig)') + '</p>';
+    }
+    if (opp) {
+      var ov = PR.effectiveValue(opp), unit = Q.unitLabel(opp.p.target.unit);
+      html += '<p data-pr-sam-opp>' + (ov != null ? 'Kozijnoppervlak: <b>' + Q.formatNumber(ov) + ' ' + esc(unit) + '</b> (voorlopig)'
+        : 'Kozijnoppervlak: nog niet te bepalen' + (opp.p.partial_value != null ? '. Voor een deel van de kozijnen is er een maat (' + Q.formatNumber(opp.p.partial_value) + ' ' + esc(unit) + '); het totaal is nog niet compleet' : '') + '.') + '</p>';
+    }
+    html += '<p class="hint">Nog niets is overgenomen in je MJOP. Controleer de resultaten hieronder en kies zelf wat je toevoegt.</p></section>';
     return html;
   }
 
@@ -2467,7 +2488,27 @@
       html += '<div class="input-row"><div class="label">Corrigeer waarde (optioneel)</div><input id="pr-corr-' + esc(id) + '" data-bind="pr-corr" data-id="' + esc(id) + '" inputmode="decimal" placeholder="' + (p.value == null ? 'vul zelf in' : Q.formatNumber(p.value)) + '" value="' + (u.corrected != null ? esc(String(u.corrected).replace('.', ',')) : '') + '" style="width:110px;text-align:right" /></div>';
       if (u.corrFout) html += '<div class="notice error" data-pr-fout>' + esc(u.corrFout) + '</div>';
       var targets = PR.targetsFor(p, state.elements);
-      if (p.target.unit === 'st') {
+      if (simpel && p.target.unit === 'st') {
+        // Eén begrijpelijke bevestiging i.p.v. "als bron toevoegen" + "gebruiken". De uitdrukkelijke erkenning blijft verplicht.
+        var effT = u.targetId || (targets.length === 1 ? targets[0].id : '');
+        var effEntryTq = effT ? (function () { var pp = effT.split(':'), eel = findEl(pp[0]); return eel && eel.koz && eel.koz[+pp[1]] ? { el: eel, row: eel.koz[+pp[1]], q: eel.koz[+pp[1]].quantity } : null; })() : null;
+        html += '<div class="pr-bevestig" data-pr-bevestig>';
+        if (!targets.length) html += '<div class="hint" data-pr-notarget>Geen passende kozijnpost in dit plan.</div>';
+        else {
+          if (targets.length > 1) {
+            html += '<div class="input-row"><div class="label">Toevoegen bij</div><select id="pr-target-' + esc(id) + '" data-change="pr-target" data-id="' + esc(id) + '"><option value="">kies een post…</option>';
+            targets.forEach(function (t) { html += '<option value="' + esc(t.id) + '"' + (u.targetId === t.id ? ' selected' : '') + '>' + esc(t.label) + '</option>'; });
+            html += '</select></div>';
+          }
+          html += '<p class="pr-bevestig-tekst" data-pr-dit-wordt>' + (val == null ? 'Er is nog geen betrouwbaar aantal om toe te voegen.' : 'Dit wordt toegevoegd: <b>' + Q.formatNumber(val) + ' ' + esc(unit) + '</b>' + (effEntryTq ? ' bij <b>' + esc(effEntryTq.el.naam + ' — ' + effEntryTq.row.naam) + '</b>' : '') + '. Het totaal over alle kozijnen komt op één rij te staan; verdeel het zo nodig daarna zelf.') + '</p>';
+          html += '<label class="ov-row"><span>Ik begrijp dat dit een voorlopige schatting uit foto\'s is</span><input type="checkbox" id="pr-ack-' + esc(id) + '" data-change="pr-ack" data-id="' + esc(id) + '"' + (u.ack ? ' checked' : '') + ' /></label>';
+          if (effEntryTq && effEntryTq.q && effEntryTq.q.manual) html += '<label class="ov-row"><span>Mijn ingevulde waarde (' + Q.formatNumber(effEntryTq.q.manual.value) + ') vervangen (blijft als bron bewaard)</span><input type="checkbox" id="pr-replace-' + esc(id) + '" data-change="pr-replace" data-id="' + esc(id) + '"' + (u.replaceManual ? ' checked' : '') + ' /></label>';
+          if (u.useFout) html += '<div class="notice error" data-pr-fout>' + esc(u.useFout) + '</div>';
+        }
+        html += '</div>';
+        html += '<div class="btn-row"><button type="button" class="primary-btn"' + (val != null && targets.length ? '' : ' disabled') + ' data-act="pr-toevoegen" data-id="' + esc(id) + '">Toevoegen aan MJOP</button>' +
+          '<button type="button" class="ghost-btn" data-act="pr-reject" data-id="' + esc(id) + '">Afwijzen</button></div>';
+      } else if (p.target.unit === 'st') {
         if (targets.length) {
           html += '<div class="input-row"><div class="label">Als bron toevoegen bij</div><select id="pr-target-' + esc(id) + '" data-change="pr-target" data-id="' + esc(id) + '"><option value="">kies een post…</option>';
           targets.forEach(function (t) { html += '<option value="' + esc(t.id) + '"' + (u.targetId === t.id ? ' selected' : '') + '>' + esc(t.label) + '</option>'; });
@@ -2476,7 +2517,7 @@
         } else html += '<div class="hint" data-pr-notarget>Geen passende kozijnpost in dit plan.</div>';
       } else html += '<div class="hint" data-pr-referentie>Oppervlak is bruto kozijnoppervlak en geen buitenmuur-oppervlak: het wordt niet automatisch in een bestaande post gebruikt.</div>';
       var kan = val != null && (p.target.unit !== 'st' || !!u.targetId);
-      html += '<div class="btn-row">' + (p.target.unit === 'st' ? '<button type="button" class="primary-btn"' + (kan ? '' : ' disabled') + ' data-act="pr-add-source" data-id="' + esc(id) + '">Voeg toe als bron</button>' : '<button type="button" class="primary-btn"' + (val != null ? '' : ' disabled') + ' data-act="pr-keep" data-id="' + esc(id) + '">Bewaar als referentie</button>') +
+      if (!(simpel && p.target.unit === 'st')) html += '<div class="btn-row">' + (p.target.unit === 'st' ? '<button type="button" class="primary-btn"' + (kan ? '' : ' disabled') + ' data-act="pr-add-source" data-id="' + esc(id) + '">Voeg toe als bron</button>' : '<button type="button" class="primary-btn"' + (val != null ? '' : ' disabled') + ' data-act="pr-keep" data-id="' + esc(id) + '">Bewaar als referentie</button>') +
         '<button type="button" class="ghost-btn" data-act="pr-reject" data-id="' + esc(id) + '">Afwijzen</button></div>';
     } else if (u.status === 'SOURCE_ADDED') {
       var tq = prTargetQuantity(entry);
@@ -2487,7 +2528,7 @@
       html += '<div class="btn-row"><button type="button" class="primary-btn" data-act="pr-use" data-id="' + esc(id) + '">Gebruik als hoeveelheid</button><button type="button" class="ghost-btn" data-act="pr-reject" data-id="' + esc(id) + '">Afwijzen</button></div>';
     } else if (u.status === 'IN_USE') {
       var tq2 = prTargetQuantity(entry);
-      html += '<div class="hint" data-pr-gebruikt>Gebruikt als hoeveelheid' + (tq2 ? ' bij ' + esc(tq2.el.naam + ' — ' + tq2.row.naam) : '') + ' (door jou gekozen' + (u.decidedAt ? ' op ' + esc(String(u.decidedAt).slice(0, 10)) : '') + '). Aanpassen kan bij die post.</div>';
+      html += '<div class="hint" data-pr-gebruikt>' + (simpel ? 'Toegevoegd aan je MJOP' : 'Gebruikt als hoeveelheid') + (tq2 ? ' bij ' + esc(tq2.el.naam + ' — ' + tq2.row.naam) : '') + ' (door jou gekozen' + (u.decidedAt ? ' op ' + esc(String(u.decidedAt).slice(0, 10)) : '') + '). Aanpassen kan bij die post.</div>';
     } else if (u.status === 'REJECTED') {
       html += '<div class="hint">Afgewezen.</div><div class="btn-row"><button type="button" class="ghost-btn" data-act="pr-restore" data-id="' + esc(id) + '">Weer in behandeling nemen</button></div>';
     } else if (u.status === 'SUPERSEDED') html += '<div class="hint">Vervangen door een nieuwere fotoronde.</div>';
@@ -4670,6 +4711,25 @@
       Q.addEvidence(tq.q, ev);                       // alleen een bron erbij: de effectieve hoeveelheid verandert niet
       e.ui.status = 'SOURCE_ADDED'; e.ui.evidenceId = ev.id; e.ui.ack = false; e.ui.replaceManual = false;
       render();
+    },
+    // Eenvoudige weergave: "Toevoegen aan MJOP" = bron toevoegen + (na uitdrukkelijke erkenning) kiezen, in één keer.
+    // Dezelfde controles als de twee losse stappen: geen waarde zonder erkenning, een eigen waarde alleen na uitdrukkelijk vervangen.
+    'pr-toevoegen': function (d) {
+      var e = prEntry(d.id); if (!e || e.ui.status !== 'PROPOSED') return;
+      var val = PR.effectiveValue(e); if (val == null) return;
+      e.ui.useFout = '';
+      if (!e.ui.targetId) {
+        var ts = PR.targetsFor(e.p, state.elements);
+        if (ts.length === 1) e.ui.targetId = ts[0].id;
+      }
+      var tq = prTargetQuantity(e);
+      if (!tq || !tq.q) { e.ui.useFout = 'Kies eerst bij welke post dit hoort.'; render(); return; }
+      if (!e.ui.ack) { e.ui.useFout = 'Bevestig eerst dat je begrijpt dat dit een voorlopige schatting is.'; render(); return; }
+      if (tq.q.manual && !e.ui.replaceManual) { e.ui.useFout = 'Er staat een door jou ingevulde waarde. Bevestig dat die vervangen mag worden (hij blijft als bron bewaard).'; render(); return; }
+      var ack = e.ui.ack, repl = e.ui.replaceManual;
+      ACTIONS['pr-add-source'](d);
+      e.ui.ack = ack; e.ui.replaceManual = repl;
+      if (e.ui.status === 'SOURCE_ADDED') ACTIONS['pr-use'](d);
     },
     'pr-keep': function (d) { var e = prEntry(d.id); if (e && e.ui.status === 'PROPOSED' && PR.effectiveValue(e) != null) { e.ui.status = 'IN_USE'; e.ui.decidedAt = new Date().toISOString(); e.ui.referenceOnly = true; render(); } },
     'pr-use': function (d) {
