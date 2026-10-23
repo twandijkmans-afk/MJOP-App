@@ -96,7 +96,7 @@ async function main() {
   await shot(page, 'start-375');
 
   // 3. Nieuw MJOP maken -> adreszoeker
-  await click(page, '[data-act=goto-onboarding]');
+  await click(page, '[data-act=wizard-start]');
   check('3. "Nieuw MJOP maken" opent de adreszoeker', await page.evaluate(function () { return !!document.querySelector('#addr-search, [data-bind=addr-q]'); }));
 
   // 4. Gebouw inspecteren zonder geopend gebouw: eerst kiezen
