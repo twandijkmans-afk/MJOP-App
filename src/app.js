@@ -4364,6 +4364,44 @@
     return html;
   }
 
+
+  // ---------------------------------------------------------------------
+  // Eenvoudige weergave van Planning en Rapport: eerst in gewone taal wat er
+  // staat en wat nog aandacht vraagt. Alle bedragen komen uit dezelfde
+  // berekeningen (kasstroom/fullPlan) als de rest van de app.
+  // ---------------------------------------------------------------------
+  function klaarlijstHtml(titel, intro) {
+    var sm = stappenModel();
+    var html = '<section class="ov-card kl-card" data-klaarlijst aria-label="' + esc(titel) + '"><h2 class="ov-h2">' + esc(titel) + '</h2>';
+    if (intro) html += '<p class="ov-hint">' + intro + '</p>';
+    html += '<ul class="wz-check">';
+    sm.stappen.slice(0, 4).forEach(function (st, i) {
+      var tekst = i === 0 ? 'Gebouw gevonden' : i === 1 ? (st.klaar ? 'Saldo van de reservekas ingevuld' : 'Saldo van de reservekas nog niet ingevuld')
+        : i === 2 ? (st.klaar ? 'Maandelijkse bijdrage ingevuld' : 'Maandelijkse bijdrage nog niet ingevuld (startwaarde)')
+        : (st.klaar ? 'Alle onderdelen beoordeeld' : st.tekst.split('.')[0]);
+      html += '<li class="' + (st.klaar ? 'klaar' : 'aandacht') + '"><span class="wz-ico" aria-hidden="true">' + (st.klaar ? CHOICE_ICONS.check : '!') + '</span><span>' + esc(tekst) + (st.klaar ? '<span class="sr-only"> (klaar)</span>' : '<span class="sr-only"> (aandacht nodig)</span>') + '</span>';
+      if (!st.klaar && st.actie) html += '<span class="linkish" role="button" tabindex="0"' + actieAttrs(st.actie) + '>' + esc(st.actie[1]) + '</span>';
+      html += '</li>';
+    });
+    return html + '</ul></section>';
+  }
+
+  function planningInHetKort() {
+    var rows = kasstroom(state), plan = fullPlan(state).filter(function (p) { return p.jaar >= CURRENT_YEAR; });
+    var totaal = rows.reduce(function (a, r) { return a + r.kosten; }, 0);
+    var eerste = rows.filter(function (r) { return r.saldo < 0; })[0];
+    var piek = rows.reduce(function (best, r) { return (!best || r.kosten > best.kosten) ? r : best; }, null);
+    var volgende = plan[0];
+    var html = '<section class="ov-card kl-card" data-in-het-kort><h2 class="ov-h2">In het kort</h2><ul class="kl-lijst">';
+    html += volgende ? '<li data-kort-eerst>Eerstvolgend onderhoud: <b>' + esc(volgende.naam) + '</b> in <b>' + volgende.jaar + '</b>.</li>' : '<li>Er staat de komende ' + HORIZON + ' jaar geen onderhoud gepland.</li>';
+    html += '<li data-kort-totaal>In ' + CURRENT_YEAR + ' – ' + (CURRENT_YEAR + HORIZON - 1) + ' is ongeveer <b>' + eur(totaal) + '</b> nodig' + (piek && piek.kosten > 0 ? '; het duurste jaar is <b>' + piek.jaar + '</b> (' + eur(piek.kosten) + ')' : '') + '.</li>';
+    if (!state.invul.fonds) html += '<li data-kort-fonds>Vul het saldo van de reservekas in om te zien of het fonds genoeg is. <span class="linkish" role="button" tabindex="0" data-act="set-tab" data-tab="home">Invullen</span></li>';
+    else html += '<li data-kort-fonds>' + (eerste ? 'Bij de huidige bijdrage raakt het fonds in <b>' + eerste.jaar + '</b> leeg.' : 'Bij de huidige bijdrage blijft het fonds de komende ' + HORIZON + ' jaar positief.') + '</li>';
+    var open = state.elements.filter(needsAssessment).length;
+    if (open) html += '<li data-kort-beoordeling>' + open + ' ' + meervoud(open, 'onderdeel is', 'onderdelen zijn') + ' nog niet beoordeeld; daar rekent het plan met de gebruikelijke levensduur.</li>';
+    return html + '</ul></section>';
+  }
+
   function renderPlanning() {
     var rows = kasstroom(state);
     var plan = fullPlan(state);
@@ -4396,6 +4434,7 @@
     html += '<button type="button" class="ov-btn-dark" data-act="print-rapport">Afdrukken</button>';
     html += '</div></div>';
 
+    if (state.settings.eenvoudig) html += planningInHetKort();
     html += '<div class="pl-layout">';
 
     html += '<div class="pl-side">';
@@ -4466,6 +4505,10 @@
     html += '<div class="pg-head"><h1 class="page-title">Rapport</h1>';
     html += '<div class="page-sub">' + esc(b.adres) + ' · ' + beoordeeld + ' van ' + state.elements.length + ' posten beoordeeld</div></div>';
     html += costUnknownNotice(state);
+    if (state.settings.eenvoudig) {
+      var smR = stappenModel();
+      html += klaarlijstHtml(smR.resterend === 0 ? 'Je rapport is compleet' : 'Dit mist nog in je rapport', smR.resterend === 0 ? 'Alle gegevens zijn ingevuld.' : 'Je kunt het rapport nu al afdrukken; het is dan een indicatie. Vul de punten met een uitroepteken aan voor een completer voorstel.');
+    }
 
     html += '<div class="section"><div class="card pad">';
     html += '<div style="font:500 14.5px/1.3 var(--sans)">MJOP ' + CURRENT_YEAR + '–' + (CURRENT_YEAR + HORIZON - 1) + '</div>';
@@ -4478,12 +4521,12 @@
     }
     html += '</div></div>';
 
-    if (beoordeeld < state.elements.length) {
+    if (beoordeeld < state.elements.length && !state.settings.eenvoudig) {
       html += '<div class="section"><div class="notice">Indicatie op basis van de gebruikelijke levensduur; ' + beoordeeld + ' van ' + state.elements.length + ' posten beoordeeld.</div></div>';
     }
 
     if (!state.invul.fonds) {
-      html += '<div class="section"><div class="notice">Het voorstel voor de vergadering hangt af van het saldo van het reservefonds. <span class="linkish" data-act="set-tab" data-tab="home">Vul het saldo in op het Overzicht</span>.</div></div>';
+      if (!state.settings.eenvoudig) html += '<div class="section"><div class="notice">Het voorstel voor de vergadering hangt af van het saldo van het reservefonds. <span class="linkish" data-act="set-tab" data-tab="home">Vul het saldo in op het Overzicht</span>.</div></div>';
     } else {
     html += '<div class="section"><div class="card pad">';
     html += '<div style="font:500 13.5px/1.3 var(--sans)">Voorstel voor de vergadering</div>';
