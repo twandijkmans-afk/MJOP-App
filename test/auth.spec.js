@@ -184,6 +184,40 @@ async function main() {
   check('Via de map (/): zelfde redirect_to', redirect === BASE, redirect);
   await ctx.close();
 
+  // 6b. in de iPhone-app (User-Agent met MJOPLiveApp/1): terugkeer via de brugpagina + PKCE (code_challenge); daarbuiten ongewijzigd (test 5/6)
+  ctx = await browser.newContext({ viewport: { width: 1440, height: 950 }, userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 MJOPLiveApp/1' });
+  otpReq = null;
+  s = await setup(ctx, { supabase: function (route) {
+    var req = route.request();
+    if (req.method() === 'POST' && /\/auth\/v1\/otp/.test(req.url())) otpReq = { url: req.url(), body: req.postData() };
+    return json(route, 200, {});
+  } });
+  await s.page.goto(BASE + 'index.html');
+  await s.page.waitForTimeout(300);
+  await s.page.evaluate(function () { var el = document.querySelector('[data-act=goto-login]'); if (el) el.click(); });
+  await s.page.waitForTimeout(150);
+  if (await s.page.$('[data-act=auth-mode-magic]')) await requestLink(s.page, 'test@example.org');
+  redirect = otpReq ? new URL(otpReq.url).searchParams.get('redirect_to') : null;
+  check('In de app: redirect_to = brugpagina app-callback.html', redirect === BASE + 'app-callback.html', redirect);
+  var ob = otpReq ? JSON.parse(otpReq.body) : {};
+  check('In de app: PKCE (code_challenge, S256), geen tokens', !!ob.code_challenge && /^s256$/i.test(ob.code_challenge_method || '') && !/token/.test(otpReq.body), otpReq && otpReq.body);
+  await ctx.close();
+
+  // 6c. brugpagina: alleen een plausibele code of foutmelding gaat door naar mjoplive://, nooit tokens
+  ctx = await browser.newContext({ viewport: { width: 390, height: 800 } });
+  var bp = await ctx.newPage();
+  await bp.route('**/*', function (route) { return route.continue(); });
+  async function bridgeHref(q) {
+    await bp.goto(BASE + 'app-callback.html' + q, { waitUntil: 'domcontentloaded' }).catch(function () {});
+    await bp.waitForTimeout(150);
+    return bp.evaluate(function () { var a = document.getElementById('open'); return a && !a.hidden ? a.getAttribute('href') : null; });
+  }
+  check('Brugpagina: geldige code -> mjoplive://auth-callback?code=…', (await bridgeHref('?code=3f1c2d7e-1111-2222-3333-444455556666')) === 'mjoplive://auth-callback?code=3f1c2d7e-1111-2222-3333-444455556666');
+  check('Brugpagina: tokens in de hash worden niet doorgegeven', (await bridgeHref('#access_token=abcdefghij&refresh_token=klmnopqrst')) === null);
+  check('Brugpagina: ongeldige code (script) wordt geweigerd', (await bridgeHref('?code=%3Cscript%3Ealert(1)%3C%2Fscript%3E')) === null);
+  check('Brugpagina: foutmelding gaat als error_description door', /^mjoplive:\/\/auth-callback\?error_description=/.test(await bridgeHref('?error=access_denied&error_description=Email+link+is+invalid') || ''));
+  await ctx.close();
+
   // 7. health check (debugpagina): ok en netwerkfout, zonder login
   ctx = await browser.newContext({ viewport: { width: 1000, height: 800 } });
   s = await setup(ctx, { supabase: function (route) { return json(route, 200, { name: 'GoTrue', version: 'test' }); } });
