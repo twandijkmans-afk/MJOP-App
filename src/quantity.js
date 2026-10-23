@@ -28,6 +28,9 @@
     // Geen betrouwbare automatische hoeveelheid (een benodigd 3D BAG-veld
     // ontbreekt). Waarde = null, nooit 0 (MISSING != 0).
     NOT_AVAILABLE: 'NOT_AVAILABLE',
+    // Voorstel uit een Fotoronde (iPhone-scanner, LiDAR/foto). Altijd een VOORSTEL: wordt als bron (evidence) naast de bestaande hoeveelheid gezet en
+    // pas effectief nadat de gebruiker die bron kiest én de onzekerheid bevestigt (zie selectEvidence).
+    PHOTO_WALK_SCAN: 'PHOTO_WALK_SCAN',
   };
 
   var STATUS = {
@@ -48,6 +51,7 @@
     IMPORTED_MJOP: 'Uit oud MJOP',
     MANUAL: 'Door jou ingevuld',
     NOT_AVAILABLE: 'Niet beschikbaar',
+    PHOTO_WALK_SCAN: 'Fotoronde (voorstel)',
   };
 
   var STATUS_LABELS = {
@@ -261,9 +265,13 @@
   // "Gebruik deze bron": de gekozen bron wordt de effectieve hoeveelheid
   // (status CONFIRMED). Een handmatige waarde vervalt als keuze maar blijft als
   // bron in de lijst staan. Een bron met een andere eenheid kan niet gekozen worden.
-  function selectEvidence(q, evidenceId, at) {
+  function selectEvidence(q, evidenceId, at, opts) {
     var ev = findEvidence(q, evidenceId);
     if (!ev) return { ok: false, error: 'onbekende_bron' };
+    // Een Fotoronde-voorstel is voorlopig/onzeker (LiDAR niet gevalideerd): nooit zonder uitdrukkelijke bevestiging van de onzekerheid effectief.
+    if (ev.source === SOURCES.PHOTO_WALK_SCAN && ev.uncertain !== false && !(opts && opts.acknowledgeUncertainty === true)) {
+      return { ok: false, error: 'onzekerheid_niet_bevestigd' };
+    }
     // Context van een verwant maar ander onderwerp (bijv. gerapporteerde dakbedekking naast plat
     // dakoppervlak) is geen meting van dezelfde hoeveelheid en kan dus niet gekozen worden.
     if (isRelatedContext(ev)) return { ok: false, error: 'ander_onderwerp' };
