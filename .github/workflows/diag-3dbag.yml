@@ -1,37 +1,23 @@
-name: diag-3dbag-pand
+name: diag-live-site
 on:
   push:
     branches: [claude/diag-3dbag-tmp2]
 jobs:
   diag:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 10
     steps:
-      - name: pand ophalen
+      - name: live site controleren
         shell: bash
         run: |
           set +e
-          echo "== $(date -u) =="
-          for P in 0424100000003525 0363100012137996; do
-            for i in 1 2 3 4 5; do
-              curl -sS -D h.txt -o p_$P.json -H "Origin: https://twandijkmans-afk.github.io" -w "$P try$i http=%{http_code} tls=%{time_appconnect}s ttfb=%{time_starttransfer}s t=%{time_total}s size=%{size_download}\n" -m 40 "https://api.3dbag.nl/collections/pand/items/NL.IMBAG.Pand.$P"
-            done
-            grep -i "access-control\|content-type" h.txt
-            python3 - "$P" <<'PY'
-          import json,sys
-          P=sys.argv[1]
-          try:
-              j=json.load(open(f'p_{P}.json'))
-          except Exception as e:
-              print('geen JSON', e, open(f'p_{P}.json').read()[:300]); sys.exit()
-          print('type', j.get('type'), 'feature.type', (j.get('feature') or {}).get('type'))
-          co=(j.get('feature') or {}).get('CityObjects') or {}
-          print('CityObjects', list(co.keys())[:6])
-          o=co.get('NL.IMBAG.Pand.'+P)
-          if not o: print('PAND ONTBREEKT'); sys.exit()
-          a=o.get('attributes',{})
-          for k in sorted(a):
-              if k.startswith('b3_') or k in ('oorspronkelijkbouwjaar','status','identificatie'): print(' ',k,'=',a[k])
-          PY
-          done
-          echo "== klaar $(date -u) =="
+          B=https://twandijkmans-afk.github.io/MJOP-App
+          curl -sS -o idx.html -w "index http=%{http_code} size=%{size_download}\n" "$B/?nc=$RANDOM"
+          curl -sS -o app.js -w "app.js http=%{http_code} size=%{size_download}\n" "$B/src/app.js?nc=$RANDOM"
+          curl -sS -o q.js -w "quantity.js http=%{http_code}\n" "$B/src/quantity.js?nc=$RANDOM"
+          for k in "d3-overnemen" "3D-model beschikbaar — controle nodig" "b3_kwaliteitsindicator" "Technische details" "planSnapshot" "Grove geometrische aanname" "d3voorstel"; do echo "app.js '$k': $(grep -c -- "$k" app.js)"; done
+          echo "quantity.js accepted_by_user_at: $(grep -c accepted_by_user_at q.js)"
+          sha256sum app.js q.js
+          grep -o 'src/app.js[^"]*' idx.html | head -3
+          echo "== 3D BAG API nu =="
+          curl -sS -o /dev/null -w "api http=%{http_code} t=%{time_total}s\n" -m 20 https://api.3dbag.nl/collections/pand/items/NL.IMBAG.Pand.0424100000003525
