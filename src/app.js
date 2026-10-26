@@ -324,6 +324,20 @@
     });
   }
 
+  // Bescherming van bestaande projecten tegen late antwoorden. Elke adres-zoekopdracht en elke "plan openen" krijgt een
+  // volgnummer. Alleen het antwoord van de LAATSTE opdracht mag nog iets doen; een nieuwe zoekopdracht, annuleren, het
+  // verlaten van het zoekscherm (zie render()), opnieuw beginnen of een ander project openen maakt lopende opdrachten
+  // ongeldig. Zo kan een laat BAG-antwoord nooit een intussen geopend (opgeslagen) project wijzigen.
+  var lookupGen = 0, openPlanGen = 0, openPlanPending = 0;
+  function invalidateLookups() {
+    lookupGen++;
+    if (state.onboarding && state.onboarding.bezig) { state.onboarding.bezig = false; }
+  }
+  function invalidateOpenPlan() {
+    if (openPlanPending && openPlanPending === openPlanGen) { state.plansUi.bezig = false; openPlanPending = 0; }
+    openPlanGen++;
+  }
+
   // Maximale wachttijd per bron (ms). Een verzoek dat nooit antwoordt (trage verbinding in de WebView, hangende server) liet het laadscherm
   // eeuwig staan; nu loopt elke stap af. De 3D BAG is aanvullend: zonder antwoord rekent de app met de schatting uit het grondvlak.
   function lookupLimits() {
@@ -1208,8 +1222,28 @@
   // (ACTIONS['save-plan']) en de automatische opslaan-timer hieronder,
   // zodat beide precies hetzelfde doen (zelfde insert/update-logica,
   // zelfde statusveld state.plansUi).
+  // Hoort het gebouw dat nu open staat nog bij het opgeslagen project waaraan het gekoppeld is? Vergelijkt met wat bij het
+  // openen/opslaan van dat project is vastgelegd (lastSavedSnapshot): BAG-pand-id als beide er een hebben, anders het adres.
+  function gebouwSleutel(b) {
+    return { id: b && b.identificatie ? String(b.identificatie) : '', adres: String((b && b.adres) || '').trim().toLowerCase() };
+  }
+  function gekoppeldProjectKlopt() {
+    if (!state.currentPlanId) return true;
+    var opgeslagen = null;
+    try { opgeslagen = JSON.parse(state.lastSavedSnapshot || 'null'); } catch (e) { opgeslagen = null; }
+    if (!opgeslagen || !opgeslagen.building || !state.building) return false;   // onbekend wat daar staat: nooit blind overschrijven
+    var a = gebouwSleutel(opgeslagen.building), b = gebouwSleutel(state.building);
+    return (a.id && b.id) ? a.id === b.id : a.adres === b.adres;
+  }
+
   function performSave() {
     if (!sb || !state.session || !state.building) return;
+    // Laatste vangnet (handmatig én automatisch opslaan): is het gebouw niet meer dat van het gekoppelde opgeslagen
+    // project, dan nooit dat project bijwerken maar als nieuw project opslaan. Het bestaande project blijft ongewijzigd.
+    if (state.currentPlanId && !gekoppeldProjectKlopt()) {
+      try { console.warn('opslaan: gebouw hoort niet bij project ' + state.currentPlanId + '; wordt als nieuw project opgeslagen'); } catch (e) {}
+      state.currentPlanId = null; state.lastSavedSnapshot = null;
+    }
     var p = state.plansUi;
     p.bezig = true; p.fout = '';
     render();
@@ -1542,6 +1576,7 @@
       try { focusInfo.start = active.selectionStart; focusInfo.end = active.selectionEnd; } catch (e) {}
     }
     var screen = currentScreen();
+    if (lastRenderedScreen === 'onboarding' && screen !== 'onboarding') invalidateLookups();
     var mainHtml, printHtml = '';
     try {
       if (screen === 'marketing') mainHtml = renderMarketing();
@@ -4835,6 +4870,7 @@
     'skip-onboarding': function () { ACTIONS['open-voorbeeld'](); },
     'wijzig-adres': function () {
       state.buildingSwitcherOpen = false;
+      invalidateLookups(); invalidateOpenPlan();
       state.screen = 'onboarding'; state.onboarding = { q: '', sug: [], bezig: false, bezigTekst: '', fout: '', gezocht: false };
       // Zonder dit zou "opslaan" na het wijzigen van adres het oude
       // opgeslagen plan overschrijven met een hybride van het nieuwe adres
@@ -4857,9 +4893,13 @@
     'open-plan': function (d) {
       if (!sb || !state.session) return;
       state.buildingSwitcherOpen = false;
+      invalidateLookups();                                  // een lopende adres-zoekopdracht mag dit project nooit meer wijzigen
+      var gen = ++openPlanGen; openPlanPending = gen;       // snel wisselen: alleen het laatst gekozen project wordt geopend
       state.plansUi.bezig = true; state.plansUi.fout = '';
       render();
       sb.from('saved_plans').select('id,state').eq('id', d.id).single().then(function (res) {
+        if (gen !== openPlanGen) return;
+        openPlanPending = 0;
         state.plansUi.bezig = false;
         if (res.error || !res.data) { state.plansUi.fout = 'Dit plan kon niet geopend worden.'; render(); return; }
         applyPlanBlob(res.data.state);
@@ -4868,6 +4908,8 @@
         state.screen = 'app'; state.tab = d.na === 'fotoronde' || d.na === 'gebouw' || (d.na === 'wizard' && state.wizard) ? d.na : 'home'; state.startKeuze = null;
         render();
       }).catch(function () {
+        if (gen !== openPlanGen) return;
+        openPlanPending = 0;
         state.plansUi.bezig = false; state.plansUi.fout = 'Kon geen verbinding maken. Probeer het opnieuw.'; render();
       });
     },
@@ -4922,6 +4964,7 @@
     // hetzélfde plan te laten staan bij het corrigeren van het adres.
     'goto-onboarding': function () {
       state.buildingSwitcherOpen = false;
+      invalidateLookups(); invalidateOpenPlan();            // opnieuw beginnen: een laat zoek- of open-antwoord mag niets meer doen
       state.screen = 'onboarding'; state.onboarding = { q: '', sug: [], bezig: false, bezigTekst: '', fout: '', gezocht: false };
       state.currentPlanId = null; state.lastSavedSnapshot = null;
       state.building = null; state.elements = [];
@@ -4945,7 +4988,7 @@
     // dezelfde zoekopdracht direct uitvoert i.p.v. na de debounce.
     'render-herstel': function () { state.screen = state.session ? 'app' : 'onboarding'; state.tab = 'start'; state.activeElementId = null; render(); },
     'annuleer-zoeken': function () {
-      var s = state.onboarding; s.lookupNr = (s.lookupNr || 0) + 1; s.bezig = false; s.fout = ''; render();
+      var s = state.onboarding; invalidateLookups(); s.bezig = false; s.fout = ''; render();
     },
     'zoek-adres': function () {
       var s = state.onboarding;
@@ -4958,7 +5001,11 @@
     'kies-adres': function (d) {
       var s = state.onboarding;
       s.sug = []; s.q = d.naam; s.bezig = true; s.bezigTekst = 'Pand opzoeken in de BAG…'; s.fout = '';
-      var lookupNr = s.lookupNr = (s.lookupNr || 0) + 1;     // een geannuleerde of verlopen zoekopdracht mag later niets meer overschrijven
+      invalidateOpenPlan();                                  // een nog lopende "plan openen" mag dit nieuwe gebouw niet meer vervangen
+      var gen = ++lookupGen;                                 // een nieuwe zoekopdracht maakt eerdere ongeldig
+      // Nog geldig = laatste zoekopdracht, zelfde zoekscherm, en de gebruiker staat er nog op.
+      // currentScreen() i.p.v. state.screen: op een telefoon zonder sessie toont 'marketing'/'login' ook het zoekscherm.
+      var nogGeldig = function () { return gen === lookupGen && state.onboarding === s && currentScreen() === 'onboarding'; };
       render();
       // Puur cosmetisch: dit tikt alleen de bezigTekst door terwijl
       // lookupBuilding() draait, los van de echte fetch-keten daarbinnen
@@ -4971,8 +5018,8 @@
       ];
       var mislukt = function (err) {
         stapTimers.forEach(clearTimeout); clearTimeout(watchdog);
-        if (s.lookupNr !== lookupNr) return;
-        s.lookupNr++;
+        if (!nogGeldig()) return;
+        lookupGen++;
         s.bezig = false;
         var timeout = err && err.message === 'timeout';
         s.fout = timeout ? 'Het opzoeken duurt te lang. Controleer je verbinding en probeer het opnieuw.'
@@ -4982,8 +5029,11 @@
       var watchdog = setTimeout(function () { mislukt(new Error('timeout')); }, lookupLimits().totaal);
       lookupBuilding(d.id, d.naam).then(function (building) {
         stapTimers.forEach(clearTimeout); clearTimeout(watchdog);
-        if (s.lookupNr !== lookupNr) return;
+        if (!nogGeldig()) return;
         s.bezig = false;
+        // Een nieuw opgezocht gebouw is nooit (meer) het opgeslagen project waar eventueel nog een id van in het geheugen
+        // stond: loskoppelen, zodat opslaan een NIEUW project maakt en nooit een bestaand overschrijft.
+        state.currentPlanId = null; state.lastSavedSnapshot = null;
         applyBuilding(building);
         // Begeleide stappen: het gevonden gebouw wordt eerst bevestigd ("Is dit je gebouw?").
         if (state.wizard) { state.wizard.stap = 1; state.tab = 'wizard'; }
