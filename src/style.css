@@ -1514,3 +1514,7 @@ input[type=range].ov-slider::-moz-range-thumb { width: 14px; height: 14px; borde
 .kl-lijst { margin: 10px 0 0; padding: 0 0 0 18px; font: 400 15px/1.55 var(--font); }
 .kl-lijst li + li { margin-top: 6px; }
 .kl-card .ov-hint { margin: 6px 0 0; }
+
+.st-badge { display: inline-block; margin-bottom: 4px; padding: 3px 9px; border-radius: 999px; font: 600 11px/1.2 var(--font); background: var(--muted-surface); color: var(--text-2); }
+.st-badge.nieuw { background: var(--warn-bg); color: var(--warn-fg); }
+.st-badge.opgeslagen { background: var(--good-bg); color: var(--good-fg); }
