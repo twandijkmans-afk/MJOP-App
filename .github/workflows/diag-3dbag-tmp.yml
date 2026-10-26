@@ -8,56 +8,28 @@ jobs:
   diag:
     runs-on: ubuntu-latest
     steps:
-      - name: DNS
+      - name: DNS en certificaat
         continue-on-error: true
         run: |
           set +e
-          for H in api.3dbag.nl data.3dbag.nl docs.3dbag.nl 3dbag.nl api.pdok.nl; do echo "== $H"; getent ahosts $H | head -4; dig +short $H CNAME; done
-      - name: TLS-handshake per host en versie
+          for H in api.3dbag.nl data.3dbag.nl docs.3dbag.nl; do echo "== $H A: $(dig +short $H A | tr '\n' ' ') AAAA: $(dig +short $H AAAA | tr '\n' ' ') CNAME: $(dig +short $H CNAME)"; done
+          echo "== api.3dbag.nl via IPv6"; curl -6 -sS -m 20 -o /dev/null -w "HTTP %{http_code}\n" https://api.3dbag.nl/ 2>&1 | tail -1
+          echo "== docs-cert:"; echo | openssl s_client -connect docs.3dbag.nl:443 -servername docs.3dbag.nl 2>/dev/null | openssl x509 -noout -dates -ext subjectAltName 2>/dev/null
+      - name: Documentatie - huidige API-adressen
         continue-on-error: true
         run: |
           set +e
-          for H in api.3dbag.nl data.3dbag.nl docs.3dbag.nl 3dbag.nl api.pdok.nl; do
-            for V in -tls1_2 -tls1_3; do
-              R=$(echo | timeout 20 openssl s_client -connect $H:443 -servername $H $V 2>&1)
-              echo "== $H $V: $(echo "$R" | grep -E 'Protocol|Cipher is|alert|verify return code|CN ?=' | head -4 | tr '\n' ' ')"
-            done
-          done
-      - name: HTTP-verzoeken (https en http, met Origin voor CORS)
-        continue-on-error: true
-        run: |
-          set +e
-          O="Origin: https://twandijkmans-afk.github.io"
-          for U in \
-            "https://api.3dbag.nl/collections/pand/items/NL.IMBAG.Pand.0424100000003525" \
-            "https://api.3dbag.nl/collections/pand/items/NL.IMBAG.Pand.0363100012137996" \
-            "http://api.3dbag.nl/collections/pand/items/NL.IMBAG.Pand.0424100000003525" \
-            "https://api.3dbag.nl/" \
-            "https://data.3dbag.nl/" \
-            "https://docs.3dbag.nl/en/" \
-            "https://3dbag.nl/" \
-            "https://api.pdok.nl/kadaster/bag/ogc/v2/collections/pand/items?f=json&limit=1&identificatie=0424100000003525"; do
-            echo "== $U"
-            curl -sS -m 60 -H "$O" -D h.txt -o b.bin -w "HTTP %{http_code}  totaal %{time_total}s  bytes %{size_download}  redirect %{redirect_url}\n" "$U"
-            grep -iE "^(HTTP|content-type|access-control-allow-origin|location|server)" h.txt
-            head -c 300 b.bin; echo
-          done
-      - name: 3DBAG WFS (data.3dbag.nl) als alternatief
-        continue-on-error: true
-        run: |
-          set +e
-          curl -sS -m 60 -w "\nHTTP %{http_code} %{time_total}s\n" "https://data.3dbag.nl/api/BAG3D/wfs?service=WFS&request=GetCapabilities" | grep -oE "<(wfs:)?Name>[^<]+</(wfs:)?Name>|HTTP [0-9]+.*" | head -20
-          for P in 0424100000003525 0363100012137996; do
-            for T in BAG3D:lod22 BAG3D:lod13 BAG3D:pand; do
-              echo "== WFS $P $T"
-              curl -sS -m 60 -H "Origin: https://twandijkmans-afk.github.io" -D wh.txt -o w.json -w "HTTP %{http_code} %{time_total}s\n" \
-                "https://data.3dbag.nl/api/BAG3D/wfs?service=WFS&version=2.0.0&request=GetFeature&typeNames=$T&outputFormat=application/json&count=1&CQL_FILTER=identificatie='NL.IMBAG.Pand.$P'"
-              grep -iE "^(content-type|access-control-allow-origin)" wh.txt
-              python3 -c "
-          import json
-          try:
-              j=json.load(open('w.json')); fs=j.get('features',[]); print('features:',len(fs))
-              if fs: print(json.dumps({k:v for k,v in fs[0]['properties'].items() if k.startswith('b3_') or k in ('identificatie','oorspronkelijkbouwjaar')})[:1500])
-          except Exception as e: print('geen JSON:', open('w.json','rb').read()[:200], e)"
-            done
+          for P in en/ en/delivery/webservices/ en/delivery/ en/schema/attributes/; do
+            echo "===== https://docs.3dbag.nl/$P"
+            curl -sS -m 30 "https://docs.3dbag.nl/$P" -o p.html -w "HTTP %{http_code}\n"
+            grep -oE "https?://[a-z0-9.-]*3dbag[a-z0-9./_?=&%-]*" p.html | sort -u | head -30
+            python3 -c "
+          import re,html
+          t=open('p.html',encoding='utf-8',errors='ignore').read()
+          t=re.sub(r'<script.*?</script>|<style.*?</style>','',t,flags=re.S)
+          t=html.unescape(re.sub(r'<[^>]+>',' ',t)); t=re.sub(r'\s+',' ',t)
+          for kw in ('API','WFS','OGC','deprecat','status','outage','maintenance','v2025','v2024','b3_h_dak_max','b3_opp_dak_plat'):
+              for m in re.finditer(kw,t):
+                  print('...',t[max(0,m.start()-120):m.end()+160],'...'); break
+          "
           done
