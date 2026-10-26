@@ -354,7 +354,14 @@
   // ---------------------------------------------------------------------
   var D3_VELDEN = ['b3_opp_dak_plat', 'b3_opp_dak_schuin', 'b3_opp_buitenmuur', 'b3_opp_grond', 'b3_bouwlagen', 'b3_dak_type', 'b3_h_dak_max', 'b3_h_maaiveld'];
   var D3_RAW_VELDEN = ['b3_opp_dak_plat', 'b3_opp_dak_schuin', 'b3_opp_buitenmuur', 'b3_opp_grond', 'b3_opp_scheidingsmuur',
-    'b3_bouwlagen', 'b3_dak_type', 'b3_h_dak_max', 'b3_h_maaiveld'];
+    'b3_bouwlagen', 'b3_dak_type', 'b3_h_dak_max', 'b3_h_maaiveld', 'b3_kwaliteitsindicator', 'b3_val3dity_lod22'];
+  // Kwaliteit van de 3D-reconstructie volgens de 3D BAG (b3_kwaliteitsindicator). Alleen true telt als betrouwbaar;
+  // false = reconstructie mogelijk niet correct, ontbrekend = onbekend. Beide: alleen tonen, niet automatisch overnemen.
+  function d3Kwaliteit(raw) {
+    var a = raw && raw.attributes;
+    if (!a || a.b3_kwaliteitsindicator == null) return 'ONBEKEND';
+    return a.b3_kwaliteitsindicator === true ? 'GOED' : 'CONTROLE';
+  }
   function d3Url(identificatie) { return 'https://api.3dbag.nl/collections/pand/items/NL.IMBAG.Pand.' + identificatie; }
 
   // Uit de attributen van het 3D BAG-pand alleen wat er werkelijk staat; ontbrekende velden blijven null (MISSING != 0),
@@ -1217,35 +1224,63 @@
     ['http', 'detail', 'limietMs', 'ontbrekend'].forEach(function (k) { if (r[k] != null) st[k] = r[k]; });
     b.d3status = st;
     if (r.status !== 'OK') return;                   // geen 3D-gegevens: bestaande waarden en schattingen blijven staan
-    if (b !== d3NieuwGebouw) {                       // bestaand project: niets in het plan wijzigen, alleen tonen
+    st.kwaliteit = d3Kwaliteit(r.d3raw);
+    // Alleen een NIEUW gevonden gebouw met een betrouwbaar model (kwaliteitsindicator true) krijgt de waarden automatisch.
+    // Anders (bestaand project, of kwaliteit false/onbekend): alleen tonen als voorstel; het plan blijft ongewijzigd.
+    if (b !== d3NieuwGebouw || st.kwaliteit !== 'GOED') {
       b.d3voorstel = { d3: r.d3, d3raw: r.d3raw };
       st.alleenVoorstel = true;
       return;
     }
+    neemD3Over(b, r.d3, r.d3raw, st);
+  }
+
+  // 3D-waarden in het plan zetten. Onaangeroerde standaardposten worden opnieuw opgebouwd; anders alleen de automatische
+  // waarden bijwerken. Handmatige, bevestigde en gekozen hoeveelheden en zelf ingevulde werkhoogtes blijven altijd staan.
+  function neemD3Over(b, d3, d3raw, st) {
     var voor = {};
     state.elements.forEach(function (el) { voor[el.id] = el.quantity && el.quantity.value; });
     var vers = !!(d3VersElementen && d3VersElementen.building === b && JSON.stringify(state.elements) === d3VersElementen.json);
-    b.d3 = r.d3; b.d3raw = r.d3raw;
-    if (r.d3.dak != null) b.dakM2 = r.d3.dak;          // anders blijft de BAG-afleiding (grondvlak) staan
-    if (r.d3.gevel != null) b.gevelM2 = r.d3.gevel;    // anders blijft de BAG-afleiding (omtrek × 9) staan
-    if (r.d3.hoogte != null) b.werkhoogte = Q.workHeightFromBuildingHeight(r.d3.hoogte);
+    b.d3 = d3; b.d3raw = d3raw;
+    if (d3.dak != null) b.dakM2 = d3.dak;              // anders blijft de BAG-afleiding (grondvlak) staan
+    if (d3.gevel != null) b.gevelM2 = d3.gevel;        // anders blijft de BAG-afleiding (omtrek × 9) staan
+    if (d3.hoogte != null) b.werkhoogte = Q.workHeightFromBuildingHeight(d3.hoogte);
     if (vers) {
       state.elements = buildDefaultElements(b);       // nog niets aan gedaan: opnieuw opbouwen (bv. hellend dak erbij)
       d3VersElementen = { building: b, json: JSON.stringify(state.elements) };
       st.opnieuwOpgebouwd = true;
-      return;
+    } else {
+      state.elements.forEach(function (el) {
+        var def = libraryEntry(el.id);
+        if (!def) return;                            // geïmporteerde/eigen posten blijven ongemoeid
+        if (def.bron && def.bron !== 'none' && Q.isValid(el.quantity) && !d3Beschermd(el.quantity)) Q.updateAuto(el.quantity, autoForEl(def, b));
+        if (el.type === 'steiger' && el.werkhoogte == null) el.werkhoogte = b.werkhoogte;
+        if (el.type === 'kozijnen' && el.koz) {
+          el.koz.forEach(function (k, i) { if (KOZ_DEF[i] && Q.isValid(k.quantity) && !d3Beschermd(k.quantity)) Q.updateAuto(k.quantity, Q.autoKozijn(i, b)); });
+        }
+      });
     }
-    state.elements.forEach(function (el) {
-      var def = libraryEntry(el.id);
-      if (!def) return;                              // geïmporteerde/eigen posten blijven ongemoeid
-      if (def.bron && def.bron !== 'none' && Q.isValid(el.quantity) && !d3Beschermd(el.quantity)) Q.updateAuto(el.quantity, autoForEl(def, b));
-      if (el.type === 'steiger' && el.werkhoogte == null) el.werkhoogte = b.werkhoogte;
-      if (el.type === 'kozijnen' && el.koz) {
-        el.koz.forEach(function (k, i) { if (KOZ_DEF[i] && Q.isValid(k.quantity) && !d3Beschermd(k.quantity)) Q.updateAuto(k.quantity, Q.autoKozijn(i, b)); });
-      }
-    });
     // Zichtbaar maken wat er is bijgewerkt (nooit ongemerkt).
     st.bijgewerkt = state.elements.filter(function (el) { return el.quantity && voor[el.id] !== el.quantity.value; }).map(function (el) { return el.naam; });
+  }
+
+  // De gebruiker neemt een voorstel na controle expliciet over. Bron, kwaliteitsindicator, ophaaldatum en het moment van
+  // overnemen worden bij de 3D-gegevens bewaard (d3raw.overgenomen) en komen zo in de herkomst van elke hoeveelheid.
+  function d3VoorstelOvernemen(b) {
+    var vs = b && b.d3voorstel;
+    if (!vs || !vs.d3 || !vs.d3raw) return;
+    var raw = JSON.parse(JSON.stringify(vs.d3raw));
+    var a = raw.attributes || {};
+    raw.overgenomen = { at: new Date().toISOString(), door: 'gebruiker', bron: '3D BAG (TU Delft), api.3dbag.nl', kwaliteit: d3Kwaliteit(raw),
+      b3_kwaliteitsindicator: a.b3_kwaliteitsindicator != null ? a.b3_kwaliteitsindicator : null,
+      b3_val3dity_lod22: a.b3_val3dity_lod22 != null ? a.b3_val3dity_lod22 : null, opgehaald: raw.fetchedAt || null };
+    var st = {};
+    var oud = b.d3status || {};
+    for (var k in oud) st[k] = oud[k];
+    st.status = 'OK'; st.alleenVoorstel = false; st.overgenomen = raw.overgenomen.at; st.kwaliteit = d3Kwaliteit(raw);
+    delete b.d3voorstel;
+    b.d3status = st;
+    neemD3Over(b, vs.d3, raw, st);
   }
 
   // Status voor weergave. Een LADEN-status zonder lopend verzoek (bijv. na herladen) heet ONDERBROKEN.
@@ -1335,8 +1370,14 @@
     } catch (e) { /* sessionStorage niet beschikbaar (bv. privénavigatie) — niets te doen */ }
   }
 
+  // Vergelijkingssnapshot voor 'is er iets te bewaren?'. De 3D BAG-status en een niet-overgenomen 3D-voorstel tellen niet mee:
+  // die alleen veroorzaken nooit een (auto)save en wijzigen een opgeslagen project dus niet. Gaan ze mee in een opslag die om
+  // een andere reden plaatsvindt, dan is dat onschadelijk (ze veranderen geen posten of kosten).
+  function planSnapshot(blob) {
+    return JSON.stringify(blob, function (k, v) { return (k === 'd3status' || k === 'd3voorstel') ? undefined : v; });
+  }
   function isDirty() {
-    return !state.currentPlanId || JSON.stringify(serializePlan()) !== state.lastSavedSnapshot;
+    return !state.currentPlanId || planSnapshot(serializePlan()) !== state.lastSavedSnapshot;
   }
 
   // Daadwerkelijke opslaan-aanroep — gedeeld door de "Opslaan"-knop
@@ -1378,7 +1419,7 @@
       p.bezig = false;
       if (res.error) { p.fout = res.error.message; render(); return; }
       state.currentPlanId = res.data.id;
-      state.lastSavedSnapshot = JSON.stringify(blob);
+      state.lastSavedSnapshot = planSnapshot(blob);
       loadSavedPlans();
     }).catch(function () {
       p.bezig = false; p.fout = 'Kon geen verbinding maken. Probeer het opnieuw.'; render();
@@ -3326,7 +3367,8 @@
   }
 
   var FEIT_LABEL = { bekend: 'Uit de BAG', geschat: 'Geschat', onbekend: 'Nog onbekend', zelf: 'Door jou ingevuld', voorbeeld: 'Voorbeeld',
-    d3bag: '3DBAG-modelwaarde', bagafl: 'BAG-afleiding', handmatig: 'Handmatig bevestigd', laden: 'Wordt opgehaald' };
+    d3bag: '3DBAG-modelwaarde', bagafl: 'BAG-afleiding', handmatig: 'Handmatig bevestigd', laden: 'Wordt opgehaald',
+    voorstel: 'Voorstel uit 3D-model', controle: 'Controle nodig' };
 
   // ---------------------------------------------------------------------
   // 3D BAG: status en bron per waarde (wizard stap 1 en Gebouw)
@@ -3338,24 +3380,44 @@
   var GEVEL_AANNAME = 'Grove geometrische aanname: omtrek van het BAG-pand × een aangenomen hoogte van 9 m. Geen gemeten of geregistreerd geveloppervlak; werkelijke hoogte, ramen, deuren en gevelvorm zijn niet meegenomen.';
   var DAK_AANNAME = 'Benadering: grondvlak van het BAG-pand (dakhelling en overstekken niet meegenomen).';
 
-  function d3StatusTekst(st) {
-    var s = st.status, pand = st.pandId ? ' (' + st.pandId + ')' : '';
-    var schat = ' Dak en gevel zijn daarom grof benaderd uit de BAG-pandgeometrie (BAG-afleiding): dak = grondvlak, gevel = omtrek × aangenomen hoogte van 9 m. Dit zijn geen gemeten of geregistreerde oppervlakken.';
-    if (s === 'LADEN') return { soort: 'bezig', tekst: '3D BAG-gegevens ophalen' + pand + '… (maximaal ' + Math.round((st.limietMs || 15000) / 1000) + ' s). Je kunt gewoon verder; dak, gevel en hoogte worden bijgewerkt zodra ze binnen zijn.' };
+  // Eenvoudige tekst voor de gebruiker (kop + uitleg); foutcodes en ruwe waarden gaan naar 'Technische details'.
+  // ctx: { voorstel, kwaliteit, overgenomen, inPlan }
+  function d3StatusTekst(st, ctx) {
+    ctx = ctx || {};
+    var s = st.status;
+    var schat = ' Dak en gevel zijn daarom grof benaderd uit de BAG-pandgeometrie: dak = grondvlak, gevel = omtrek × een aangenomen hoogte van 9 m. Dit zijn geen gemeten oppervlakken.';
+    var tech = [];
+    if (st.pandId) tech.push('Pand: ' + st.pandId);
+    tech.push('Status: ' + s + (st.http ? ' (HTTP ' + st.http + ')' : ''));
+    if (st.detail) tech.push('Detail: ' + st.detail);
+    if (st.ms != null) tech.push('Duur: ' + st.ms + ' ms');
+    if (st.at) tech.push('Opgehaald: ' + st.at);
+    if (st.ontbrekend && st.ontbrekend.length) tech.push('Niet in het model: ' + st.ontbrekend.join(', '));
+    if (s === 'LADEN') return { soort: 'bezig', tekst: '3D BAG-gegevens ophalen… (maximaal ' + Math.round((st.limietMs || 15000) / 1000) + ' s). Je kunt gewoon verder.', tech: tech };
     if (s === 'OK') {
-      var ok = 'Gegevens uit het 3D BAG-model' + pand + (st.ontbrekend && st.ontbrekend.length ? '. Niet in het model: ' + st.ontbrekend.join(', ') + '.' : '.');
-      if (st.alleenVoorstel) ok += ' Dit is een bestaand project: hoeveelheden, dak, gevel en werkhoogte in het plan zijn NIET automatisch aangepast. Neem de 3D BAG-waarden zo nodig zelf over bij de posten.';
-      else if (st.bijgewerkt && st.bijgewerkt.length) ok += ' Automatisch bijgewerkt: ' + st.bijgewerkt.join(', ') + '. Handmatige en bevestigde hoeveelheden en zelf ingevulde werkhoogtes zijn niet aangepast.';
-      return { soort: 'ok', tekst: ok };
+      var mist = st.ontbrekend && st.ontbrekend.length ? ' Niet alle maten staan in het 3D-model; die blijven onbekend.' : '';
+      var bij = st.bijgewerkt && st.bijgewerkt.length ? ' Automatisch bijgewerkt: ' + st.bijgewerkt.join(', ') + '. Handmatig ingevulde en bevestigde hoeveelheden zijn niet aangepast.' : '';
+      if (ctx.overgenomen) return { soort: 'ok', kop: '3D-model overgenomen na controle', tekst: 'Je hebt deze maten gecontroleerd en overgenomen.' + bij + mist, tech: tech };
+      if (ctx.voorstel && ctx.kwaliteit !== 'GOED') return { soort: 'let', kop: '3D-model beschikbaar — controle nodig',
+        tekst: (ctx.kwaliteit === 'CONTROLE' ? 'Volgens de 3D BAG is dit model mogelijk niet correct.' : 'De 3D BAG geeft niet aan of dit model betrouwbaar is.') +
+          ' Bekijk de maten hieronder. Ze worden pas in je onderhoudsposten en kosten gebruikt als je ze overneemt.' + mist, tech: tech };
+      if (ctx.voorstel) return { soort: 'let', kop: '3D-model beschikbaar',
+        tekst: 'Dit is een bestaand project: je posten en kosten zijn niet automatisch aangepast. Neem de maten over als je ze wilt gebruiken.' + mist, tech: tech };
+      if (ctx.inPlan && ctx.kwaliteit !== 'GOED') return { soort: 'let', kop: '3D-model beschikbaar — controle nodig',
+        tekst: 'Deze maten zijn eerder al in dit plan gebruikt. Controleer ze bij de posten.' + mist, tech: tech };
+      return { soort: 'ok', tekst: 'De maten hieronder komen uit het 3D BAG-model.' + bij + mist, tech: tech };
     }
-    if (s === 'TIMEOUT') return { soort: 'fout', tekst: 'De 3D BAG antwoordde niet binnen ' + Math.round((st.limietMs || 0) / 1000) + ' seconden.' + schat };
-    if (s === 'NETWERK') return { soort: 'fout', tekst: 'Geen verbinding met de 3D BAG-server: de verbinding werd geweigerd of verbroken. Vanuit de app is niet vast te stellen of dit aan de server, de beveiligde verbinding of het netwerk ligt; aan het gekozen adres ligt het niet.' + schat };
-    if (s === 'HTTP') return { soort: 'fout', tekst: 'De 3D BAG-server gaf een foutcode (HTTP ' + st.http + ').' + schat };
-    if (s === 'NIET_GEVONDEN') return { soort: 'fout', tekst: 'Dit pand' + pand + ' staat niet in de 3D BAG.' + schat };
-    if (s === 'ONGELDIG_ANTWOORD') return { soort: 'fout', tekst: 'De 3D BAG gaf een antwoord dat de app niet kon lezen' + (st.detail ? ' (' + st.detail + ')' : '') + '.' + schat };
-    if (s === 'GEEN_ATTRIBUTEN') return { soort: 'fout', tekst: 'Het pand staat in de 3D BAG, maar zonder dak-, gevel- of hoogtegegevens.' + schat };
-    if (s === 'ONDERBROKEN') return { soort: 'fout', tekst: 'Het ophalen van de 3D BAG is niet afgerond (de app is tussendoor opnieuw geladen).' + schat };
-    return { soort: 'fout', tekst: 'Voor dit gebouw zijn geen 3D BAG-gegevens opgeslagen.' + schat };
+    if (s === 'NETWERK') tech.push('Oorzaak niet vast te stellen vanuit de app (server, beveiligde verbinding of netwerk).');
+    var fout = {
+      TIMEOUT: 'De 3D BAG antwoordde niet op tijd (binnen ' + Math.round((st.limietMs || 0) / 1000) + ' seconden).',
+      NETWERK: 'Geen verbinding met de 3D BAG-server. Aan het gekozen adres ligt het niet; probeer het later opnieuw.',
+      HTTP: 'De 3D BAG-server gaf een fout.',
+      NIET_GEVONDEN: 'Dit pand staat niet in de 3D BAG.',
+      ONGELDIG_ANTWOORD: 'De 3D BAG gaf een antwoord dat de app niet kon lezen.',
+      GEEN_ATTRIBUTEN: 'Het pand staat in de 3D BAG, maar zonder dak-, gevel- of hoogtegegevens.',
+      ONDERBROKEN: 'Het ophalen van de 3D BAG is niet afgerond (de app is tussendoor opnieuw geladen).',
+    }[s] || 'Voor dit gebouw zijn geen 3D BAG-gegevens opgeslagen.';
+    return { soort: 'fout', tekst: fout + schat, tech: tech };
   }
 
   // Wordt een hoeveelheid uit deze bron in het plan handmatig vastgelegd/bevestigd? (posten met die bron)
@@ -3371,11 +3433,24 @@
       (extra ? '<div class="ov-hint d3-extra">' + extra + '</div>' : '') + '</div><span class="wz-chip wz-' + soort + '">' + FEIT_LABEL[soort] + '</span></div>';
   }
 
+  // Rapportzin over de kwaliteit van gebruikte 3D-maten (alleen als ze in het plan staan).
+  function d3RapportKwaliteit(b) {
+    if (!b || !b.d3 || !b.d3raw) return '';
+    var kw = d3Kwaliteit(b.d3raw), ov = b.d3raw.overgenomen;
+    var zin = ov ? ' De 3D BAG-maten zijn na controle door de gebruiker overgenomen' : '';
+    if (kw !== 'GOED') zin += (zin ? '; ' : ' ') + (kw === 'CONTROLE' ? 'volgens de 3D BAG is het 3D-model van dit pand mogelijk niet correct' : 'de 3D BAG geeft geen kwaliteitsoordeel over dit 3D-model');
+    return zin ? zin + '.' : '';
+  }
+
   function d3BlokHtml(b) {
     var st = d3Status(b);
     if (!st) return '';
-    var vs = (!b.d3 && b.d3voorstel) || null;          // bestaand project: 3D-waarden alleen als voorstel tonen
-    var t = d3StatusTekst(st), raw = (b.d3raw && b.d3raw.attributes) || (vs && vs.d3raw && vs.d3raw.attributes) || null, d3 = b.d3 || (vs && vs.d3) || null;
+    var vs = (!b.d3 && b.d3voorstel) || null;          // nog niet in het plan: alleen tonen als voorstel
+    var rawObj = b.d3raw || (vs && vs.d3raw) || null;
+    var raw = (rawObj && rawObj.attributes) || null, d3 = b.d3 || (vs && vs.d3) || null;
+    var kw = (raw || d3) ? d3Kwaliteit(rawObj) : null;
+    var overgenomen = !vs && rawObj && rawObj.overgenomen ? rawObj.overgenomen : null;
+    var t = d3StatusTekst(st, { voorstel: !!vs, kwaliteit: kw, overgenomen: overgenomen, inPlan: !!b.d3 });
     var attr = function (k, legacy) {
       if (raw) return (raw[k] != null && (k === 'b3_dak_type' || isFinite(raw[k]))) ? raw[k] : null;
       return d3 && d3[legacy] != null && d3[legacy] !== '' ? d3[legacy] : null;
@@ -3383,30 +3458,46 @@
     var m2 = function (v) { return Math.round(v) + ' m²'; };
     var laden = st.status === 'LADEN';
     var leeg = laden ? 'laden' : 'onbekend';
+    var m3d = vs ? 'voorstel' : 'd3bag';               // chip voor een waarde uit het 3D-model
     var hand = function (bron) { var n = d3HandmatigVoor(bron); return n.length ? 'In het plan handmatig vastgelegd: ' + esc(n.join(', ')) + '.' : ''; };
-    var html = '<section class="ov-card st-card d3-blok" data-d3-status="' + st.status + '"' + (vs ? ' data-d3-voorstel' : '') + '>';
+    var html = '<section class="ov-card st-card d3-blok" data-d3-status="' + st.status + '"' + (kw ? ' data-d3-kwaliteit="' + kw + '"' : '') + (vs ? ' data-d3-voorstel' : '') + '>';
     html += '<h2 class="ov-h2">Gebouwmaten uit de 3D BAG</h2>';
+    if (t.kop) html += '<p class="d3-kop d3-' + t.soort + '" data-d3-kop>' + esc(t.kop) + '</p>';
     html += '<p class="ov-hint d3-status d3-' + t.soort + '" role="status"' + (t.soort === 'fout' ? ' data-wz-geen-3d' : '') + '>' + esc(t.tekst) + '</p>';
     if (!laden && st.status !== 'OK') html += '<button type="button" class="ov-btn secondary" data-act="d3-opnieuw">3D BAG opnieuw ophalen</button>';
+    if (vs) {
+      html += '<button type="button" class="ov-btn" data-act="d3-overnemen">Gecontroleerd: maten overnemen in mijn posten</button>';
+      html += '<p class="ov-hint d3-extra">Hoeveelheden die je zelf hebt ingevuld of bevestigd, blijven altijd staan.</p>';
+    }
     var hoogte = attr('b3_h_dak_max', null), maaiveld = attr('b3_h_maaiveld', null);
     var h = (hoogte != null && maaiveld != null) ? Math.round((hoogte - maaiveld) * 10) / 10 : (d3 && d3.hoogte != null && !raw ? d3.hoogte : null);
-    html += d3Rij('Bouwhoogte', h != null ? h.toLocaleString('nl-NL') + ' m' : '—', h != null ? 'd3bag' : leeg, h != null ? 'b3_h_dak_max − b3_h_maaiveld' : '');
+    html += d3Rij('Bouwhoogte', h != null ? h.toLocaleString('nl-NL') + ' m' : '—', h != null ? m3d : leeg);
     var dt = attr('b3_dak_type', 'daktype');
-    html += d3Rij('Daktype', dt ? esc(DAKTYPE_NL[dt] || dt) : '—', dt ? 'd3bag' : leeg);
+    html += d3Rij('Daktype', dt ? esc(DAKTYPE_NL[dt] || dt) : '—', dt ? m3d : leeg);
     var plat = attr('b3_opp_dak_plat', 'plat');
     var fp = (b.bagRaw && b.bagRaw.footprintM2 != null) ? b.bagRaw.footprintM2 : b.opp;
-    html += d3Rij('Plat dakoppervlak', plat != null ? m2(plat) : (fp ? m2(fp) : '—'), d3HandmatigVoor('dakPlatM2').length ? 'handmatig' : (plat != null ? 'd3bag' : (fp ? 'bagafl' : leeg)),
+    html += d3Rij('Plat dakoppervlak', plat != null ? m2(plat) : (fp ? m2(fp) : '—'), d3HandmatigVoor('dakPlatM2').length ? 'handmatig' : (plat != null ? m3d : (fp ? 'bagafl' : leeg)),
       (plat == null && fp ? DAK_AANNAME + ' ' : '') + hand('dakPlatM2'));
     var schuin = attr('b3_opp_dak_schuin', 'schuin');
-    html += d3Rij('Hellend dakoppervlak', schuin != null ? m2(schuin) : '—', d3HandmatigVoor('dakSchuinM2').length ? 'handmatig' : (schuin != null ? 'd3bag' : leeg), hand('dakSchuinM2'));
+    html += d3Rij('Hellend dakoppervlak', schuin != null ? m2(schuin) : '—', d3HandmatigVoor('dakSchuinM2').length ? 'handmatig' : (schuin != null ? m3d : leeg), hand('dakSchuinM2'));
     var muur = attr('b3_opp_buitenmuur', 'gevel');
     var omtrek = (b.bagRaw && b.bagRaw.omtrekM != null) ? b.bagRaw.omtrekM : b.omtrek;
-    html += d3Rij('Buitenmuuroppervlak', muur != null ? m2(muur) : (omtrek ? m2(omtrek * 9) : '—'), d3HandmatigVoor('gevelM2').length ? 'handmatig' : (muur != null ? 'd3bag' : (omtrek ? 'bagafl' : leeg)),
+    html += d3Rij('Buitenmuuroppervlak', muur != null ? m2(muur) : (omtrek ? m2(omtrek * 9) : '—'), d3HandmatigVoor('gevelM2').length ? 'handmatig' : (muur != null ? m3d : (omtrek ? 'bagafl' : leeg)),
       (muur == null && omtrek ? GEVEL_AANNAME + ' ' : '') + hand('gevelM2'));
     var grond = attr('b3_opp_grond', 'grond');
-    html += d3Rij('Grondvlak', grond != null ? m2(grond) : (fp ? m2(fp) : '—'), grond != null ? 'd3bag' : (fp ? 'bekend' : leeg));
+    html += d3Rij('Grondvlak', grond != null ? m2(grond) : (fp ? m2(fp) : '—'), grond != null ? m3d : (fp ? 'bekend' : leeg));
     var lagen = attr('b3_bouwlagen', 'lagen');
-    html += d3Rij('Bouwlagen', lagen != null ? String(lagen) : '—', lagen != null ? 'd3bag' : leeg);
+    html += d3Rij('Bouwlagen', lagen != null ? String(lagen) : '—', lagen != null ? m3d : leeg);
+    if (kw) html += d3Rij('Kwaliteit 3D-model', kw === 'GOED' ? 'In orde volgens de 3D BAG' : (kw === 'CONTROLE' ? 'Mogelijk niet correct volgens de 3D BAG' : 'Niet aangegeven door de 3D BAG'), kw === 'GOED' ? 'd3bag' : 'controle');
+    var tech = (t.tech || []).slice();
+    if (raw) {
+      tech.push('b3_kwaliteitsindicator: ' + (raw.b3_kwaliteitsindicator == null ? 'ontbreekt' : String(raw.b3_kwaliteitsindicator)));
+      tech.push('b3_val3dity_lod22: ' + (raw.b3_val3dity_lod22 == null ? 'ontbreekt' : JSON.stringify(raw.b3_val3dity_lod22)));
+      if (h != null) tech.push('Bouwhoogte = b3_h_dak_max − b3_h_maaiveld = ' + hoogte + ' − ' + maaiveld);
+    }
+    if (rawObj && rawObj.fetchedAt) tech.push('3D-gegevens opgehaald: ' + rawObj.fetchedAt);
+    if (overgenomen) tech.push('Door jou overgenomen: ' + overgenomen.at);
+    html += '<details class="d3-tech" data-d3-tech><summary>Technische details</summary><ul>' + tech.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul></details>';
     html += '</section>';
     return html;
   }
@@ -4976,7 +5067,7 @@
     var maat = function (v, uit3d, schatting) {
       return v == null ? 'onbekende omvang' : Math.round(v) + ' m²' + (uit3d ? ' (3D BAG van de TU Delft)' : ' (geschat uit ' + schatting + ', geen 3D BAG-waarde)');
     };
-    html += '<p><strong>Bouwgegevens.</strong> Bouwjaar en het aantal appartementen komen uit de Basisregistratie Adressen en Gebouwen (BAG). Het dakoppervlak van ' + maat(b.dakM2, dakUit3d, 'het BAG-grondvlak') + ', het geveloppervlak van ' + (b.gevelM2 == null || gevelUit3d ? maat(b.gevelM2, gevelUit3d, '') : Math.round(b.gevelM2) + ' m² (grove geometrische aanname: omtrek van het BAG-pand × een aangenomen hoogte van 9 m; geen gemeten of geregistreerd geveloppervlak)') + (b.d3 && b.d3.hoogte != null ? '; de gebouwhoogte komt uit de 3D BAG' : '; de gebouwhoogte is onbekend (geen 3D BAG-waarde)') + '. Er is niet op locatie ingemeten.</p>';
+    html += '<p><strong>Bouwgegevens.</strong> Bouwjaar en het aantal appartementen komen uit de Basisregistratie Adressen en Gebouwen (BAG). Het dakoppervlak van ' + maat(b.dakM2, dakUit3d, 'het BAG-grondvlak') + ', het geveloppervlak van ' + (b.gevelM2 == null || gevelUit3d ? maat(b.gevelM2, gevelUit3d, '') : Math.round(b.gevelM2) + ' m² (grove geometrische aanname: omtrek van het BAG-pand × een aangenomen hoogte van 9 m; geen gemeten of geregistreerd geveloppervlak)') + (b.d3 && b.d3.hoogte != null ? '; de gebouwhoogte komt uit de 3D BAG' : '; de gebouwhoogte is onbekend (geen 3D BAG-waarde)') + '.' + d3RapportKwaliteit(b) + ' Er is niet op locatie ingemeten.</p>';
     html += '<p data-price-source-note><strong>Kosten.</strong> De standaardbedragen zijn indicatieve app-schattingen inclusief btw, zonder vastgelegd prijspeil en niet geïndexeerd. Het zijn geen offertes en geen onderbouwde kengetallen. Voor de grote posten is het verstandig voorafgaand aan het uitvoeringsjaar minimaal twee offertes op te vragen.</p>';
     var beoordeeldPr = state.elements.filter(isAssessed).length;
     var conditieTekst = beoordeeldPr === 0
@@ -5111,7 +5202,7 @@
         if (res.error || !res.data) { state.plansUi.fout = 'Dit plan kon niet geopend worden.'; render(); return; }
         applyPlanBlob(res.data.state);
         state.currentPlanId = res.data.id;
-        state.lastSavedSnapshot = JSON.stringify(res.data.state);
+        state.lastSavedSnapshot = planSnapshot(res.data.state);
         state.screen = 'app'; state.tab = d.na === 'fotoronde' || d.na === 'gebouw' || (d.na === 'wizard' && state.wizard) ? d.na : 'home'; state.startKeuze = null;
         render();
       }).catch(function () {
@@ -5194,6 +5285,7 @@
     // eigenlijke weg naartoe; dit is enkel de expliciete knop ernaast die
     // dezelfde zoekopdracht direct uitvoert i.p.v. na de debounce.
     'd3-opnieuw': function () { if (state.building) start3dbag(state.building, true); },
+    'd3-overnemen': function () { if (state.building && state.building.d3voorstel) { d3VoorstelOvernemen(state.building); render(); } },
     'render-herstel': function () { state.screen = state.session ? 'app' : 'onboarding'; state.tab = 'start'; state.activeElementId = null; render(); },
     'annuleer-zoeken': function () {
       var s = state.onboarding; invalidateLookups(); s.bezig = false; s.fout = ''; render();

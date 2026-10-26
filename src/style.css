@@ -1531,3 +1531,11 @@ input[type=range].ov-slider::-moz-range-thumb { width: 14px; height: 14px; borde
 .wz-chip.wz-bagafl { background: var(--warn-bg); color: var(--warn-fg); }
 .wz-chip.wz-handmatig { background: var(--muted-surface); color: var(--text-1, var(--text-2)); }
 .wz-chip.wz-laden { background: var(--muted-surface); color: var(--text-2); }
+.d3-kop { margin: 0 0 4px; font-weight: 600; }
+.d3-kop.d3-let { color: var(--warn-fg); }
+.d3-status.d3-let { color: var(--text-2); }
+.wz-chip.wz-voorstel { background: var(--muted-surface); color: var(--text-2); }
+.wz-chip.wz-controle { background: var(--warn-bg); color: var(--warn-fg); }
+.d3-tech { margin-top: 10px; font-size: 12px; color: var(--text-2); }
+.d3-tech summary { cursor: pointer; }
+.d3-tech ul { margin: 6px 0 0; padding-left: 18px; word-break: break-word; }

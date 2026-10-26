@@ -44,7 +44,7 @@ async function mockApis(page) {
     var co = {};
     co['NL.IMBAG.Pand.' + PAND_ID] = { attributes: { b3_opp_dak_plat: 312.64, b3_opp_dak_schuin: 0, b3_opp_buitenmuur: 1099.7,
       b3_opp_grond: 318.2, b3_bouwlagen: 4, b3_dak_type: 'horizontal', b3_h_dak_max: 13.4, b3_h_maaiveld: 0.6 } };
-    route.fulfill({ contentType: 'application/json', body: JSON.stringify({ feature: { CityObjects: co } }) });
+    route.fulfill({ contentType: 'application/json', body: JSON.stringify({ feature: { CityObjects: metKwaliteit(co) } }) });
   });
 }
 
@@ -205,3 +205,10 @@ async function main() {
 }
 
 main().catch(function (e) { console.error(e); process.exitCode = 1; });
+
+// Echte 3D BAG-antwoorden bevatten altijd b3_kwaliteitsindicator; de app neemt alleen bij true automatisch over.
+// Mocks zonder die indicator krijgen hier true (zoals bij de echte panden in deze tests, gecontroleerd op 26-10-2026).
+function metKwaliteit(co) {
+  for (var k in co) if (co[k] && co[k].attributes && co[k].attributes.b3_kwaliteitsindicator === undefined) co[k].attributes = Object.assign({ b3_kwaliteitsindicator: true }, co[k].attributes);
+  return co;
+}

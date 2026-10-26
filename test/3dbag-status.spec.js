@@ -28,12 +28,16 @@ function session() {
   return { access_token: jwt, token_type: 'bearer', expires_in: 3600, expires_at: Math.floor(Date.now() / 1000) + 3600, refresh_token: 'r-abc',
     user: { id: 'u1', aud: 'authenticated', role: 'authenticated', email: 'test@example.org', app_metadata: {}, user_metadata: {}, created_at: '2026-01-01T00:00:00Z' } };
 }
-function feature(attrs) {   // CityJSONFeature zoals api.3dbag.nl die levert (pand + deel)
-  var co = {}; co['NL.IMBAG.Pand.' + PAND] = { type: 'Building', attributes: attrs, children: ['NL.IMBAG.Pand.' + PAND + '-0'] };
-  co['NL.IMBAG.Pand.' + PAND + '-0'] = { type: 'BuildingPart', parents: ['NL.IMBAG.Pand.' + PAND] };
-  return JSON.stringify({ type: 'CityJSONFeature', id: 'NL.IMBAG.Pand.' + PAND, feature: { type: 'CityJSONFeature', id: 'NL.IMBAG.Pand.' + PAND, CityObjects: co, vertices: [] } });
+function feature(attrs, pand) {   // CityJSONFeature zoals api.3dbag.nl die levert (pand + deel)
+  pand = pand || PAND;
+  var co = {}; co['NL.IMBAG.Pand.' + pand] = { type: 'Building', attributes: attrs, children: ['NL.IMBAG.Pand.' + pand + '-0'] };
+  co['NL.IMBAG.Pand.' + pand + '-0'] = { type: 'BuildingPart', parents: ['NL.IMBAG.Pand.' + pand] };
+  return JSON.stringify({ type: 'CityJSONFeature', id: 'NL.IMBAG.Pand.' + pand, feature: { type: 'CityJSONFeature', id: 'NL.IMBAG.Pand.' + pand, CityObjects: co, vertices: [] } });
 }
-var MALDENHOF = FIX.threedbag_attributes;
+// Het snapshot-excerpt bevat de kwaliteitsvelden niet; live op 26-10-2026 gaf de API voor dit pand
+// b3_kwaliteitsindicator = true en b3_val3dity_lod22 = []. MALDENHOF_ZONDER_KWALITEIT test het ontbreken ervan.
+var MALDENHOF_ZONDER_KWALITEIT = FIX.threedbag_attributes;
+var MALDENHOF = Object.assign({ b3_kwaliteitsindicator: true, b3_val3dity_lod22: [] }, FIX.threedbag_attributes);
 var SINGEL8 = JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures', 'real', 'singelstraat8_3dbag_20261026_excerpt.json'), 'utf8')).threedbag_attributes;
 var SAVED_BLOB = { building: { adres: 'Bestaandstraat 5, 2000BB Utrecht', bouwjaar: 1980, units: 10, opp: 300, omtrek: 80, dakM2: 300, gevelM2: 700, d3: null, identificatie: '0344100000000001' },
   elements: [], fonds: 1000, bijdrage: 60, invul: { fonds: true, bijdrage: true }, offertes: {}, bijvullen: {} };
@@ -102,7 +106,13 @@ async function waitStatus(page, wanted, ms) {
   while (Date.now() < end) { if (wanted.indexOf(await d3status(page)) > -1) return true; await sleep(100); }
   return false;
 }
-var ok = function (attrs, delay) { return function (route) { var f = function () { route.fulfill({ status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: feature(attrs) }); }; if (delay) setTimeout(f, delay); else f(); }; };
+var ok = function (attrs, delay) { return function (route) {
+  var pand = (route.request().url().match(/NL\.IMBAG\.Pand\.(\d+)/) || [])[1];
+  var f = function () { route.fulfill({ status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: feature(attrs, pand) }); }; if (delay) setTimeout(f, delay); else f(); }; };
+// Volledige tekst van het 3D-blok, inclusief de (ingeklapte) technische details.
+async function blokTekst(page) { return page.evaluate(function () { var e = document.querySelector('[data-d3-status]'); return e ? e.textContent : ''; }); }
+async function kwaliteit(page) { return page.evaluate(function () { var e = document.querySelector('[data-d3-status]'); return e ? (e.dataset.d3Kwaliteit || null) : null; }); }
+var elQ = function (plan, id) { var e = plan.elements.filter(function (x) { return x.id === id; })[0]; return e ? e.quantity : null; };
 
 async function main() {
   var browser = await chromium.launch({ executablePath: CHROMIUM_PATH });
@@ -138,7 +148,8 @@ async function main() {
   await kiesAdres(r);
   check('2. netwerkfout: status NETWERK', await waitStatus(r.page, ['NETWERK'], 6000));
   rows = await rijen(r.page); t = await text(r.page);
-  check('2. melding noemt de oorzaak (geen verbinding met de server), niet het adres', /Geen verbinding met de 3D BAG-server/.test(t) && /aan het gekozen adres ligt het niet/.test(t) && /niet vast te stellen/.test(t));
+  check('2. melding noemt de oorzaak (geen verbinding met de server), niet het adres', /Geen verbinding met de 3D BAG-server/.test(t) && /Aan het gekozen adres ligt het niet/.test(t) && /niet vast te stellen/.test(await blokTekst(r.page)));
+  check('2. technische oorzaak staat ingeklapt onder "Technische details", niet in de hoofdtekst', !/niet vast te stellen/.test(t) && /Technische details/.test(t));
   check('2. knop "3D BAG opnieuw ophalen" aanwezig', !!(await r.page.$('[data-act=d3-opnieuw]')));
   check('2. niets verzonnen: hoogte, daktype, hellend dak en bouwlagen onbekend', rows.Bouwhoogte.soort === 'onbekend' && rows.Daktype.soort === 'onbekend'
     && rows['Hellend dakoppervlak'].soort === 'onbekend' && rows.Bouwlagen.soort === 'onbekend' && /—/.test(rows.Bouwhoogte.tekst), JSON.stringify(rows));
@@ -155,7 +166,7 @@ async function main() {
   // 3. Time-out en opnieuw ophalen met voortgang.
   r = await newPage(browser, { limits: { d3: 1000, d3Opnieuw: 4000 }, d3: function (route, n) { if (n === 1) return; ok(MALDENHOF, 1200)(route); } });
   await kiesAdres(r);
-  check('3. time-out: status TIMEOUT met de limiet in de melding', await waitStatus(r.page, ['TIMEOUT'], 6000) && /niet binnen 1 seconden/.test(await text(r.page)));
+  check('3. time-out: status TIMEOUT met de limiet in de melding', await waitStatus(r.page, ['TIMEOUT'], 6000) && /niet op tijd \(binnen 1 seconden\)/.test(await text(r.page)));
   await click(r.page, '[data-act=d3-opnieuw]');
   t = await text(r.page);
   check('3. opnieuw ophalen toont voortgang', (await d3status(r.page)) === 'LADEN' && /3D BAG-gegevens ophalen.*maximaal 4 s/.test(t), t.slice(0, 200));
@@ -164,29 +175,29 @@ async function main() {
 
   // 4-7. Overige oorzaken, elk met een eigen melding.
   var gevallen = [
-    ['4. HTTP 500', function (route) { route.fulfill({ status: 500, contentType: 'text/plain', body: 'error' }); }, 'HTTP', /foutcode \(HTTP 500\)/],
+    ['4. HTTP 500', function (route) { route.fulfill({ status: 500, contentType: 'text/plain', body: 'error' }); }, 'HTTP', /server gaf een fout.*HTTP 500/],
     ['5. pand niet in 3D BAG (404)', function (route) { route.fulfill({ status: 404, contentType: 'application/json', body: '{"code":"NotFound"}' }); }, 'NIET_GEVONDEN', /staat niet in de 3D BAG/],
-    ['6. onleesbaar antwoord (geen JSON)', function (route) { route.fulfill({ status: 200, contentType: 'text/html', body: '<html>onderhoud</html>' }); }, 'ONGELDIG_ANTWOORD', /niet kon lezen \(geen geldige JSON\)/],
-    ['6b. JSON zonder CityJSONFeature', function (route) { route.fulfill({ status: 200, contentType: 'application/json', body: '{"type":"FeatureCollection","features":[]}' }); }, 'ONGELDIG_ANTWOORD', /geen CityJSONFeature/],
+    ['6. onleesbaar antwoord (geen JSON)', function (route) { route.fulfill({ status: 200, contentType: 'text/html', body: '<html>onderhoud</html>' }); }, 'ONGELDIG_ANTWOORD', /niet kon lezen.*geen geldige JSON/],
+    ['6b. JSON zonder CityJSONFeature', function (route) { route.fulfill({ status: 200, contentType: 'application/json', body: '{"type":"FeatureCollection","features":[]}' }); }, 'ONGELDIG_ANTWOORD', /niet kon lezen.*geen CityJSONFeature/],
     ['7. pand zonder attributen', ok({}, 0), 'GEEN_ATTRIBUTEN', /zonder dak-, gevel- of hoogtegegevens/],
   ];
   for (var i = 0; i < gevallen.length; i++) {
     r = await newPage(browser, { d3: gevallen[i][1] });
     await kiesAdres(r);
     var gelukt = await waitStatus(r.page, [gevallen[i][2]], 6000);
-    t = await text(r.page);
+    t = await blokTekst(r.page);
     check(gevallen[i][0] + ': status ' + gevallen[i][2] + ' met eigen melding en opnieuw-knop', gelukt && gevallen[i][3].test(t) && !!(await r.page.$('[data-act=d3-opnieuw]')), (await d3status(r.page)) + ' ' + t.slice(0, 160));
     await r.ctx.close();
   }
 
   // 8. Deels aanwezige attributen: alleen wat er is; ontbrekend blijft onbekend (nooit 0) en wordt genoemd.
-  r = await newPage(browser, { d3: ok({ b3_opp_dak_plat: 51.2, b3_opp_buitenmuur: 140.6, b3_opp_grond: 51.9 }, 0) });
+  r = await newPage(browser, { d3: ok({ b3_opp_dak_plat: 51.2, b3_opp_buitenmuur: 140.6, b3_opp_grond: 51.9, b3_kwaliteitsindicator: true }, 0) });
   await kiesAdres(r);
   await waitStatus(r.page, ['OK'], 6000);
   rows = await rijen(r.page); t = await text(r.page);
   check('8. aanwezige velden uit de 3D BAG', rows['Plat dakoppervlak'].soort === 'd3bag' && /51 m²/.test(rows['Plat dakoppervlak'].tekst) && rows.Buitenmuuroppervlak.soort === 'd3bag', JSON.stringify(rows));
   check('8. ontbrekend hellend dak/hoogte/daktype blijft onbekend, niet 0', rows['Hellend dakoppervlak'].soort === 'onbekend' && rows.Bouwhoogte.soort === 'onbekend' && rows.Daktype.soort === 'onbekend' && !/0 m²/.test(rows['Hellend dakoppervlak'].tekst), JSON.stringify(rows));
-  check('8. melding noemt de ontbrekende 3D BAG-velden', /Niet in het model: .*b3_opp_dak_schuin/.test(t));
+  check('8. melding zegt eenvoudig dat niet alle maten in het model staan; de velden staan bij de technische details', /Niet alle maten staan in het 3D-model/.test(t) && /Niet in het model: .*b3_opp_dak_schuin/.test(await blokTekst(r.page)));
   w = await werk(r.page);
   check('8. totaal dakoppervlak niet als som verzonnen (dak blijft BAG-afleiding)', w.plan.building.d3.dak == null && w.plan.building.d3.schuin == null, JSON.stringify(w.plan.building.d3));
   await r.ctx.close();
@@ -217,7 +228,7 @@ async function main() {
   check('9. bestaand project: dak, gevel, werkhoogte en d3 van het gebouw ongewijzigd', w.plan.building.dakM2 === voorPlan.building.dakM2 && w.plan.building.gevelM2 === voorPlan.building.gevelM2
     && w.plan.building.werkhoogte === voorPlan.building.werkhoogte && !w.plan.building.d3 && !w.plan.building.d3raw);
   check('9. 3D-waarden wel bewaard en getoond als voorstel, met duidelijke melding', w.plan.building.d3voorstel && w.plan.building.d3voorstel.d3raw.attributes.b3_opp_dak_schuin === 74.07
-    && !!(await r.page.$('[data-d3-voorstel]')) && /bestaand project: hoeveelheden, dak, gevel en werkhoogte in het plan zijn NIET automatisch aangepast/.test(await text(r.page)));
+    && !!(await r.page.$('[data-d3-voorstel]')) && /bestaand project: je posten en kosten zijn niet automatisch aangepast/.test(await text(r.page)) && !!(await r.page.$('[data-act=d3-overnemen]')));
   rows = await rijen(r.page);
   check('9. Gebouw/stap 1 toont "Handmatig bevestigd" bij plat dak en buitenmuur', rows['Plat dakoppervlak'].soort === 'handmatig' && rows.Buitenmuuroppervlak.soort === 'handmatig', JSON.stringify(rows));
   await r.ctx.close();
@@ -270,16 +281,106 @@ async function main() {
   check('11. opnieuw ophalen na herladen werkt', await waitStatus(r.page, ['OK'], 6000));
   await r.ctx.close();
 
-  // 12. Echte 3D BAG-attributen van Singelstraat 8 (pand 0424100000003525, opgehaald 26-10-2026).
-  r = await newPage(browser, { d3: ok(SINGEL8, 0) });
+  // 12. Echte 3D BAG-attributen van Singelstraat 8 (pand 0424100000003525, opgehaald 26-10-2026): kwaliteitsindicator FALSE,
+  //     val3dity_lod22 [102]. Tonen als voorstel met "controle nodig"; niets automatisch in posten of kosten.
+  r = await newPage(browser, { d3: ok(SINGEL8, 600) });
   await kiesAdres(r);
+  var planVoor = (await werk(r.page)).plan;
   check('12. Singelstraat 8: status OK', await waitStatus(r.page, ['OK'], 6000));
-  rows = await rijen(r.page); w = await werk(r.page);
-  var d3s = w.plan.building.d3;
-  check('12. Singelstraat 8: hoogte 7,7 m, hellend dak, plat 6 m², hellend 62 m², buitenmuur 114 m², grondvlak 52 m², 2 bouwlagen',
+  rows = await rijen(r.page); w = await werk(r.page); t = await text(r.page);
+  check('12. kwaliteitsindicator false en val3dity [102] gelezen en bewaard (voorstel)', w.plan.building.d3voorstel && w.plan.building.d3voorstel.d3raw.attributes.b3_kwaliteitsindicator === false
+    && JSON.stringify(w.plan.building.d3voorstel.d3raw.attributes.b3_val3dity_lod22) === '[102]' && (await kwaliteit(r.page)) === 'CONTROLE');
+  check('12. melding "3D-model beschikbaar — controle nodig" in eenvoudige taal', /3D-model beschikbaar — controle nodig/.test(t) && /mogelijk niet correct/.test(t) && /pas in je onderhoudsposten en kosten gebruikt als je ze overneemt/.test(t));
+  check('12. technische details tonen b3_kwaliteitsindicator: false en b3_val3dity_lod22: [102]', /b3_kwaliteitsindicator: false/.test(await blokTekst(r.page)) && /b3_val3dity_lod22: \[102\]/.test(await blokTekst(r.page)) && !/\[102\]/.test(t));
+  check('12. waarden zichtbaar: hoogte 7,7 m, hellend dak, plat 6 m², hellend 62 m², buitenmuur 114 m², grondvlak 52 m², 2 bouwlagen (als voorstel)',
     /7,7 m/.test(rows.Bouwhoogte.tekst) && /hellend/.test(rows.Daktype.tekst) && /^6 m²/.test(rows['Plat dakoppervlak'].tekst) && /^62 m²/.test(rows['Hellend dakoppervlak'].tekst)
-    && /^114 m²/.test(rows.Buitenmuuroppervlak.tekst) && /^52 m²/.test(rows.Grondvlak.tekst) && rows.Bouwlagen.tekst === '2', JSON.stringify(rows));
-  check('12. Singelstraat 8: plan krijgt dak 68 m² en gevel 114 m² (i.p.v. de aanname 296 m²)', d3s.dak === 68 && d3s.gevel === 114 && w.plan.building.dakM2 === 68 && w.plan.building.gevelM2 === 114, JSON.stringify(d3s));
+    && /^114 m²/.test(rows.Buitenmuuroppervlak.tekst) && /^52 m²/.test(rows.Grondvlak.tekst) && rows.Bouwlagen.tekst === '2' && rows.Bouwhoogte.soort === 'voorstel' && rows.Buitenmuuroppervlak.soort === 'voorstel'
+    && rows['Kwaliteit 3D-model'].soort === 'controle', JSON.stringify(rows));
+  check('12. NIET automatisch overgenomen: posten, dak, gevel, werkhoogte en d3 ongewijzigd', JSON.stringify(w.plan.elements) === JSON.stringify(planVoor.elements)
+    && w.plan.building.dakM2 === planVoor.building.dakM2 && w.plan.building.gevelM2 === planVoor.building.gevelM2 && w.plan.building.werkhoogte == null && !w.plan.building.d3 && !w.plan.building.d3raw
+    && elQ(w.plan, 'gevel-metselwerk').source !== '3D_BAG', JSON.stringify([w.plan.building.dakM2, w.plan.building.gevelM2]));
+  check('12. stap 1 blijft dak en gevel als BAG-afleiding tonen (geen 3DBAG-modelwaarde in het plan)', /BAG-afleiding/.test(t));
+  // handmatige hoeveelheid vóór het overnemen (via het invoerveld)
+  await click(r.page, '[data-act=wizard-stop]');
+  await click(r.page, '[data-act=set-tab][data-tab=gebouw]');
+  await click(r.page, '.gb-row[data-act=open-element][data-id=dak-plat]');
+  await r.page.fill('#hv-dak-plat', '48'); await r.page.press('#hv-dak-plat', 'Tab'); await sleep(200);
+  await click(r.page, '[data-act=set-tab][data-tab=gebouw]');
+  await click(r.page, '.gb-row[data-act=open-element][data-id=gevel-metselwerk]');
+  await click(r.page, '[data-act=qty-confirm][data-id=gevel-metselwerk]');
+  w = await werk(r.page);
+  var gevelBevestigd = elQ(w.plan, 'gevel-metselwerk');
+  check('12. (voorbereiding) gevelhoeveelheid is bevestigd vóór het overnemen', gevelBevestigd.status === 'CONFIRMED', gevelBevestigd.status);
+  await click(r.page, '[data-act=set-tab][data-tab=gebouw]');
+  check('12. Gebouw toont knop om na controle over te nemen', !!(await r.page.$('[data-act=d3-overnemen]')));
+  await click(r.page, '[data-act=d3-overnemen]');
+  w = await werk(r.page); t = await text(r.page);
+  var b12 = w.plan.building;
+  check('12. na expliciet overnemen: dak 68 m² en gevel 114 m² in het plan, werkhoogte uit de hoogte', b12.d3 && b12.d3.dak === 68 && b12.d3.gevel === 114 && b12.dakM2 === 68 && b12.gevelM2 === 114 && b12.werkhoogte != null && !b12.d3voorstel, JSON.stringify([b12.dakM2, b12.gevelM2, b12.werkhoogte]));
+  check('12. overname vastgelegd met bron, kwaliteitsindicator (false), val3dity en ophaaldatum', b12.d3raw && b12.d3raw.overgenomen && b12.d3raw.overgenomen.door === 'gebruiker' && /3D BAG/.test(b12.d3raw.overgenomen.bron)
+    && b12.d3raw.overgenomen.b3_kwaliteitsindicator === false && JSON.stringify(b12.d3raw.overgenomen.b3_val3dity_lod22) === '[102]' && b12.d3raw.overgenomen.opgehaald === b12.d3raw.fetchedAt && !!b12.d3raw.fetchedAt, JSON.stringify(b12.d3raw && b12.d3raw.overgenomen));
+  var insp = elQ(w.plan, 'dakinspectie');
+  var meta = insp && insp.auto && insp.auto.raw && (insp.auto.raw.inputs ? insp.auto.raw.inputs[0] : insp.auto.raw);
+  check('12. herkomst van een overgenomen hoeveelheid noemt 3D BAG, kwaliteitsindicator, ophaaldatum en overname', /3D BAG/.test(insp.auto.basis) && JSON.stringify(insp).indexOf('"quality_indicator":false') > -1
+    && JSON.stringify(insp).indexOf('"accepted_by_user_at":"') > -1 && JSON.stringify(insp).indexOf('"fetched_at":"' + b12.d3raw.fetchedAt + '"') > -1, JSON.stringify(insp).slice(0, 400));
+  check('12. handmatige hoeveelheid (plat dak 48 m²) blijft na overnemen staan', elQ(w.plan, 'dak-plat').value === 48 && !!elQ(w.plan, 'dak-plat').manual);
+  check('12. bevestigde gevelhoeveelheid blijft na overnemen bevestigd en ongewijzigd', elQ(w.plan, 'gevel-metselwerk').status === 'CONFIRMED' && elQ(w.plan, 'gevel-metselwerk').value === gevelBevestigd.value, JSON.stringify(elQ(w.plan, 'gevel-metselwerk')).slice(0, 200));
+  check('12. melding "overgenomen na controle" met wat er is bijgewerkt', /3D-model overgenomen na controle/.test(t) && /Automatisch bijgewerkt: .*Dakinspectie/.test(t), (t.match(/overgenomen na controle[^\n]*\n[^\n]*/) || [''])[0]);
+  await click(r.page, '[data-act=set-tab][data-tab=rapport]');
+  t = await r.page.evaluate(function () { return document.body.textContent; });   // afdrukrapport staat (verborgen) in de pagina
+  check('12. rapport vermeldt dat de 3D-maten na controle zijn overgenomen en dat het model mogelijk niet correct is', /na controle door de gebruiker overgenomen; volgens de 3D BAG is het 3D-model van dit pand mogelijk niet correct/.test(t), (t.match(/Bouwgegevens[^\n]*/) || [''])[0].slice(0, 400));
+  check('12. geen JavaScript-fouten', r.st.errors.length === 0, r.st.errors.join('; '));
+  await r.ctx.close();
+
+  // 13. Kwaliteitsindicator TRUE bij een nieuw gebouw: automatisch overgenomen (zie 1), geen overneemknop, herkomst bewaart true.
+  r = await newPage(browser, { d3: ok(MALDENHOF, 0) });
+  await kiesAdres(r);
+  await waitStatus(r.page, ['OK'], 6000);
+  w = await werk(r.page);
+  check('13. kwaliteit true: in het plan gebruikt, geen voorstel en geen overneemknop', (await kwaliteit(r.page)) === 'GOED' && w.plan.building.d3 && !w.plan.building.d3voorstel && !(await r.page.$('[data-act=d3-overnemen]')) && !/controle nodig/.test(await text(r.page)));
+  check('13. herkomst van een hoeveelheid bewaart quality_indicator true', JSON.stringify(elQ(w.plan, 'dakinspectie')).indexOf('"quality_indicator":true') > -1);
+  await r.ctx.close();
+
+  // 14. Kwaliteitsindicator ONTBREEKT: als onbekend behandeld (controle nodig), niet automatisch overgenomen.
+  r = await newPage(browser, { d3: ok(MALDENHOF_ZONDER_KWALITEIT, 0) });
+  await kiesAdres(r);
+  planVoor = (await werk(r.page)).plan;
+  await waitStatus(r.page, ['OK'], 6000);
+  w = await werk(r.page); t = await text(r.page);
+  check('14. kwaliteit ontbreekt: "controle nodig", uitleg dat de 3D BAG het niet aangeeft', (await kwaliteit(r.page)) === 'ONBEKEND' && /3D-model beschikbaar — controle nodig/.test(t) && /geeft niet aan of dit model betrouwbaar is/.test(t)
+    && /b3_kwaliteitsindicator: ontbreekt/.test(await blokTekst(r.page)));
+  check('14. kwaliteit ontbreekt: plan ongewijzigd, wel voorstel en overneemknop', JSON.stringify(w.plan.elements) === JSON.stringify(planVoor.elements) && !w.plan.building.d3 && w.plan.building.d3voorstel && !!(await r.page.$('[data-act=d3-overnemen]')));
+  await click(r.page, '[data-act=d3-overnemen]');
+  w = await werk(r.page);
+  check('14. na overnemen: kwaliteitsindicator als onbekend (null) vastgelegd', w.plan.building.d3raw.overgenomen && w.plan.building.d3raw.overgenomen.b3_kwaliteitsindicator === null && w.plan.building.d3raw.overgenomen.kwaliteit === 'ONBEKEND');
+  await r.ctx.close();
+
+  // 15. Opslaan: 3D-status en -voorstel veroorzaken nooit zelf een (auto)save.
+  // 15a. Nieuw gebouw: na de eerste autosave komt een voorstel (kwaliteit false) binnen -> geen extra schrijfactie.
+  r = await newPage(browser, { d3: ok(SINGEL8, 3500) });
+  await kiesAdres(r);
+  await sleep(2800);
+  var na1 = r.st.writes.length;
+  await waitStatus(r.page, ['OK'], 6000); await sleep(3000);
+  check('15a. nieuw gebouw: eerste autosave gebeurt; het latere 3D-voorstel veroorzaakt geen extra opslag', na1 === 1 && r.st.writes.length === na1, na1 + ' -> ' + r.st.writes.length);
+  await r.ctx.close();
+  // 15b. Opgeslagen project p1 openen en 3D opnieuw ophalen: status en voorstel wijzigen het opgeslagen project niet.
+  r = await newPage(browser, { d3: ok(MALDENHOF, 0) });
+  await r.page.goto(BASE + 'index.html'); await r.page.waitForTimeout(900);
+  await r.page.evaluate(function () { var e = document.querySelector('[data-act=open-plan][data-id=p1]'); if (e) e.click(); }); await sleep(800);
+  await click(r.page, '[data-act=set-tab][data-tab=gebouw]');
+  var heeftKnop = !!(await r.page.$('[data-act=d3-opnieuw]'));
+  await click(r.page, '[data-act=d3-opnieuw]');
+  var okP1 = await waitStatus(r.page, ['OK'], 6000);
+  await sleep(3200);
+  w = await werk(r.page);
+  check('15b. opgeslagen project: 3D opnieuw ophalen geeft een voorstel maar GEEN schrijfactie naar de database', heeftKnop && okP1 && w.currentPlanId === 'p1' && w.plan.building.d3voorstel && r.st.writes.length === 0,
+    JSON.stringify([heeftKnop, okP1, w.currentPlanId, r.st.writes.map(function (x) { return x.method; })]));
+  check('15b. opslagstatus blijft "Alles is opgeslagen"', !/Bezig met opslaan/.test(await text(r.page)));
+  await click(r.page, '[data-act=d3-overnemen]');
+  await sleep(3200);
+  var patch = r.st.writes.filter(function (x) { return x.method === 'PATCH' && /id=eq\.p1/.test(x.url); });
+  check('15b. pas na expliciet overnemen wordt het project bewaard, mét de overname-gegevens', patch.length === 1 && /"overgenomen"/.test(patch[0].body) && /"b3_kwaliteitsindicator":true/.test(patch[0].body), r.st.writes.length + ' ' + (patch[0] ? patch[0].body.slice(0, 120) : ''));
   await r.ctx.close();
 
   await browser.close();

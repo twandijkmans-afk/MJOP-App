@@ -58,8 +58,8 @@ async function newPage(ctx, o) {
   });
   await page.route('**/api.3dbag.nl/**', function (r) {
     if (o.mode && o.mode.d3 === 'hang') return;
-    if (o.mode && o.mode.d3 === 'slow') return setTimeout(function () { r.fulfill({ contentType: 'application/json', body: JSON.stringify({ feature: { CityObjects: { 'NL.IMBAG.Pand.0363100012345678': { attributes: { b3_opp_dak_plat: 312.64, b3_opp_dak_schuin: 0, b3_opp_buitenmuur: 1099.7, b3_opp_grond: 318.2, b3_bouwlagen: 4, b3_dak_type: 'horizontal', b3_h_dak_max: 13.4, b3_h_maaiveld: 0.6 } } } } }) }); }, 2500);
-    r.fulfill({ contentType: 'application/json', body: JSON.stringify({ feature: { CityObjects: { 'NL.IMBAG.Pand.0363100012345678': { attributes: { b3_opp_dak_plat: 312.64, b3_opp_dak_schuin: 0, b3_opp_buitenmuur: 1099.7, b3_opp_grond: 318.2, b3_bouwlagen: 4, b3_dak_type: 'horizontal', b3_h_dak_max: 13.4, b3_h_maaiveld: 0.6 } } } } }) });
+    if (o.mode && o.mode.d3 === 'slow') return setTimeout(function () { r.fulfill({ contentType: 'application/json', body: JSON.stringify({ feature: { CityObjects: { 'NL.IMBAG.Pand.0363100012345678': { attributes: { b3_kwaliteitsindicator: true, b3_opp_dak_plat: 312.64, b3_opp_dak_schuin: 0, b3_opp_buitenmuur: 1099.7, b3_opp_grond: 318.2, b3_bouwlagen: 4, b3_dak_type: 'horizontal', b3_h_dak_max: 13.4, b3_h_maaiveld: 0.6 } } } } }) }); }, 2500);
+    r.fulfill({ contentType: 'application/json', body: JSON.stringify({ feature: { CityObjects: { 'NL.IMBAG.Pand.0363100012345678': { attributes: { b3_kwaliteitsindicator: true, b3_opp_dak_plat: 312.64, b3_opp_dak_schuin: 0, b3_opp_buitenmuur: 1099.7, b3_opp_grond: 318.2, b3_bouwlagen: 4, b3_dak_type: 'horizontal', b3_h_dak_max: 13.4, b3_h_maaiveld: 0.6 } } } } }) });
   });
   if (o.loggedIn) await page.addInitScript(function (s) { try { localStorage.setItem('sb-testproject0000000000-auth-token', JSON.stringify(s)); } catch (e) {} }, session());
   return { page: page, st: st };

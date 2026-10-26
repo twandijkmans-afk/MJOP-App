@@ -355,6 +355,10 @@
       pand_id: (b.d3raw && b.d3raw.pandId) || (b.identificatie ? 'NL.IMBAG.Pand.' + b.identificatie : null),
       fetched_at: (b.d3raw && b.d3raw.fetchedAt) || null,
       source_name: '3D BAG (TU Delft), api.3dbag.nl',
+      // Kwaliteit van de 3D-reconstructie en (indien van toepassing) het expliciet overnemen door de gebruiker.
+      quality_indicator: (b.d3raw && b.d3raw.attributes && b.d3raw.attributes.b3_kwaliteitsindicator != null) ? b.d3raw.attributes.b3_kwaliteitsindicator : null,
+      val3dity_lod22: (b.d3raw && b.d3raw.attributes && b.d3raw.attributes.b3_val3dity_lod22 != null) ? b.d3raw.attributes.b3_val3dity_lod22 : null,
+      accepted_by_user_at: (b.d3raw && b.d3raw.overgenomen && b.d3raw.overgenomen.at) || null,
     };
   }
 
