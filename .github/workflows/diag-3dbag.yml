@@ -1,62 +1,37 @@
-name: diag-3dbag-tegels
+name: diag-3dbag-pand
 on:
   push:
     branches: [claude/diag-3dbag-tmp2]
 jobs:
   diag:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 15
     steps:
-      - name: diagnose
+      - name: pand ophalen
         shell: bash
         run: |
           set +e
-          PAND=0424100000003525
-          ts() { date -u +%H:%M:%S; }
           echo "== $(date -u) =="
-          echo "== 1. API opnieuw (TLS) =="
-          for i in 1 2 3; do curl -sS -o /dev/null -w "api try$i http=%{http_code} t=%{time_total}s\n" -m 20 "https://api.3dbag.nl/collections/pand/items/NL.IMBAG.Pand.$PAND"; done
-          echo | timeout 20 openssl s_client -connect api.3dbag.nl:443 -servername api.3dbag.nl 2>&1 | grep -Ei "alert|verify|subject|issuer|NotAfter|Cipher|error" | head -15
-          echo "-- zonder SNI --"
-          echo | timeout 20 openssl s_client -connect api.3dbag.nl:443 -noservername 2>&1 | grep -Ei "alert|subject|issuer|error" | head -8
-          echo "-- docs.3dbag.nl cert ter vergelijking --"
-          echo | timeout 20 openssl s_client -connect docs.3dbag.nl:443 -servername docs.3dbag.nl 2>/dev/null | openssl x509 -noout -subject -issuer -dates -ext subjectAltName 2>&1 | head -10
-          echo "== 2. Downloadpagina's in de documentatie =="
-          for p in en/delivery/download/ en/delivery/webservices/ en/schema/attributes/ ; do
-            code=$(curl -sS -L -m 30 -o page.html -w "%{http_code}" "https://docs.3dbag.nl/$p"); echo "docs/$p http=$code bytes=$(wc -c < page.html)"
-            grep -oE 'https?://[a-zA-Z0-9./_{}-]*3dbag\.nl[a-zA-Z0-9./_{}?=&-]*' page.html | sort -u | head -40
-          done
-          echo "== 3. data.3dbag.nl bereikbaarheid =="
-          getent hosts data.3dbag.nl
-          for u in https://data.3dbag.nl/ https://data.3dbag.nl/v20250903/ https://data.3dbag.nl/v20250903/tile_index.fgb https://data.3dbag.nl/v20250903/tile_index.gpkg http://data.3dbag.nl/ ; do
-            curl -sS -o /dev/null -r 0-1023 -w "$(ts) $u http=%{http_code} conn=%{time_connect}s tls=%{time_appconnect}s t=%{time_total}s size=%{size_download}\n" -m 45 "$u"
-          done
-          timeout 15 bash -c 'echo > /dev/tcp/131.180.126.111/443' && echo "tcp 443 open" || echo "tcp 443 dicht/time-out"
-          timeout 15 bash -c 'echo > /dev/tcp/131.180.126.111/80' && echo "tcp 80 open" || echo "tcp 80 dicht/time-out"
-          traceroute -T -p 443 -m 20 -w 2 131.180.126.111 2>&1 | tail -6
-          echo "== 4. Indien bereikbaar: tegel zoeken en pand uitlezen =="
-          if curl -sS -m 120 -f -o tile_index.fgb https://data.3dbag.nl/v20250903/tile_index.fgb; then
-            sudo apt-get -qq update >/dev/null && sudo apt-get -qq install -y gdal-bin >/dev/null
-            # pandcentroide in RD (EPSG:28992) via PDOK
-            curl -sS -m 30 "https://api.pdok.nl/kadaster/bag/ogc/v2/collections/pand/items?identificatie=$PAND&crs=http://www.opengis.net/def/crs/EPSG/0/28992&f=json" -o pand.json
-            python3 - <<'PY' > pt.txt
-          import json; g=json.load(open('pand.json'))['features'][0]['geometry']['coordinates'][0]
-          print(sum(p[0] for p in g)/len(g), sum(p[1] for p in g)/len(g))
+          for P in 0424100000003525 0363100012137996; do
+            for i in 1 2 3 4 5; do
+              curl -sS -D h.txt -o p_$P.json -H "Origin: https://twandijkmans-afk.github.io" -w "$P try$i http=%{http_code} tls=%{time_appconnect}s ttfb=%{time_starttransfer}s t=%{time_total}s size=%{size_download}\n" -m 40 "https://api.3dbag.nl/collections/pand/items/NL.IMBAG.Pand.$P"
+            done
+            grep -i "access-control\|content-type" h.txt
+            python3 - "$P" <<'PY'
+          import json,sys
+          P=sys.argv[1]
+          try:
+              j=json.load(open(f'p_{P}.json'))
+          except Exception as e:
+              print('geen JSON', e, open(f'p_{P}.json').read()[:300]); sys.exit()
+          print('type', j.get('type'), 'feature.type', (j.get('feature') or {}).get('type'))
+          co=(j.get('feature') or {}).get('CityObjects') or {}
+          print('CityObjects', list(co.keys())[:6])
+          o=co.get('NL.IMBAG.Pand.'+P)
+          if not o: print('PAND ONTBREEKT'); sys.exit()
+          a=o.get('attributes',{})
+          for k in sorted(a):
+              if k.startswith('b3_') or k in ('oorspronkelijkbouwjaar','status','identificatie'): print(' ',k,'=',a[k])
           PY
-            read X Y < pt.txt; echo "RD centroide $X $Y"
-            ogrinfo -ro -al -q -spat $X $Y $X $Y tile_index.fgb | head -30
-            TILE=$(ogrinfo -ro -al -q -spat $X $Y $X $Y tile_index.fgb | grep -iE "gpkg_download|gpkg" | head -1 | sed 's/.*= //')
-            echo "gpkg-url: $TILE"
-            if [ -n "$TILE" ]; then
-              curl -sS -m 300 -f -o tile.gpkg "$TILE" && ls -l tile.gpkg
-              ogrinfo -ro tile.gpkg | head
-              for L in $(ogrinfo -ro -q tile.gpkg | awk -F': ' '{print $2}' | awk '{print $1}'); do
-                echo "-- laag $L --"; ogrinfo -ro -q -where "identificatie='NL.IMBAG.Pand.$PAND'" tile.gpkg "$L" | grep -E "b3_|identificatie" | head -40
-              done
-            fi
-          else
-            echo "tile_index.fgb niet te downloaden"
-          fi
-          echo "== 5. WFS =="
-          curl -sS -o wfs.txt -w "wfs http=%{http_code} t=%{time_total}s\n" -m 45 "https://data.3dbag.nl/api/BAG3D/wfs?service=WFS&version=2.0.0&request=GetFeature&typeNames=BAG3D:lod22&count=1&outputFormat=application/json&CQL_FILTER=identificatie=%27NL.IMBAG.Pand.$PAND%27"; head -c 600 wfs.txt; echo
+          done
           echo "== klaar $(date -u) =="
