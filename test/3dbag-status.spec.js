@@ -34,6 +34,7 @@ function feature(attrs) {   // CityJSONFeature zoals api.3dbag.nl die levert (pa
   return JSON.stringify({ type: 'CityJSONFeature', id: 'NL.IMBAG.Pand.' + PAND, feature: { type: 'CityJSONFeature', id: 'NL.IMBAG.Pand.' + PAND, CityObjects: co, vertices: [] } });
 }
 var MALDENHOF = FIX.threedbag_attributes;
+var SINGEL8 = JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures', 'real', 'singelstraat8_3dbag_20261026_excerpt.json'), 'utf8')).threedbag_attributes;
 var SAVED_BLOB = { building: { adres: 'Bestaandstraat 5, 2000BB Utrecht', bouwjaar: 1980, units: 10, opp: 300, omtrek: 80, dakM2: 300, gevelM2: 700, d3: null, identificatie: '0344100000000001' },
   elements: [], fonds: 1000, bijdrage: 60, invul: { fonds: true, bijdrage: true }, offertes: {}, bijvullen: {} };
 
@@ -137,12 +138,17 @@ async function main() {
   await kiesAdres(r);
   check('2. netwerkfout: status NETWERK', await waitStatus(r.page, ['NETWERK'], 6000));
   rows = await rijen(r.page); t = await text(r.page);
-  check('2. melding noemt de oorzaak (geen verbinding met de server), niet het adres', /Geen verbinding met de 3D BAG-server/.test(t) && /niet aan het adres/.test(t));
+  check('2. melding noemt de oorzaak (geen verbinding met de server), niet het adres', /Geen verbinding met de 3D BAG-server/.test(t) && /aan het gekozen adres ligt het niet/.test(t) && /niet vast te stellen/.test(t));
   check('2. knop "3D BAG opnieuw ophalen" aanwezig', !!(await r.page.$('[data-act=d3-opnieuw]')));
   check('2. niets verzonnen: hoogte, daktype, hellend dak en bouwlagen onbekend', rows.Bouwhoogte.soort === 'onbekend' && rows.Daktype.soort === 'onbekend'
     && rows['Hellend dakoppervlak'].soort === 'onbekend' && rows.Bouwlagen.soort === 'onbekend' && /—/.test(rows.Bouwhoogte.tekst), JSON.stringify(rows));
   check('2. plat dak en buitenmuur zijn een gemarkeerde BAG-afleiding', rows['Plat dakoppervlak'].soort === 'bagafl' && rows.Buitenmuuroppervlak.soort === 'bagafl', JSON.stringify(rows));
+  check('2. gevel zonder 3D BAG expliciet als grove aanname (omtrek × 9 m), geen meting of registratie', /omtrek van het BAG-pand × een aangenomen hoogte van 9 m/.test(rows.Buitenmuuroppervlak.tekst) && /Geen gemeten of geregistreerd geveloppervlak/.test(rows.Buitenmuuroppervlak.tekst), rows.Buitenmuuroppervlak.tekst);
+  var stap1 = await r.page.evaluate(function () { return Array.prototype.map.call(document.querySelectorAll('[data-feit-aanname]'), function (e) { return e.textContent; }); });
+  check('2. stap 1 "Is dit je gebouw?" noemt bij de gevel dezelfde aanname', stap1.some(function (x) { return /aangenomen hoogte van 9 m/.test(x) && /Geen gemeten of geregistreerd/.test(x); }), JSON.stringify(stap1));
   w = await werk(r.page);
+  var gm = w.plan.elements.filter(function (e) { return e.id === 'gevel-metselwerk'; })[0];
+  check('2. herkomst van de gevelhoeveelheid noemt de aanname', gm && /grove geometrische aanname/.test(gm.quantity.auto.reason || JSON.stringify(gm.quantity)), gm && JSON.stringify(gm.quantity).slice(0, 300));
   check('2. geen 3D-waarden in het plan (d3 en d3raw leeg)', !w.plan.building.d3 && !w.plan.building.d3raw && w.plan.building.werkhoogte == null);
   await r.ctx.close();
 
@@ -185,7 +191,8 @@ async function main() {
   check('8. totaal dakoppervlak niet als som verzonnen (dak blijft BAG-afleiding)', w.plan.building.d3.dak == null && w.plan.building.d3.schuin == null, JSON.stringify(w.plan.building.d3));
   await r.ctx.close();
 
-  // 9. Handmatig vastgelegde en bevestigde hoeveelheden worden nooit overschreven door een (latere) 3D BAG-poging.
+  // 9. Bestaand project (hersteld na herladen) met handmatige en bevestigde hoeveelheden: een latere geslaagde 3D BAG-poging
+  //    wijzigt NIETS in het plan; de 3D-waarden worden alleen als voorstel getoond.
   r = await newPage(browser, { d3: function (route, n) { if (n === 1) return route.abort('failed'); ok(MALDENHOF, 0)(route); } });
   await kiesAdres(r);
   await waitStatus(r.page, ['NETWERK'], 6000);
@@ -193,21 +200,54 @@ async function main() {
   var plan = w.plan, now = new Date().toISOString();
   var dakPlat = plan.elements.filter(function (e) { return e.id === 'dak-plat'; })[0];
   var gevel = plan.elements.filter(function (e) { return e.id === 'gevel-metselwerk'; })[0];
-  var inspectie = plan.elements.filter(function (e) { return e.id === 'dakinspectie'; })[0];
   dakPlat.quantity.manual = { value: 48, unit: 'm2', text: '48', at: now }; dakPlat.quantity.value = 48; dakPlat.quantity.source = 'MANUAL'; dakPlat.quantity.status = 'USER_OVERRIDDEN';
   gevel.quantity.confirmed = { value: gevel.quantity.auto.value, at: now }; gevel.quantity.status = 'CONFIRMED';
-  var gevelVoor = gevel.quantity.value, inspectieVoor = inspectie.quantity.value;
+  var steigerVoor = plan.elements.filter(function (e) { return e.id === 'steiger'; })[0];
+  if (steigerVoor) steigerVoor.werkhoogte = 11.5;
   await r.page.evaluate(function (x) { sessionStorage.setItem('mjop-worksessie', JSON.stringify(x)); }, w);
   await r.page.reload(); await r.page.waitForTimeout(900);
+  var voorPlan = (await werk(r.page)).plan;
   await click(r.page, '[data-act=d3-opnieuw]');
   await waitStatus(r.page, ['OK'], 6000);
   w = await werk(r.page);
   var q = function (id) { return w.plan.elements.filter(function (e) { return e.id === id; })[0].quantity; };
   check('9. handmatige hoeveelheid (plat dak 48 m²) blijft staan', q('dak-plat').manual && q('dak-plat').value === 48 && q('dak-plat').status === 'USER_OVERRIDDEN', JSON.stringify(q('dak-plat')).slice(0, 200));
-  check('9. bevestigde hoeveelheid (gevel) blijft bevestigd met dezelfde waarde', q('gevel-metselwerk').confirmed && q('gevel-metselwerk').value === gevelVoor && q('gevel-metselwerk').status === 'CONFIRMED', JSON.stringify(q('gevel-metselwerk')).slice(0, 200));
-  check('9. niet-vastgelegde automatische hoeveelheid krijgt wel de 3D BAG-waarde', q('dakinspectie').value !== inspectieVoor && q('dakinspectie').value === 86.81, String(inspectieVoor) + ' -> ' + q('dakinspectie').value);
+  check('9. bevestigde hoeveelheid (gevel) blijft bevestigd met dezelfde waarde', q('gevel-metselwerk').confirmed && q('gevel-metselwerk').status === 'CONFIRMED' && q('gevel-metselwerk').value === voorPlan.elements.filter(function (e) { return e.id === 'gevel-metselwerk'; })[0].quantity.value);
+  check('9. bestaand project: alle posten exact ongewijzigd (ook automatische)', JSON.stringify(w.plan.elements) === JSON.stringify(voorPlan.elements));
+  check('9. bestaand project: dak, gevel, werkhoogte en d3 van het gebouw ongewijzigd', w.plan.building.dakM2 === voorPlan.building.dakM2 && w.plan.building.gevelM2 === voorPlan.building.gevelM2
+    && w.plan.building.werkhoogte === voorPlan.building.werkhoogte && !w.plan.building.d3 && !w.plan.building.d3raw);
+  check('9. 3D-waarden wel bewaard en getoond als voorstel, met duidelijke melding', w.plan.building.d3voorstel && w.plan.building.d3voorstel.d3raw.attributes.b3_opp_dak_schuin === 74.07
+    && !!(await r.page.$('[data-d3-voorstel]')) && /bestaand project: hoeveelheden, dak, gevel en werkhoogte in het plan zijn NIET automatisch aangepast/.test(await text(r.page)));
   rows = await rijen(r.page);
   check('9. Gebouw/stap 1 toont "Handmatig bevestigd" bij plat dak en buitenmuur', rows['Plat dakoppervlak'].soort === 'handmatig' && rows.Buitenmuuroppervlak.soort === 'handmatig', JSON.stringify(rows));
+  await r.ctx.close();
+
+  // 9b. Nieuw gebouw in dezelfde sessie: handmatige hoeveelheid en zelf ingevulde werkhoogte blijven staan bij een
+  //     latere geslaagde poging; alleen niet-vastgelegde automatische waarden worden bijgewerkt, en dat wordt gemeld.
+  r = await newPage(browser, { d3: function (route, n) { if (n === 1) return route.abort('failed'); ok(MALDENHOF, 0)(route); } });
+  await kiesAdres(r);
+  await waitStatus(r.page, ['NETWERK'], 6000);
+  await click(r.page, '[data-act=wizard-stop]');
+  await r.page.evaluate(function () { var e = document.querySelector('[data-act=set-tab][data-tab=gebouw]'); if (e) e.click(); }); await sleep(200);
+  await r.page.evaluate(function () { var e = document.querySelector('.gb-row[data-act=open-element][data-id=dak-plat]'); if (e) e.click(); }); await sleep(200);
+  await r.page.fill('#hv-dak-plat', '48'); await r.page.press('#hv-dak-plat', 'Tab'); await sleep(200);
+  await r.page.evaluate(function () { var e = document.querySelector('[data-act=set-tab][data-tab=gebouw]'); if (e) e.click(); }); await sleep(200);
+  await r.page.evaluate(function () { var e = document.querySelector('.gb-row[data-act=open-element][data-id=steiger]'); if (e) e.click(); }); await sleep(200);
+  var heeftWh = !!(await r.page.$('#wh-steiger'));
+  if (heeftWh) { await r.page.fill('#wh-steiger', '11,5'); await r.page.press('#wh-steiger', 'Tab'); await sleep(200); }
+  w = await werk(r.page);
+  var inspVoor = w.plan.elements.filter(function (e) { return e.id === 'dakinspectie'; })[0].quantity.value;
+  await r.page.evaluate(function () { var e = document.querySelector('[data-act=set-tab][data-tab=gebouw]'); if (e) e.click(); }); await sleep(200);
+  await click(r.page, '[data-act=d3-opnieuw]');
+  check('9b. opnieuw ophalen slaagt', await waitStatus(r.page, ['OK'], 6000));
+  w = await werk(r.page);
+  var el9 = function (id) { return w.plan.elements.filter(function (e) { return e.id === id; })[0]; };
+  check('9b. handmatig ingevoerde 48 m² (via het invoerveld) blijft staan', el9('dak-plat').quantity.value === 48 && !!el9('dak-plat').quantity.manual, JSON.stringify(el9('dak-plat').quantity).slice(0, 200));
+  check('9b. zelf ingevulde werkhoogte 11,5 m blijft staan', heeftWh && el9('steiger').werkhoogte === 11.5, String(heeftWh) + ' ' + (el9('steiger') && el9('steiger').werkhoogte));
+  check('9b. niet-vastgelegde automatische hoeveelheid krijgt de 3D BAG-waarde', el9('dakinspectie').quantity.value === 86.81 && inspVoor !== 86.81, inspVoor + ' -> ' + el9('dakinspectie').quantity.value);
+  t = await text(r.page);
+  check('9b. melding noemt wat automatisch is bijgewerkt', /Automatisch bijgewerkt: .*Dakinspectie/i.test(t) && !/Automatisch bijgewerkt: [^.]*Dakbedekking plat/.test(t), (t.match(/Automatisch bijgewerkt[^\n]*/) || [''])[0]);
+  check('9b. geen JavaScript-fouten', r.st.errors.length === 0, r.st.errors.join('; '));
   await r.ctx.close();
 
   // 10. Ander project geopend terwijl de 3D BAG nog laadt: het antwoord wijzigt dat project niet.
@@ -228,6 +268,18 @@ async function main() {
   check('11. na herladen: ONDERBROKEN met opnieuw-knop', (await d3status(r.page)) === 'ONDERBROKEN' && !!(await r.page.$('[data-act=d3-opnieuw]')));
   await click(r.page, '[data-act=d3-opnieuw]');
   check('11. opnieuw ophalen na herladen werkt', await waitStatus(r.page, ['OK'], 6000));
+  await r.ctx.close();
+
+  // 12. Echte 3D BAG-attributen van Singelstraat 8 (pand 0424100000003525, opgehaald 26-10-2026).
+  r = await newPage(browser, { d3: ok(SINGEL8, 0) });
+  await kiesAdres(r);
+  check('12. Singelstraat 8: status OK', await waitStatus(r.page, ['OK'], 6000));
+  rows = await rijen(r.page); w = await werk(r.page);
+  var d3s = w.plan.building.d3;
+  check('12. Singelstraat 8: hoogte 7,7 m, hellend dak, plat 6 m², hellend 62 m², buitenmuur 114 m², grondvlak 52 m², 2 bouwlagen',
+    /7,7 m/.test(rows.Bouwhoogte.tekst) && /hellend/.test(rows.Daktype.tekst) && /^6 m²/.test(rows['Plat dakoppervlak'].tekst) && /^62 m²/.test(rows['Hellend dakoppervlak'].tekst)
+    && /^114 m²/.test(rows.Buitenmuuroppervlak.tekst) && /^52 m²/.test(rows.Grondvlak.tekst) && rows.Bouwlagen.tekst === '2', JSON.stringify(rows));
+  check('12. Singelstraat 8: plan krijgt dak 68 m² en gevel 114 m² (i.p.v. de aanname 296 m²)', d3s.dak === 68 && d3s.gevel === 114 && w.plan.building.dakM2 === 68 && w.plan.building.gevelM2 === 114, JSON.stringify(d3s));
   await r.ctx.close();
 
   await browser.close();

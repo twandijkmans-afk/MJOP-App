@@ -117,7 +117,7 @@ async function main() {
   check('B. 3D BAG hangt: laadscherm verdwijnt en "Is dit je gebouw?" verschijnt', !LOADER.test(t) && /Is dit je gebouw\?/.test(t));
   await r.page.waitForSelector('[data-d3-status=TIMEOUT]', { timeout: 5000 });
   t = await text(r.page);
-  check('B. eerlijke melding: 3D BAG gaf geen gegevens, dak en gevel geschat', !!(await r.page.$('[data-wz-geen-3d]')) && /geschat uit het grondvlak/.test(t));
+  check('B. eerlijke melding: 3D BAG gaf geen gegevens, dak en gevel geschat', !!(await r.page.$('[data-wz-geen-3d]')) && /grof benaderd uit de BAG-pandgeometrie/.test(t) && /aangenomen hoogte van 9 m/.test(t));
   await r.page.screenshot({ path: (process.env.MJOP_SHOTS || '/tmp') + '/laden-3dbag-hangt.png' });
   await r.ctx.close();
 
