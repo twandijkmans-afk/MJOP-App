@@ -1,0 +1,24 @@
+{
+ "_provenance": {
+  "note": "Uitsnede van de attributen uit een echt 3D BAG-antwoord, overgenomen uit de log van GitHub Actions-job 121603904686 (run 40332107329). Alleen voor tests; de app haalt de waarden zelf live op.",
+  "threedbag_url": "https://api.3dbag.nl/collections/pand/items/NL.IMBAG.Pand.0424100000003525",
+  "http_status": 200,
+  "fetched_at": "2026-10-26T13:36:58Z",
+  "address": "Singelstraat 8, 1398BN Muiden"
+ },
+ "threedbag_attributes": {
+  "b3_bouwlagen": 2,
+  "b3_dak_type": "slanted",
+  "b3_h_dak_max": 7.59499979019165,
+  "b3_h_maaiveld": -0.08399999886751175,
+  "b3_opp_buitenmuur": 114.02,
+  "b3_opp_dak_plat": 6.3,
+  "b3_opp_dak_schuin": 61.56,
+  "b3_opp_grond": 51.69,
+  "b3_opp_scheidingsmuur": 53.51,
+  "b3_kwaliteitsindicator": false,
+  "b3_val3dity_lod22": [102],
+  "oorspronkelijkbouwjaar": 1925,
+  "status": "Pand in gebruik"
+ }
+}

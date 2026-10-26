@@ -58,8 +58,8 @@ async function newPage(ctx, o) {
   });
   await page.route('**/api.3dbag.nl/**', function (r) {
     if (o.mode && o.mode.d3 === 'hang') return;
-    if (o.mode && o.mode.d3 === 'slow') return setTimeout(function () { r.fulfill({ contentType: 'application/json', body: JSON.stringify({ feature: { CityObjects: { 'NL.IMBAG.Pand.0363100012345678': { attributes: { b3_opp_dak_plat: 312.64, b3_opp_dak_schuin: 0, b3_opp_buitenmuur: 1099.7, b3_opp_grond: 318.2, b3_bouwlagen: 4, b3_dak_type: 'horizontal', b3_h_dak_max: 13.4, b3_h_maaiveld: 0.6 } } } } }) }); }, 2500);
-    r.fulfill({ contentType: 'application/json', body: JSON.stringify({ feature: { CityObjects: { 'NL.IMBAG.Pand.0363100012345678': { attributes: { b3_opp_dak_plat: 312.64, b3_opp_dak_schuin: 0, b3_opp_buitenmuur: 1099.7, b3_opp_grond: 318.2, b3_bouwlagen: 4, b3_dak_type: 'horizontal', b3_h_dak_max: 13.4, b3_h_maaiveld: 0.6 } } } } }) });
+    if (o.mode && o.mode.d3 === 'slow') return setTimeout(function () { r.fulfill({ contentType: 'application/json', body: JSON.stringify({ feature: { CityObjects: { 'NL.IMBAG.Pand.0363100012345678': { attributes: { b3_kwaliteitsindicator: true, b3_opp_dak_plat: 312.64, b3_opp_dak_schuin: 0, b3_opp_buitenmuur: 1099.7, b3_opp_grond: 318.2, b3_bouwlagen: 4, b3_dak_type: 'horizontal', b3_h_dak_max: 13.4, b3_h_maaiveld: 0.6 } } } } }) }); }, 2500);
+    r.fulfill({ contentType: 'application/json', body: JSON.stringify({ feature: { CityObjects: { 'NL.IMBAG.Pand.0363100012345678': { attributes: { b3_kwaliteitsindicator: true, b3_opp_dak_plat: 312.64, b3_opp_dak_schuin: 0, b3_opp_buitenmuur: 1099.7, b3_opp_grond: 318.2, b3_bouwlagen: 4, b3_dak_type: 'horizontal', b3_h_dak_max: 13.4, b3_h_maaiveld: 0.6 } } } } }) });
   });
   if (o.loggedIn) await page.addInitScript(function (s) { try { localStorage.setItem('sb-testproject0000000000-auth-token', JSON.stringify(s)); } catch (e) {} }, session());
   return { page: page, st: st };
@@ -72,7 +72,7 @@ async function click(page, sel) { await page.evaluate(function (s) { var e = doc
 
 var UA = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 MJOPLiveApp/1';
 var PLANS = [{ id: 'p1', label: 'Teststraat 1, 1000AA Amsterdam', adres: 'Teststraat 1, 1000AA Amsterdam', updated_at: new Date().toISOString(), invul: { fonds: true, bijdrage: true } }];
-var LOADER = /Pand opzoeken|Bouwjaar en appartementen|Dakoppervlak, gevels en hoogte/;
+var LOADER = /Pand opzoeken|Bouwjaar en appartementen|Pand en grondvlak verwerken/;
 
 // Opent de app (iPhone-WebView: app-UA + brug) op de adreszoeker van "Nieuw MJOP maken" en kiest het adres.
 async function openAndPick(browser, o, limits) {
@@ -93,12 +93,12 @@ async function main() {
   var browser = await chromium.launch({ executablePath: CHROMIUM_PATH });
   var t;
 
-  // A. trage maar succesvolle 3D BAG (> 1,8 s, dus de laatste laadtekst verschijnt): daarna verdwijnt het laadscherm vanzelf
+  // A. trage maar succesvolle 3D BAG (2,5 s): de wizard wacht er niet op; de 3D-waarden komen daarna binnen
   var r = await openAndPick(browser, { mode: { d3: 'slow' } });
-  await r.page.waitForTimeout(2200);
+  await r.page.waitForSelector('.wz-voortgang', { timeout: 2000 });
   t = await text(r.page);
-  check('A. onderweg: laadtekst "Dakoppervlak, gevels en hoogte berekenen…" zichtbaar', /Dakoppervlak, gevels en hoogte/.test(t));
-  await r.page.waitForSelector('.wz-voortgang', { timeout: 8000 });
+  check('A. "Is dit je gebouw?" verschijnt zonder op de 3D BAG te wachten, met voortgang voor de 3D BAG', /Is dit je gebouw\?/.test(t) && (await r.page.$eval('[data-d3-status]', function (e) { return e.dataset.d3Status; })) === 'LADEN');
+  await r.page.waitForSelector('[data-d3-status=OK]', { timeout: 8000 });
   t = await text(r.page);
   check('A. daarna verdwijnt het laadscherm automatisch', !LOADER.test(t), t.slice(0, 120));
   check('A. automatisch naar "Is dit je gebouw?" met adres en gegevens (zonder extra tik)', /Is dit je gebouw\?/.test(t) && /Teststraat 1/.test(t) && /Stap 1 van 4/i.test(t) && /Uit de BAG/i.test(t));
@@ -115,7 +115,9 @@ async function main() {
   await r.page.waitForSelector('.wz-voortgang', { timeout: 8000 });
   t = await text(r.page);
   check('B. 3D BAG hangt: laadscherm verdwijnt en "Is dit je gebouw?" verschijnt', !LOADER.test(t) && /Is dit je gebouw\?/.test(t));
-  check('B. eerlijke melding: 3D BAG gaf geen gegevens, dak en gevel geschat', !!(await r.page.$('[data-wz-geen-3d]')) && /geschat uit het grondvlak/.test(t));
+  await r.page.waitForSelector('[data-d3-status=TIMEOUT]', { timeout: 5000 });
+  t = await text(r.page);
+  check('B. eerlijke melding: 3D BAG gaf geen gegevens, dak en gevel geschat', !!(await r.page.$('[data-wz-geen-3d]')) && /grof benaderd uit de BAG-pandgeometrie/.test(t) && /aangenomen hoogte van 9 m/.test(t));
   await r.page.screenshot({ path: (process.env.MJOP_SHOTS || '/tmp') + '/laden-3dbag-hangt.png' });
   await r.ctx.close();
 

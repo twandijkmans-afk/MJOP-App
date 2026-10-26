@@ -54,7 +54,7 @@ async function newPage(ctx, o) {
     r.fulfill({ contentType: 'application/json', body: JSON.stringify({ features: [{ geometry: { type: 'Polygon', coordinates: [ring] }, properties: { identificatie: '0363100012345678', bouwjaar: 1972, gebruiksdoel: 'woonfunctie', aantal_verblijfsobjecten: 12 } }] }) });
   });
   await page.route('**/api.3dbag.nl/**', function (r) {
-    r.fulfill({ contentType: 'application/json', body: JSON.stringify({ feature: { CityObjects: { 'NL.IMBAG.Pand.0363100012345678': { attributes: { b3_opp_dak_plat: 312.64, b3_opp_dak_schuin: 0, b3_opp_buitenmuur: 1099.7, b3_opp_grond: 318.2, b3_bouwlagen: 4, b3_dak_type: 'horizontal', b3_h_dak_max: 13.4, b3_h_maaiveld: 0.6 } } } } }) });
+    r.fulfill({ contentType: 'application/json', body: JSON.stringify({ feature: { CityObjects: { 'NL.IMBAG.Pand.0363100012345678': { attributes: { b3_kwaliteitsindicator: true, b3_opp_dak_plat: 312.64, b3_opp_dak_schuin: 0, b3_opp_buitenmuur: 1099.7, b3_opp_grond: 318.2, b3_bouwlagen: 4, b3_dak_type: 'horizontal', b3_h_dak_max: 13.4, b3_h_maaiveld: 0.6 } } } } }) });
   });
   if (o.loggedIn) await page.addInitScript(function (s) { try { localStorage.setItem('sb-testproject0000000000-auth-token', JSON.stringify(s)); } catch (e) {} }, session());
   return { page: page, st: st };
@@ -83,7 +83,7 @@ async function main() {
   await page.evaluate(function () { document.querySelector('.suggest-row').click(); });
   await page.waitForSelector('.wz-voortgang', { timeout: 8000 });
   t = await text(page);
-  check('1. gebouw gevonden: "Is dit je gebouw?" met adres en bron-labels', /Is dit je gebouw\?/.test(t) && /Teststraat 1/.test(t) && /Uit de BAG/i.test(t) && /Geschat/i.test(t), t.slice(0, 300));
+  check('1. gebouw gevonden: "Is dit je gebouw?" met adres en bron-labels', /Is dit je gebouw\?/.test(t) && /Teststraat 1/.test(t) && /Uit de BAG/i.test(t) && /BAG-afleiding|3DBAG-modelwaarde/.test(t), t.slice(0, 300));
   check('1. voortgang: stap 1 van 4', /Stap 1 van 4/i.test(t));
   await shot(page, 'wizard-1-gebouw');
 

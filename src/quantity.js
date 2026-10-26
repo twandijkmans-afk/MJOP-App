@@ -355,6 +355,10 @@
       pand_id: (b.d3raw && b.d3raw.pandId) || (b.identificatie ? 'NL.IMBAG.Pand.' + b.identificatie : null),
       fetched_at: (b.d3raw && b.d3raw.fetchedAt) || null,
       source_name: '3D BAG (TU Delft), api.3dbag.nl',
+      // Kwaliteit van de 3D-reconstructie en (indien van toepassing) het expliciet overnemen door de gebruiker.
+      quality_indicator: (b.d3raw && b.d3raw.attributes && b.d3raw.attributes.b3_kwaliteitsindicator != null) ? b.d3raw.attributes.b3_kwaliteitsindicator : null,
+      val3dity_lod22: (b.d3raw && b.d3raw.attributes && b.d3raw.attributes.b3_val3dity_lod22 != null) ? b.d3raw.attributes.b3_val3dity_lod22 : null,
+      accepted_by_user_at: (b.d3raw && b.d3raw.overgenomen && b.d3raw.overgenomen.at) || null,
     };
   }
 
@@ -442,7 +446,7 @@
       var gevelSchatting = (!b.bagRaw && b.gevelM2 != null) ? b.gevelM2 : round2(omtrek * 3 * 3);
       return autoQuantity(gevelSchatting, 'm2', SOURCES.ESTIMATED,
         (has3dbag(b) ? 'b3_opp_buitenmuur ontbreekt in het 3D BAG-model' : 'Geen 3D BAG-gegevens') +
-        ': schatting op basis van de omtrek van het BAG-pand × 3 bouwlagen × 3 m.',
+        ': grove geometrische aanname, omtrek van het BAG-pand × een aangenomen hoogte van 9 m (3 bouwlagen × 3 m). Geen gemeten of geregistreerd geveloppervlak.',
         { formula: 'omtrek × 3 × 3', inputs: [{ field: 'BAG pandgeometrie (omtrek)', value: omtrek, source_name: 'BAG (PDOK)' }] });
     }
     if (bron === 'units') {
