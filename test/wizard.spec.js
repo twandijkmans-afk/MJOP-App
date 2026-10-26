@@ -83,7 +83,7 @@ async function main() {
   await page.evaluate(function () { document.querySelector('.suggest-row').click(); });
   await page.waitForSelector('.wz-voortgang', { timeout: 8000 });
   t = await text(page);
-  check('1. gebouw gevonden: "Is dit je gebouw?" met adres en bron-labels', /Is dit je gebouw\?/.test(t) && /Teststraat 1/.test(t) && /Uit de BAG/i.test(t) && /Geschat/i.test(t), t.slice(0, 300));
+  check('1. gebouw gevonden: "Is dit je gebouw?" met adres en bron-labels', /Is dit je gebouw\?/.test(t) && /Teststraat 1/.test(t) && /Uit de BAG/i.test(t) && /BAG-afleiding|3DBAG-modelwaarde/.test(t), t.slice(0, 300));
   check('1. voortgang: stap 1 van 4', /Stap 1 van 4/i.test(t));
   await shot(page, 'wizard-1-gebouw');
 

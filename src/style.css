@@ -1518,3 +1518,16 @@ input[type=range].ov-slider::-moz-range-thumb { width: 14px; height: 14px; borde
 .st-badge { display: inline-block; margin-bottom: 4px; padding: 3px 9px; border-radius: 999px; font: 600 11px/1.2 var(--font); background: var(--muted-surface); color: var(--text-2); }
 .st-badge.nieuw { background: var(--warn-bg); color: var(--warn-fg); }
 .st-badge.opgeslagen { background: var(--good-bg); color: var(--good-fg); }
+
+/* 3D BAG: status en bron per waarde */
+.d3-blok { margin-top: 12px; }
+.d3-blok .ov-h2 { margin: 0 0 6px; }
+.d3-status { margin: 0 0 10px; }
+.d3-status.d3-bezig { color: var(--text-2); }
+.d3-status.d3-fout { color: var(--warn-fg); }
+.d3-blok .ov-btn { margin: 0 0 10px; }
+.d3-extra { margin: 2px 0 0; font-size: 12px; }
+.wz-chip.wz-d3bag { background: var(--good-bg); color: var(--good-fg); }
+.wz-chip.wz-bagafl { background: var(--warn-bg); color: var(--warn-fg); }
+.wz-chip.wz-handmatig { background: var(--muted-surface); color: var(--text-1, var(--text-2)); }
+.wz-chip.wz-laden { background: var(--muted-surface); color: var(--text-2); }
