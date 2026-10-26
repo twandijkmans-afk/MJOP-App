@@ -8,65 +8,56 @@ jobs:
   diag:
     runs-on: ubuntu-latest
     steps:
-      - name: 3DBAG API per pand (status, tijd, CORS, formaat)
+      - name: DNS
+        continue-on-error: true
         run: |
-          ORIGIN=https://twandijkmans-afk.github.io
-          for P in 0424100000003525 0363100012137996; do
-            U="https://api.3dbag.nl/collections/pand/items/NL.IMBAG.Pand.$P"
-            echo "=================== $U"
-            for i in 1 2 3; do
-              curl -sS -m 60 -H "Origin: $ORIGIN" -D h_$P.txt -o b_$P.json \
-                -w "poging $i: HTTP %{http_code}  connect %{time_connect}s  eerste-byte %{time_starttransfer}s  totaal %{time_total}s  bytes %{size_download}\n" "$U" || echo "poging $i: curl-fout $?"
+          set +e
+          for H in api.3dbag.nl data.3dbag.nl docs.3dbag.nl 3dbag.nl api.pdok.nl; do echo "== $H"; getent ahosts $H | head -4; dig +short $H CNAME; done
+      - name: TLS-handshake per host en versie
+        continue-on-error: true
+        run: |
+          set +e
+          for H in api.3dbag.nl data.3dbag.nl docs.3dbag.nl 3dbag.nl api.pdok.nl; do
+            for V in -tls1_2 -tls1_3; do
+              R=$(echo | timeout 20 openssl s_client -connect $H:443 -servername $H $V 2>&1)
+              echo "== $H $V: $(echo "$R" | grep -E 'Protocol|Cipher is|alert|verify return code|CN ?=' | head -4 | tr '\n' ' ')"
             done
-            echo "--- headers (laatste poging)"; grep -iE "^(HTTP|content-type|access-control|cache|content-length|server|date)" h_$P.txt || true
-            echo "--- inhoud"
-            python3 - "$P" <<'PY'
-          import json, sys
-          p = sys.argv[1]
-          raw = open(f"b_{p}.json", "rb").read()
-          print("eerste bytes:", raw[:120])
-          try:
-              j = json.loads(raw)
-          except Exception as e:
-              print("GEEN JSON:", e); sys.exit(0)
-          print("top-level keys:", list(j.keys())[:12], "type:", j.get("type"))
-          f = j.get("feature")
-          print("feature aanwezig:", f is not None)
-          if f:
-              co = f.get("CityObjects", {})
-              print("CityObjects keys:", list(co.keys())[:8])
-              k = "NL.IMBAG.Pand." + p
-              o = co.get(k)
-              print("verwachte key aanwezig (app-parse):", o is not None)
-              if o:
-                  a = o.get("attributes", {})
-                  keys = ["b3_opp_dak_plat","b3_opp_dak_schuin","b3_opp_buitenmuur","b3_opp_grond","b3_opp_scheidingsmuur","b3_bouwlagen","b3_dak_type","b3_h_dak_max","b3_h_dak_50p","b3_h_maaiveld","b3_pw_datum","b3_kwaliteitsindicator","b3_succes_multi_ground","b3_val3dity_lod22","oorspronkelijkbouwjaar","status"]
-                  for kk in keys: print("  ", kk, "=", a.get(kk, "<ONTBREEKT>"))
-                  print("   alle attribuutnamen:", sorted(a.keys()))
-          for k in ("metadata","links","numberMatched","code","description","detail","title"):
-              if k in j: print(k, "=", str(j[k])[:300])
-          PY
           done
-      - name: Collections en versie
+      - name: HTTP-verzoeken (https en http, met Origin voor CORS)
+        continue-on-error: true
         run: |
-          curl -sS -m 60 -w "\nHTTP %{http_code} %{time_total}s\n" https://api.3dbag.nl/collections/pand | head -c 1500; echo
-          curl -sS -m 60 -w "\nHTTP %{http_code} %{time_total}s\n" https://api.3dbag.nl/ | head -c 800; echo
-      - name: Alternatief - 3DBAG WFS (data.3dbag.nl)
+          set +e
+          O="Origin: https://twandijkmans-afk.github.io"
+          for U in \
+            "https://api.3dbag.nl/collections/pand/items/NL.IMBAG.Pand.0424100000003525" \
+            "https://api.3dbag.nl/collections/pand/items/NL.IMBAG.Pand.0363100012137996" \
+            "http://api.3dbag.nl/collections/pand/items/NL.IMBAG.Pand.0424100000003525" \
+            "https://api.3dbag.nl/" \
+            "https://data.3dbag.nl/" \
+            "https://docs.3dbag.nl/en/" \
+            "https://3dbag.nl/" \
+            "https://api.pdok.nl/kadaster/bag/ogc/v2/collections/pand/items?f=json&limit=1&identificatie=0424100000003525"; do
+            echo "== $U"
+            curl -sS -m 60 -H "$O" -D h.txt -o b.bin -w "HTTP %{http_code}  totaal %{time_total}s  bytes %{size_download}  redirect %{redirect_url}\n" "$U"
+            grep -iE "^(HTTP|content-type|access-control-allow-origin|location|server)" h.txt
+            head -c 300 b.bin; echo
+          done
+      - name: 3DBAG WFS (data.3dbag.nl) als alternatief
+        continue-on-error: true
         run: |
+          set +e
+          curl -sS -m 60 -w "\nHTTP %{http_code} %{time_total}s\n" "https://data.3dbag.nl/api/BAG3D/wfs?service=WFS&request=GetCapabilities" | grep -oE "<(wfs:)?Name>[^<]+</(wfs:)?Name>|HTTP [0-9]+.*" | head -20
           for P in 0424100000003525 0363100012137996; do
             for T in BAG3D:lod22 BAG3D:lod13 BAG3D:pand; do
-              U="https://data.3dbag.nl/api/BAG3D/wfs?service=WFS&version=2.0.0&request=GetFeature&typeNames=$T&outputFormat=application/json&count=1&CQL_FILTER=identificatie='NL.IMBAG.Pand.$P'"
-              echo "=== $P $T"
-              curl -sS -m 60 -H "Origin: https://twandijkmans-afk.github.io" -D wh.txt -o w.json -w "HTTP %{http_code} %{time_total}s\n" "$U" || true
-              grep -iE "^(content-type|access-control)" wh.txt || true
+              echo "== WFS $P $T"
+              curl -sS -m 60 -H "Origin: https://twandijkmans-afk.github.io" -D wh.txt -o w.json -w "HTTP %{http_code} %{time_total}s\n" \
+                "https://data.3dbag.nl/api/BAG3D/wfs?service=WFS&version=2.0.0&request=GetFeature&typeNames=$T&outputFormat=application/json&count=1&CQL_FILTER=identificatie='NL.IMBAG.Pand.$P'"
+              grep -iE "^(content-type|access-control-allow-origin)" wh.txt
               python3 -c "
           import json
           try:
               j=json.load(open('w.json')); fs=j.get('features',[]); print('features:',len(fs))
-              if fs: print(json.dumps({k:v for k,v in fs[0]['properties'].items() if k.startswith('b3_') or k in ('identificatie','oorspronkelijkbouwjaar')})[:1200])
+              if fs: print(json.dumps({k:v for k,v in fs[0]['properties'].items() if k.startswith('b3_') or k in ('identificatie','oorspronkelijkbouwjaar')})[:1500])
           except Exception as e: print('geen JSON:', open('w.json','rb').read()[:200], e)"
             done
           done
-      - name: WFS capabilities (welke lagen)
-        run: |
-          curl -sS -m 60 "https://data.3dbag.nl/api/BAG3D/wfs?service=WFS&request=GetCapabilities" | grep -oE "<(wfs:)?Name>[^<]+</(wfs:)?Name>" | head -20 || true
