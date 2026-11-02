@@ -1,0 +1,927 @@
+{
+  "pinned": {
+    "nowIso": "2026-06-15T12:00:00.000Z",
+    "currentYear": 2026,
+    "horizon": 10,
+    "cbsIndexatie": null,
+    "indexatiePct": 0.03
+  },
+  "input": {
+    "building": {
+      "adres": "Testcomplex A",
+      "bouwjaar": 1965,
+      "units": 48,
+      "unitsBron": 48,
+      "dakM2": 900,
+      "gevelM2": 1800,
+      "werkhoogte": 18,
+      "opp": 900,
+      "omtrek": 180,
+      "identificatie": "",
+      "gebruiksdoel": "woonfunctie",
+      "d3": null,
+      "isVoorbeeld": false
+    },
+    "fonds": 120000,
+    "bijdrage": 95,
+    "elementCount": 25
+  },
+  "elements": [
+    {
+      "id": "dak-plat",
+      "naam": "Dakbedekking plat dak",
+      "type": "dak",
+      "categorie": "Dak",
+      "quantity": 900,
+      "cost": 148500,
+      "conditionScore": null,
+      "conditionYear": 2040,
+      "kozijnGroepen": null,
+      "schedule": [],
+      "meta": "900 m² × € 165"
+    },
+    {
+      "id": "dakgoten",
+      "naam": "Dakgoten en hemelwaterafvoeren",
+      "type": "vast-variabel",
+      "categorie": "Dak",
+      "quantity": 48,
+      "cost": 4620,
+      "conditionScore": null,
+      "conditionYear": 2045,
+      "kozijnGroepen": null,
+      "schedule": [],
+      "meta": "€ 300 vast + 48 × € 90"
+    },
+    {
+      "id": "dakinspectie",
+      "naam": "Dakinspectie en klein onderhoud",
+      "type": "vast-variabel",
+      "categorie": "Dak",
+      "quantity": 900,
+      "cost": 2220,
+      "conditionScore": null,
+      "conditionYear": 2027,
+      "kozijnGroepen": null,
+      "schedule": [
+        {
+          "jaar": 2027,
+          "bedrag": 2220,
+          "meta": "€ 420 vast + 900 × € 2"
+        },
+        {
+          "jaar": 2029,
+          "bedrag": 2220,
+          "meta": "€ 420 vast + 900 × € 2"
+        },
+        {
+          "jaar": 2031,
+          "bedrag": 2220,
+          "meta": "€ 420 vast + 900 × € 2"
+        },
+        {
+          "jaar": 2033,
+          "bedrag": 2220,
+          "meta": "€ 420 vast + 900 × € 2"
+        },
+        {
+          "jaar": 2035,
+          "bedrag": 2220,
+          "meta": "€ 420 vast + 900 × € 2"
+        }
+      ],
+      "meta": "€ 420 vast + 900 × € 2"
+    },
+    {
+      "id": "gevel-metselwerk",
+      "naam": "Gevelreiniging en metselwerkherstel",
+      "type": "gevel",
+      "categorie": "Gevel",
+      "quantity": 1800,
+      "cost": 46800,
+      "conditionScore": null,
+      "conditionYear": 2040,
+      "kozijnGroepen": null,
+      "schedule": [],
+      "meta": "1.800 m² buitenmuur × € 26"
+    },
+    {
+      "id": "schilderwerk-buiten",
+      "naam": "Schilderwerk buitenkozijnen en gevelhoutwerk",
+      "type": "gevel",
+      "categorie": "Gevel",
+      "quantity": 1800,
+      "cost": 39600,
+      "conditionScore": null,
+      "conditionYear": 2031,
+      "kozijnGroepen": null,
+      "schedule": [
+        {
+          "jaar": 2031,
+          "bedrag": 39600,
+          "meta": "1.800 m² buitenmuur × € 22"
+        }
+      ],
+      "meta": "1.800 m² buitenmuur × € 22"
+    },
+    {
+      "id": "kozijnen-onderhoud",
+      "naam": "Onderhoud buitenkozijnen",
+      "type": "kozijnen",
+      "categorie": "Gevel",
+      "quantity": 0,
+      "cost": 12864,
+      "conditionScore": null,
+      "conditionYear": null,
+      "kozijnGroepen": [
+        {
+          "cyclus": 6,
+          "bedrag": 12864,
+          "aantal": 72,
+          "materialen": [
+            "Hout"
+          ]
+        }
+      ],
+      "schedule": [
+        {
+          "jaar": 2031,
+          "bedrag": 12864,
+          "meta": "72 × Hout"
+        }
+      ],
+      "meta": "72 × Hout (6j)"
+    },
+    {
+      "id": "steiger",
+      "naam": "Steiger of hoogwerker",
+      "type": "steiger",
+      "categorie": "Gevel",
+      "quantity": 1800,
+      "cost": 19800,
+      "conditionScore": null,
+      "conditionYear": 2031,
+      "kozijnGroepen": null,
+      "schedule": [
+        {
+          "jaar": 2031,
+          "bedrag": 19800,
+          "meta": "werkhoogte 18 m"
+        }
+      ],
+      "meta": "werkhoogte 18 m"
+    },
+    {
+      "id": "intercom",
+      "naam": "Intercom en video-deuropener",
+      "type": "per-unit",
+      "categorie": "Installaties",
+      "quantity": 48,
+      "cost": 27600,
+      "conditionScore": null,
+      "conditionYear": 2045,
+      "kozijnGroepen": null,
+      "schedule": [],
+      "meta": "48 units × € 575"
+    },
+    {
+      "id": "riolering",
+      "naam": "Riolering en hemelwaterafvoer (inpandig)",
+      "type": "vast-variabel",
+      "categorie": "Installaties",
+      "quantity": 48,
+      "cost": 6860,
+      "conditionScore": null,
+      "conditionYear": 2035,
+      "kozijnGroepen": null,
+      "schedule": [
+        {
+          "jaar": 2035,
+          "bedrag": 6860,
+          "meta": "€ 1.100 vast + 48 × € 120"
+        }
+      ],
+      "meta": "€ 1.100 vast + 48 × € 120"
+    },
+    {
+      "id": "trappenhuis",
+      "naam": "Trappenhuis en entree",
+      "type": "per-unit",
+      "categorie": "Binnen",
+      "quantity": 48,
+      "cost": 23040,
+      "conditionScore": null,
+      "conditionYear": 2029,
+      "kozijnGroepen": null,
+      "schedule": [
+        {
+          "jaar": 2029,
+          "bedrag": 23040,
+          "meta": "48 units × € 480"
+        }
+      ],
+      "meta": "48 units × € 480"
+    },
+    {
+      "id": "dak-plat",
+      "naam": "Dakbedekking plat dak",
+      "type": "dak",
+      "categorie": "Dak",
+      "quantity": 900,
+      "cost": 148500,
+      "conditionScore": null,
+      "conditionYear": 2040,
+      "kozijnGroepen": null,
+      "schedule": [],
+      "meta": "900 m² × € 165"
+    },
+    {
+      "id": "dak-hellend",
+      "naam": "Dakbedekking hellend dak (pannen)",
+      "type": "dak",
+      "categorie": "Dak",
+      "quantity": null,
+      "cost": null,
+      "conditionScore": null,
+      "conditionYear": 2045,
+      "kozijnGroepen": null,
+      "schedule": [],
+      "meta": "hoeveelheid onbekend — vul zelf in"
+    },
+    {
+      "id": "dakisolatie",
+      "naam": "Dakisolatie na-isoleren",
+      "type": "dak",
+      "categorie": "Dak",
+      "quantity": 900,
+      "cost": 54000,
+      "conditionScore": null,
+      "conditionYear": 2055,
+      "kozijnGroepen": null,
+      "schedule": [],
+      "meta": "900 m² × € 60"
+    },
+    {
+      "id": "voegwerk",
+      "naam": "Voegwerk buitengevel",
+      "type": "gevel",
+      "categorie": "Gevel",
+      "quantity": 1800,
+      "cost": 81000,
+      "conditionScore": null,
+      "conditionYear": 2055,
+      "kozijnGroepen": null,
+      "schedule": [],
+      "meta": "1.800 m² buitenmuur × € 45"
+    },
+    {
+      "id": "balkonhekken",
+      "naam": "Balkonhekken en borstweringen",
+      "type": "per-unit",
+      "categorie": "Gevel",
+      "quantity": 48,
+      "cost": 10080,
+      "conditionScore": null,
+      "conditionYear": 2045,
+      "kozijnGroepen": null,
+      "schedule": [],
+      "meta": "48 units × € 210"
+    },
+    {
+      "id": "elektra",
+      "naam": "Elektrische installatie gemeenschappelijk",
+      "type": "vast-variabel",
+      "categorie": "Installaties",
+      "quantity": 48,
+      "cost": 5120,
+      "conditionScore": null,
+      "conditionYear": 2040,
+      "kozijnGroepen": null,
+      "schedule": [],
+      "meta": "€ 800 vast + 48 × € 90"
+    },
+    {
+      "id": "verlichting",
+      "naam": "Verlichting gemeenschappelijke ruimten",
+      "type": "per-unit",
+      "categorie": "Installaties",
+      "quantity": 48,
+      "cost": 3120,
+      "conditionScore": null,
+      "conditionYear": 2040,
+      "kozijnGroepen": null,
+      "schedule": [],
+      "meta": "48 units × € 65"
+    },
+    {
+      "id": "waterleiding",
+      "naam": "Waterleiding gemeenschappelijk",
+      "type": "vast-variabel",
+      "categorie": "Installaties",
+      "quantity": 48,
+      "cost": 3240,
+      "conditionScore": null,
+      "conditionYear": 2055,
+      "kozijnGroepen": null,
+      "schedule": [],
+      "meta": "€ 600 vast + 48 × € 55"
+    },
+    {
+      "id": "brandveiligheid",
+      "naam": "Brandveiligheid (blusmiddelen, vluchtwegverlichting)",
+      "type": "per-unit",
+      "categorie": "Installaties",
+      "quantity": 48,
+      "cost": 2160,
+      "conditionScore": null,
+      "conditionYear": 2035,
+      "kozijnGroepen": null,
+      "schedule": [
+        {
+          "jaar": 2035,
+          "bedrag": 2160,
+          "meta": "48 units × € 45"
+        }
+      ],
+      "meta": "48 units × € 45"
+    },
+    {
+      "id": "cv-installatie",
+      "naam": "Collectieve cv-installatie (ketel)",
+      "type": "vast-variabel",
+      "categorie": "Installaties",
+      "quantity": 48,
+      "cost": 20300,
+      "conditionScore": null,
+      "conditionYear": 2037,
+      "kozijnGroepen": null,
+      "schedule": [],
+      "meta": "€ 3.500 vast + 48 × € 350"
+    },
+    {
+      "id": "ventilatie",
+      "naam": "Mechanische ventilatie",
+      "type": "per-unit",
+      "categorie": "Installaties",
+      "quantity": 48,
+      "cost": 10560,
+      "conditionScore": null,
+      "conditionYear": 2040,
+      "kozijnGroepen": null,
+      "schedule": [],
+      "meta": "48 units × € 220"
+    },
+    {
+      "id": "lift",
+      "naam": "Liftinstallatie — onderhoud en modernisering",
+      "type": "vast-variabel",
+      "categorie": "Installaties",
+      "quantity": 0,
+      "cost": 12000,
+      "conditionScore": null,
+      "conditionYear": 2045,
+      "kozijnGroepen": null,
+      "schedule": [],
+      "meta": "€ 12.000 vast + 0 × € 0"
+    },
+    {
+      "id": "vloerafwerking",
+      "naam": "Vloerafwerking gemeenschappelijke ruimten",
+      "type": "per-unit",
+      "categorie": "Binnen",
+      "quantity": 48,
+      "cost": 5760,
+      "conditionScore": null,
+      "conditionYear": 2040,
+      "kozijnGroepen": null,
+      "schedule": [],
+      "meta": "48 units × € 120"
+    },
+    {
+      "id": "bestrating",
+      "naam": "Bestrating en terreininrichting",
+      "type": "vast-variabel",
+      "categorie": "Terrein",
+      "quantity": 48,
+      "cost": 3380,
+      "conditionScore": null,
+      "conditionYear": 2045,
+      "kozijnGroepen": null,
+      "schedule": [],
+      "meta": "€ 500 vast + 48 × € 60"
+    },
+    {
+      "id": "fietsenstalling",
+      "naam": "Fietsenstalling en bergingen",
+      "type": "per-unit",
+      "categorie": "Terrein",
+      "quantity": 48,
+      "cost": 7200,
+      "conditionScore": null,
+      "conditionYear": 2040,
+      "kozijnGroepen": null,
+      "schedule": [],
+      "meta": "48 units × € 150"
+    }
+  ],
+  "fullPlan": [
+    {
+      "elId": "dakinspectie",
+      "naam": "Dakinspectie en klein onderhoud",
+      "jaar": 2027,
+      "bedrag": 2220,
+      "meta": "€ 420 vast + 900 × € 2"
+    },
+    {
+      "elId": "trappenhuis",
+      "naam": "Trappenhuis en entree",
+      "jaar": 2029,
+      "bedrag": 23040,
+      "meta": "48 units × € 480"
+    },
+    {
+      "elId": "dakinspectie",
+      "naam": "Dakinspectie en klein onderhoud",
+      "jaar": 2029,
+      "bedrag": 2220,
+      "meta": "€ 420 vast + 900 × € 2"
+    },
+    {
+      "elId": "schilderwerk-buiten",
+      "naam": "Schilderwerk buitenkozijnen en gevelhoutwerk",
+      "jaar": 2031,
+      "bedrag": 39600,
+      "meta": "1.800 m² buitenmuur × € 22"
+    },
+    {
+      "elId": "steiger",
+      "naam": "Steiger of hoogwerker",
+      "jaar": 2031,
+      "bedrag": 19800,
+      "meta": "werkhoogte 18 m"
+    },
+    {
+      "elId": "kozijnen-onderhoud",
+      "naam": "Onderhoud buitenkozijnen",
+      "jaar": 2031,
+      "bedrag": 12864,
+      "meta": "72 × Hout"
+    },
+    {
+      "elId": "dakinspectie",
+      "naam": "Dakinspectie en klein onderhoud",
+      "jaar": 2031,
+      "bedrag": 2220,
+      "meta": "€ 420 vast + 900 × € 2"
+    },
+    {
+      "elId": "dakinspectie",
+      "naam": "Dakinspectie en klein onderhoud",
+      "jaar": 2033,
+      "bedrag": 2220,
+      "meta": "€ 420 vast + 900 × € 2"
+    },
+    {
+      "elId": "riolering",
+      "naam": "Riolering en hemelwaterafvoer (inpandig)",
+      "jaar": 2035,
+      "bedrag": 6860,
+      "meta": "€ 1.100 vast + 48 × € 120"
+    },
+    {
+      "elId": "dakinspectie",
+      "naam": "Dakinspectie en klein onderhoud",
+      "jaar": 2035,
+      "bedrag": 2220,
+      "meta": "€ 420 vast + 900 × € 2"
+    },
+    {
+      "elId": "brandveiligheid",
+      "naam": "Brandveiligheid (blusmiddelen, vluchtwegverlichting)",
+      "jaar": 2035,
+      "bedrag": 2160,
+      "meta": "48 units × € 45"
+    }
+  ],
+  "categorieTotalen": [
+    {
+      "naam": "Gevel",
+      "bedrag": 72264
+    },
+    {
+      "naam": "Binnen",
+      "bedrag": 23040
+    },
+    {
+      "naam": "Dak",
+      "bedrag": 11100
+    },
+    {
+      "naam": "Installaties",
+      "bedrag": 9020
+    }
+  ],
+  "perJaarKosten": {
+    "2027": 2220,
+    "2029": 25260,
+    "2031": 74484,
+    "2033": 2220,
+    "2035": 11240
+  },
+  "kasstroom": [
+    {
+      "jaar": 2026,
+      "kosten": 0,
+      "saldo": 174720
+    },
+    {
+      "jaar": 2027,
+      "kosten": 2220,
+      "saldo": 227220
+    },
+    {
+      "jaar": 2028,
+      "kosten": 0,
+      "saldo": 281940
+    },
+    {
+      "jaar": 2029,
+      "kosten": 25260,
+      "saldo": 311400
+    },
+    {
+      "jaar": 2030,
+      "kosten": 0,
+      "saldo": 366120
+    },
+    {
+      "jaar": 2031,
+      "kosten": 74484,
+      "saldo": 346356
+    },
+    {
+      "jaar": 2032,
+      "kosten": 0,
+      "saldo": 401076
+    },
+    {
+      "jaar": 2033,
+      "kosten": 2220,
+      "saldo": 453576
+    },
+    {
+      "jaar": 2034,
+      "kosten": 0,
+      "saldo": 508296
+    },
+    {
+      "jaar": 2035,
+      "kosten": 11240,
+      "saldo": 551776
+    }
+  ],
+  "benodigdeBijdrage": 5,
+  "kostenOnbekend": [
+    "dak-hellend"
+  ],
+  "offertes": {},
+  "bibliotheekAuto": [
+    {
+      "key": "dak-plat",
+      "auto": {
+        "value": 900,
+        "unit": "m2",
+        "source": "ESTIMATED",
+        "basis": "Geen 3D BAG-gegevens: het grondvlak van het BAG-pand is als benadering (schatting) van het platte dak gebruikt.",
+        "raw": {
+          "field": "BAG pandgeometrie (grondvlak)",
+          "value": 900,
+          "source_name": "BAG (PDOK)"
+        }
+      }
+    },
+    {
+      "key": "dakgoten",
+      "auto": {
+        "value": 48,
+        "unit": "app",
+        "source": "BAG",
+        "basis": "Aantal verblijfsobjecten in de BAG; de post wordt per appartement begroot.",
+        "raw": {
+          "field": "aantal_verblijfsobjecten",
+          "value": 48,
+          "source_name": "BAG (PDOK)"
+        }
+      }
+    },
+    {
+      "key": "dakinspectie",
+      "auto": {
+        "value": 900,
+        "unit": "m2",
+        "source": "ESTIMATED",
+        "basis": "Geen 3D BAG-gegevens: het grondvlak van het BAG-pand is als benadering (schatting) van het dakoppervlak gebruikt.",
+        "raw": {
+          "field": "BAG pandgeometrie (grondvlak)",
+          "value": 900,
+          "source_name": "BAG (PDOK)"
+        }
+      }
+    },
+    {
+      "key": "dak-hellend",
+      "auto": {
+        "value": null,
+        "unit": "m2",
+        "source": "NOT_AVAILABLE",
+        "basis": "Geen 3D BAG-gegevens voor dit pand: geen betrouwbare automatische hoeveelheid. Vul de hoeveelheid zelf in.",
+        "raw": {
+          "field": "b3_opp_dak_schuin",
+          "value": null,
+          "missing": true,
+          "source_name": "3D BAG (TU Delft), api.3dbag.nl"
+        }
+      }
+    },
+    {
+      "key": "dakisolatie",
+      "auto": {
+        "value": 900,
+        "unit": "m2",
+        "source": "ESTIMATED",
+        "basis": "Geen 3D BAG-gegevens: het grondvlak van het BAG-pand is als benadering (schatting) van het dakoppervlak gebruikt.",
+        "raw": {
+          "field": "BAG pandgeometrie (grondvlak)",
+          "value": 900,
+          "source_name": "BAG (PDOK)"
+        }
+      }
+    },
+    {
+      "key": "gevel-metselwerk",
+      "auto": {
+        "value": 1800,
+        "unit": "m2",
+        "source": "ESTIMATED",
+        "basis": "Geen 3D BAG-gegevens: grove geometrische aanname, omtrek van het BAG-pand × een aangenomen hoogte van 9 m (3 bouwlagen × 3 m). Geen gemeten of geregistreerd geveloppervlak.",
+        "raw": {
+          "formula": "omtrek × 3 × 3",
+          "inputs": [
+            {
+              "field": "BAG pandgeometrie (omtrek)",
+              "value": 180,
+              "source_name": "BAG (PDOK)"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "key": "schilderwerk-buiten",
+      "auto": {
+        "value": 1800,
+        "unit": "m2",
+        "source": "ESTIMATED",
+        "basis": "Geen 3D BAG-gegevens: grove geometrische aanname, omtrek van het BAG-pand × een aangenomen hoogte van 9 m (3 bouwlagen × 3 m). Geen gemeten of geregistreerd geveloppervlak.",
+        "raw": {
+          "formula": "omtrek × 3 × 3",
+          "inputs": [
+            {
+              "field": "BAG pandgeometrie (omtrek)",
+              "value": 180,
+              "source_name": "BAG (PDOK)"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "key": "kozijnen-onderhoud",
+      "auto": null
+    },
+    {
+      "key": "steiger",
+      "auto": {
+        "value": 1800,
+        "unit": "m2",
+        "source": "ESTIMATED",
+        "basis": "Geen 3D BAG-gegevens: grove geometrische aanname, omtrek van het BAG-pand × een aangenomen hoogte van 9 m (3 bouwlagen × 3 m). Geen gemeten of geregistreerd geveloppervlak.",
+        "raw": {
+          "formula": "omtrek × 3 × 3",
+          "inputs": [
+            {
+              "field": "BAG pandgeometrie (omtrek)",
+              "value": 180,
+              "source_name": "BAG (PDOK)"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "key": "voegwerk",
+      "auto": {
+        "value": 1800,
+        "unit": "m2",
+        "source": "ESTIMATED",
+        "basis": "Geen 3D BAG-gegevens: grove geometrische aanname, omtrek van het BAG-pand × een aangenomen hoogte van 9 m (3 bouwlagen × 3 m). Geen gemeten of geregistreerd geveloppervlak.",
+        "raw": {
+          "formula": "omtrek × 3 × 3",
+          "inputs": [
+            {
+              "field": "BAG pandgeometrie (omtrek)",
+              "value": 180,
+              "source_name": "BAG (PDOK)"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "key": "balkonhekken",
+      "auto": {
+        "value": 48,
+        "unit": "app",
+        "source": "BAG",
+        "basis": "Aantal verblijfsobjecten in de BAG; de post wordt per appartement begroot.",
+        "raw": {
+          "field": "aantal_verblijfsobjecten",
+          "value": 48,
+          "source_name": "BAG (PDOK)"
+        }
+      }
+    },
+    {
+      "key": "intercom",
+      "auto": {
+        "value": 48,
+        "unit": "app",
+        "source": "BAG",
+        "basis": "Aantal verblijfsobjecten in de BAG; de post wordt per appartement begroot.",
+        "raw": {
+          "field": "aantal_verblijfsobjecten",
+          "value": 48,
+          "source_name": "BAG (PDOK)"
+        }
+      }
+    },
+    {
+      "key": "riolering",
+      "auto": {
+        "value": 48,
+        "unit": "app",
+        "source": "BAG",
+        "basis": "Aantal verblijfsobjecten in de BAG; de post wordt per appartement begroot.",
+        "raw": {
+          "field": "aantal_verblijfsobjecten",
+          "value": 48,
+          "source_name": "BAG (PDOK)"
+        }
+      }
+    },
+    {
+      "key": "elektra",
+      "auto": {
+        "value": 48,
+        "unit": "app",
+        "source": "BAG",
+        "basis": "Aantal verblijfsobjecten in de BAG; de post wordt per appartement begroot.",
+        "raw": {
+          "field": "aantal_verblijfsobjecten",
+          "value": 48,
+          "source_name": "BAG (PDOK)"
+        }
+      }
+    },
+    {
+      "key": "verlichting",
+      "auto": {
+        "value": 48,
+        "unit": "app",
+        "source": "BAG",
+        "basis": "Aantal verblijfsobjecten in de BAG; de post wordt per appartement begroot.",
+        "raw": {
+          "field": "aantal_verblijfsobjecten",
+          "value": 48,
+          "source_name": "BAG (PDOK)"
+        }
+      }
+    },
+    {
+      "key": "waterleiding",
+      "auto": {
+        "value": 48,
+        "unit": "app",
+        "source": "BAG",
+        "basis": "Aantal verblijfsobjecten in de BAG; de post wordt per appartement begroot.",
+        "raw": {
+          "field": "aantal_verblijfsobjecten",
+          "value": 48,
+          "source_name": "BAG (PDOK)"
+        }
+      }
+    },
+    {
+      "key": "brandveiligheid",
+      "auto": {
+        "value": 48,
+        "unit": "app",
+        "source": "BAG",
+        "basis": "Aantal verblijfsobjecten in de BAG; de post wordt per appartement begroot.",
+        "raw": {
+          "field": "aantal_verblijfsobjecten",
+          "value": 48,
+          "source_name": "BAG (PDOK)"
+        }
+      }
+    },
+    {
+      "key": "cv-installatie",
+      "auto": {
+        "value": 48,
+        "unit": "app",
+        "source": "BAG",
+        "basis": "Aantal verblijfsobjecten in de BAG; de post wordt per appartement begroot.",
+        "raw": {
+          "field": "aantal_verblijfsobjecten",
+          "value": 48,
+          "source_name": "BAG (PDOK)"
+        }
+      }
+    },
+    {
+      "key": "ventilatie",
+      "auto": {
+        "value": 48,
+        "unit": "app",
+        "source": "BAG",
+        "basis": "Aantal verblijfsobjecten in de BAG; de post wordt per appartement begroot.",
+        "raw": {
+          "field": "aantal_verblijfsobjecten",
+          "value": 48,
+          "source_name": "BAG (PDOK)"
+        }
+      }
+    },
+    {
+      "key": "lift",
+      "auto": null
+    },
+    {
+      "key": "trappenhuis",
+      "auto": {
+        "value": 48,
+        "unit": "app",
+        "source": "BAG",
+        "basis": "Aantal verblijfsobjecten in de BAG; de post wordt per appartement begroot.",
+        "raw": {
+          "field": "aantal_verblijfsobjecten",
+          "value": 48,
+          "source_name": "BAG (PDOK)"
+        }
+      }
+    },
+    {
+      "key": "vloerafwerking",
+      "auto": {
+        "value": 48,
+        "unit": "app",
+        "source": "BAG",
+        "basis": "Aantal verblijfsobjecten in de BAG; de post wordt per appartement begroot.",
+        "raw": {
+          "field": "aantal_verblijfsobjecten",
+          "value": 48,
+          "source_name": "BAG (PDOK)"
+        }
+      }
+    },
+    {
+      "key": "bestrating",
+      "auto": {
+        "value": 48,
+        "unit": "app",
+        "source": "BAG",
+        "basis": "Aantal verblijfsobjecten in de BAG; de post wordt per appartement begroot.",
+        "raw": {
+          "field": "aantal_verblijfsobjecten",
+          "value": 48,
+          "source_name": "BAG (PDOK)"
+        }
+      }
+    },
+    {
+      "key": "fietsenstalling",
+      "auto": {
+        "value": 48,
+        "unit": "app",
+        "source": "BAG",
+        "basis": "Aantal verblijfsobjecten in de BAG; de post wordt per appartement begroot.",
+        "raw": {
+          "field": "aantal_verblijfsobjecten",
+          "value": 48,
+          "source_name": "BAG (PDOK)"
+        }
+      }
+    }
+  ]
+}

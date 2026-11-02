@@ -1,0 +1,646 @@
+{
+  "pinned": {
+    "nowIso": "2026-06-15T12:00:00.000Z",
+    "currentYear": 2026,
+    "horizon": 10,
+    "cbsIndexatie": null,
+    "indexatiePct": 0.03
+  },
+  "input": {
+    "building": {
+      "adres": "Voorbeeldgebouw — portiekflat",
+      "bouwjaar": 1978,
+      "units": 8,
+      "unitsBron": 8,
+      "dakM2": 140,
+      "gevelM2": 220,
+      "werkhoogte": null,
+      "opp": 140,
+      "omtrek": 60,
+      "identificatie": "",
+      "gebruiksdoel": "woonfunctie",
+      "d3": null,
+      "isVoorbeeld": true
+    },
+    "fonds": 10000,
+    "bijdrage": 45,
+    "elementCount": 10
+  },
+  "elements": [
+    {
+      "id": "dak-plat",
+      "naam": "Dakbedekking plat dak",
+      "type": "dak",
+      "categorie": "Dak",
+      "quantity": 140,
+      "cost": 23100,
+      "conditionScore": null,
+      "conditionYear": 2028,
+      "kozijnGroepen": null,
+      "schedule": [
+        {
+          "jaar": 2028,
+          "bedrag": 23100,
+          "meta": "140 m² × € 165"
+        }
+      ],
+      "meta": "140 m² × € 165"
+    },
+    {
+      "id": "dakgoten",
+      "naam": "Dakgoten en hemelwaterafvoeren",
+      "type": "vast-variabel",
+      "categorie": "Dak",
+      "quantity": 8,
+      "cost": 1020,
+      "conditionScore": null,
+      "conditionYear": 2038,
+      "kozijnGroepen": null,
+      "schedule": [],
+      "meta": "€ 300 vast + 8 × € 90"
+    },
+    {
+      "id": "dakinspectie",
+      "naam": "Dakinspectie en klein onderhoud",
+      "type": "vast-variabel",
+      "categorie": "Dak",
+      "quantity": 140,
+      "cost": 700,
+      "conditionScore": null,
+      "conditionYear": 2026,
+      "kozijnGroepen": null,
+      "schedule": [
+        {
+          "jaar": 2026,
+          "bedrag": 700,
+          "meta": "€ 420 vast + 140 × € 2"
+        },
+        {
+          "jaar": 2028,
+          "bedrag": 700,
+          "meta": "€ 420 vast + 140 × € 2"
+        },
+        {
+          "jaar": 2030,
+          "bedrag": 700,
+          "meta": "€ 420 vast + 140 × € 2"
+        },
+        {
+          "jaar": 2032,
+          "bedrag": 700,
+          "meta": "€ 420 vast + 140 × € 2"
+        },
+        {
+          "jaar": 2034,
+          "bedrag": 700,
+          "meta": "€ 420 vast + 140 × € 2"
+        }
+      ],
+      "meta": "€ 420 vast + 140 × € 2"
+    },
+    {
+      "id": "gevel-metselwerk",
+      "naam": "Gevelreiniging en metselwerkherstel",
+      "type": "gevel",
+      "categorie": "Gevel",
+      "quantity": 220,
+      "cost": 5720,
+      "conditionScore": null,
+      "conditionYear": 2038,
+      "kozijnGroepen": null,
+      "schedule": [],
+      "meta": "220 m² buitenmuur × € 26"
+    },
+    {
+      "id": "schilderwerk-buiten",
+      "naam": "Schilderwerk buitenkozijnen en gevelhoutwerk",
+      "type": "gevel",
+      "categorie": "Gevel",
+      "quantity": 220,
+      "cost": 4840,
+      "conditionScore": null,
+      "conditionYear": 2026,
+      "kozijnGroepen": null,
+      "schedule": [
+        {
+          "jaar": 2026,
+          "bedrag": 4840,
+          "meta": "220 m² buitenmuur × € 22"
+        },
+        {
+          "jaar": 2032,
+          "bedrag": 4840,
+          "meta": "220 m² buitenmuur × € 22"
+        }
+      ],
+      "meta": "220 m² buitenmuur × € 22"
+    },
+    {
+      "id": "kozijnen-onderhoud",
+      "naam": "Onderhoud buitenkozijnen",
+      "type": "kozijnen",
+      "categorie": "Gevel",
+      "quantity": 0,
+      "cost": 2144,
+      "conditionScore": null,
+      "conditionYear": null,
+      "kozijnGroepen": [
+        {
+          "cyclus": 6,
+          "bedrag": 2144,
+          "aantal": 12,
+          "materialen": [
+            "Hout"
+          ]
+        }
+      ],
+      "schedule": [
+        {
+          "jaar": 2026,
+          "bedrag": 2144,
+          "meta": "12 × Hout"
+        },
+        {
+          "jaar": 2032,
+          "bedrag": 2144,
+          "meta": "12 × Hout"
+        }
+      ],
+      "meta": "12 × Hout (6j)"
+    },
+    {
+      "id": "steiger",
+      "naam": "Steiger of hoogwerker",
+      "type": "steiger",
+      "categorie": "Gevel",
+      "quantity": 220,
+      "cost": null,
+      "conditionScore": null,
+      "conditionYear": 2026,
+      "kozijnGroepen": null,
+      "schedule": [],
+      "meta": "werkhoogte onbekend — vul zelf in"
+    },
+    {
+      "id": "intercom",
+      "naam": "Intercom en video-deuropener",
+      "type": "per-unit",
+      "categorie": "Installaties",
+      "quantity": 8,
+      "cost": 4600,
+      "conditionScore": null,
+      "conditionYear": 2038,
+      "kozijnGroepen": null,
+      "schedule": [],
+      "meta": "8 units × € 575"
+    },
+    {
+      "id": "riolering",
+      "naam": "Riolering en hemelwaterafvoer (inpandig)",
+      "type": "vast-variabel",
+      "categorie": "Installaties",
+      "quantity": 8,
+      "cost": 2060,
+      "conditionScore": null,
+      "conditionYear": 2028,
+      "kozijnGroepen": null,
+      "schedule": [
+        {
+          "jaar": 2028,
+          "bedrag": 2060,
+          "meta": "€ 1.100 vast + 8 × € 120"
+        }
+      ],
+      "meta": "€ 1.100 vast + 8 × € 120"
+    },
+    {
+      "id": "trappenhuis",
+      "naam": "Trappenhuis en entree",
+      "type": "per-unit",
+      "categorie": "Binnen",
+      "quantity": 8,
+      "cost": 3840,
+      "conditionScore": null,
+      "conditionYear": 2026,
+      "kozijnGroepen": null,
+      "schedule": [
+        {
+          "jaar": 2026,
+          "bedrag": 3840,
+          "meta": "8 units × € 480"
+        },
+        {
+          "jaar": 2034,
+          "bedrag": 3840,
+          "meta": "8 units × € 480"
+        }
+      ],
+      "meta": "8 units × € 480"
+    }
+  ],
+  "fullPlan": [
+    {
+      "elId": "schilderwerk-buiten",
+      "naam": "Schilderwerk buitenkozijnen en gevelhoutwerk",
+      "jaar": 2026,
+      "bedrag": 4840,
+      "meta": "220 m² buitenmuur × € 22"
+    },
+    {
+      "elId": "trappenhuis",
+      "naam": "Trappenhuis en entree",
+      "jaar": 2026,
+      "bedrag": 3840,
+      "meta": "8 units × € 480"
+    },
+    {
+      "elId": "kozijnen-onderhoud",
+      "naam": "Onderhoud buitenkozijnen",
+      "jaar": 2026,
+      "bedrag": 2144,
+      "meta": "12 × Hout"
+    },
+    {
+      "elId": "dakinspectie",
+      "naam": "Dakinspectie en klein onderhoud",
+      "jaar": 2026,
+      "bedrag": 700,
+      "meta": "€ 420 vast + 140 × € 2"
+    },
+    {
+      "elId": "dak-plat",
+      "naam": "Dakbedekking plat dak",
+      "jaar": 2028,
+      "bedrag": 23100,
+      "meta": "140 m² × € 165"
+    },
+    {
+      "elId": "riolering",
+      "naam": "Riolering en hemelwaterafvoer (inpandig)",
+      "jaar": 2028,
+      "bedrag": 2060,
+      "meta": "€ 1.100 vast + 8 × € 120"
+    },
+    {
+      "elId": "dakinspectie",
+      "naam": "Dakinspectie en klein onderhoud",
+      "jaar": 2028,
+      "bedrag": 700,
+      "meta": "€ 420 vast + 140 × € 2"
+    },
+    {
+      "elId": "dakinspectie",
+      "naam": "Dakinspectie en klein onderhoud",
+      "jaar": 2030,
+      "bedrag": 700,
+      "meta": "€ 420 vast + 140 × € 2"
+    },
+    {
+      "elId": "schilderwerk-buiten",
+      "naam": "Schilderwerk buitenkozijnen en gevelhoutwerk",
+      "jaar": 2032,
+      "bedrag": 4840,
+      "meta": "220 m² buitenmuur × € 22"
+    },
+    {
+      "elId": "kozijnen-onderhoud",
+      "naam": "Onderhoud buitenkozijnen",
+      "jaar": 2032,
+      "bedrag": 2144,
+      "meta": "12 × Hout"
+    },
+    {
+      "elId": "dakinspectie",
+      "naam": "Dakinspectie en klein onderhoud",
+      "jaar": 2032,
+      "bedrag": 700,
+      "meta": "€ 420 vast + 140 × € 2"
+    },
+    {
+      "elId": "trappenhuis",
+      "naam": "Trappenhuis en entree",
+      "jaar": 2034,
+      "bedrag": 3840,
+      "meta": "8 units × € 480"
+    },
+    {
+      "elId": "dakinspectie",
+      "naam": "Dakinspectie en klein onderhoud",
+      "jaar": 2034,
+      "bedrag": 700,
+      "meta": "€ 420 vast + 140 × € 2"
+    }
+  ],
+  "categorieTotalen": [
+    {
+      "naam": "Dak",
+      "bedrag": 26600
+    },
+    {
+      "naam": "Gevel",
+      "bedrag": 13968
+    },
+    {
+      "naam": "Binnen",
+      "bedrag": 7680
+    },
+    {
+      "naam": "Installaties",
+      "bedrag": 2060
+    }
+  ],
+  "perJaarKosten": {
+    "2026": 11524,
+    "2028": 25860,
+    "2030": 700,
+    "2032": 7684,
+    "2034": 4540
+  },
+  "kasstroom": [
+    {
+      "jaar": 2026,
+      "kosten": 11524,
+      "saldo": 2796
+    },
+    {
+      "jaar": 2027,
+      "kosten": 0,
+      "saldo": 7116
+    },
+    {
+      "jaar": 2028,
+      "kosten": 25860,
+      "saldo": -14424
+    },
+    {
+      "jaar": 2029,
+      "kosten": 0,
+      "saldo": -10104
+    },
+    {
+      "jaar": 2030,
+      "kosten": 700,
+      "saldo": -6484
+    },
+    {
+      "jaar": 2031,
+      "kosten": 0,
+      "saldo": -2164
+    },
+    {
+      "jaar": 2032,
+      "kosten": 7684,
+      "saldo": -5528
+    },
+    {
+      "jaar": 2033,
+      "kosten": 0,
+      "saldo": -1208
+    },
+    {
+      "jaar": 2034,
+      "kosten": 4540,
+      "saldo": -1428
+    },
+    {
+      "jaar": 2035,
+      "kosten": 0,
+      "saldo": 2892
+    }
+  ],
+  "benodigdeBijdrage": 100,
+  "kostenOnbekend": [
+    "steiger"
+  ],
+  "offertes": {},
+  "bibliotheekAuto": [
+    {
+      "key": "dak-plat",
+      "auto": {
+        "value": 140,
+        "unit": "m2",
+        "source": "ESTIMATED",
+        "basis": "Voorbeeldgebouw: fictieve waarde, geen gemeten gegevens.",
+        "raw": null
+      }
+    },
+    {
+      "key": "dakgoten",
+      "auto": {
+        "value": 8,
+        "unit": "app",
+        "source": "ESTIMATED",
+        "basis": "Voorbeeldgebouw: fictieve waarde, geen gemeten gegevens.",
+        "raw": null
+      }
+    },
+    {
+      "key": "dakinspectie",
+      "auto": {
+        "value": 140,
+        "unit": "m2",
+        "source": "ESTIMATED",
+        "basis": "Voorbeeldgebouw: fictieve waarde, geen gemeten gegevens.",
+        "raw": null
+      }
+    },
+    {
+      "key": "dak-hellend",
+      "auto": {
+        "value": 0,
+        "unit": "m2",
+        "source": "ESTIMATED",
+        "basis": "Voorbeeldgebouw: fictieve waarde, geen gemeten gegevens.",
+        "raw": null
+      }
+    },
+    {
+      "key": "dakisolatie",
+      "auto": {
+        "value": 140,
+        "unit": "m2",
+        "source": "ESTIMATED",
+        "basis": "Voorbeeldgebouw: fictieve waarde, geen gemeten gegevens.",
+        "raw": null
+      }
+    },
+    {
+      "key": "gevel-metselwerk",
+      "auto": {
+        "value": 220,
+        "unit": "m2",
+        "source": "ESTIMATED",
+        "basis": "Voorbeeldgebouw: fictieve waarde, geen gemeten gegevens.",
+        "raw": null
+      }
+    },
+    {
+      "key": "schilderwerk-buiten",
+      "auto": {
+        "value": 220,
+        "unit": "m2",
+        "source": "ESTIMATED",
+        "basis": "Voorbeeldgebouw: fictieve waarde, geen gemeten gegevens.",
+        "raw": null
+      }
+    },
+    {
+      "key": "kozijnen-onderhoud",
+      "auto": null
+    },
+    {
+      "key": "steiger",
+      "auto": {
+        "value": 220,
+        "unit": "m2",
+        "source": "ESTIMATED",
+        "basis": "Voorbeeldgebouw: fictieve waarde, geen gemeten gegevens.",
+        "raw": null
+      }
+    },
+    {
+      "key": "voegwerk",
+      "auto": {
+        "value": 220,
+        "unit": "m2",
+        "source": "ESTIMATED",
+        "basis": "Voorbeeldgebouw: fictieve waarde, geen gemeten gegevens.",
+        "raw": null
+      }
+    },
+    {
+      "key": "balkonhekken",
+      "auto": {
+        "value": 8,
+        "unit": "app",
+        "source": "ESTIMATED",
+        "basis": "Voorbeeldgebouw: fictieve waarde, geen gemeten gegevens.",
+        "raw": null
+      }
+    },
+    {
+      "key": "intercom",
+      "auto": {
+        "value": 8,
+        "unit": "app",
+        "source": "ESTIMATED",
+        "basis": "Voorbeeldgebouw: fictieve waarde, geen gemeten gegevens.",
+        "raw": null
+      }
+    },
+    {
+      "key": "riolering",
+      "auto": {
+        "value": 8,
+        "unit": "app",
+        "source": "ESTIMATED",
+        "basis": "Voorbeeldgebouw: fictieve waarde, geen gemeten gegevens.",
+        "raw": null
+      }
+    },
+    {
+      "key": "elektra",
+      "auto": {
+        "value": 8,
+        "unit": "app",
+        "source": "ESTIMATED",
+        "basis": "Voorbeeldgebouw: fictieve waarde, geen gemeten gegevens.",
+        "raw": null
+      }
+    },
+    {
+      "key": "verlichting",
+      "auto": {
+        "value": 8,
+        "unit": "app",
+        "source": "ESTIMATED",
+        "basis": "Voorbeeldgebouw: fictieve waarde, geen gemeten gegevens.",
+        "raw": null
+      }
+    },
+    {
+      "key": "waterleiding",
+      "auto": {
+        "value": 8,
+        "unit": "app",
+        "source": "ESTIMATED",
+        "basis": "Voorbeeldgebouw: fictieve waarde, geen gemeten gegevens.",
+        "raw": null
+      }
+    },
+    {
+      "key": "brandveiligheid",
+      "auto": {
+        "value": 8,
+        "unit": "app",
+        "source": "ESTIMATED",
+        "basis": "Voorbeeldgebouw: fictieve waarde, geen gemeten gegevens.",
+        "raw": null
+      }
+    },
+    {
+      "key": "cv-installatie",
+      "auto": {
+        "value": 8,
+        "unit": "app",
+        "source": "ESTIMATED",
+        "basis": "Voorbeeldgebouw: fictieve waarde, geen gemeten gegevens.",
+        "raw": null
+      }
+    },
+    {
+      "key": "ventilatie",
+      "auto": {
+        "value": 8,
+        "unit": "app",
+        "source": "ESTIMATED",
+        "basis": "Voorbeeldgebouw: fictieve waarde, geen gemeten gegevens.",
+        "raw": null
+      }
+    },
+    {
+      "key": "lift",
+      "auto": null
+    },
+    {
+      "key": "trappenhuis",
+      "auto": {
+        "value": 8,
+        "unit": "app",
+        "source": "ESTIMATED",
+        "basis": "Voorbeeldgebouw: fictieve waarde, geen gemeten gegevens.",
+        "raw": null
+      }
+    },
+    {
+      "key": "vloerafwerking",
+      "auto": {
+        "value": 8,
+        "unit": "app",
+        "source": "ESTIMATED",
+        "basis": "Voorbeeldgebouw: fictieve waarde, geen gemeten gegevens.",
+        "raw": null
+      }
+    },
+    {
+      "key": "bestrating",
+      "auto": {
+        "value": 8,
+        "unit": "app",
+        "source": "ESTIMATED",
+        "basis": "Voorbeeldgebouw: fictieve waarde, geen gemeten gegevens.",
+        "raw": null
+      }
+    },
+    {
+      "key": "fietsenstalling",
+      "auto": {
+        "value": 8,
+        "unit": "app",
+        "source": "ESTIMATED",
+        "basis": "Voorbeeldgebouw: fictieve waarde, geen gemeten gegevens.",
+        "raw": null
+      }
+    }
+  ]
+}
