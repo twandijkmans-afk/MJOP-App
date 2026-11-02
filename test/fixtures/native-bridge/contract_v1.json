@@ -1,0 +1,239 @@
+{
+  "_comment": "Contractvoorbeelden voor de native navigatie (brugversie 1, app-versie 2). Hetzelfde bestand staat in mjop-learning (photo_walk/ios/Tests/MJOPIntegrationTests/Fixtures) en wordt door de Swift- én de JavaScript-tests gebruikt. Wijzig beide kopieën samen.",
+  "contract": "mjop_native_nav_v1",
+  "commands_valid": [
+    {
+      "v": 1,
+      "type": "command",
+      "command": "navigate",
+      "requestId": "c-1",
+      "tab": "planning"
+    },
+    {
+      "v": 1,
+      "type": "command",
+      "command": "navigate",
+      "requestId": "c-2",
+      "tab": "account",
+      "sub": "abonnement"
+    },
+    {
+      "v": 1,
+      "type": "command",
+      "command": "getProjects",
+      "requestId": "c-3"
+    },
+    {
+      "v": 1,
+      "type": "command",
+      "command": "openProject",
+      "requestId": "c-4",
+      "id": "11111111-2222-3333-4444-555555555555",
+      "tab": "home"
+    },
+    {
+      "v": 1,
+      "type": "command",
+      "command": "openProject",
+      "requestId": "c-5",
+      "id": "11111111-2222-3333-4444-555555555555",
+      "force": true
+    },
+    {
+      "v": 1,
+      "type": "command",
+      "command": "startMeasurement",
+      "requestId": "c-6",
+      "mode": "round",
+      "planId": "11111111-2222-3333-4444-555555555555"
+    },
+    {
+      "v": 1,
+      "type": "command",
+      "command": "startMeasurement",
+      "requestId": "c-7",
+      "mode": "element",
+      "elementKey": "kozijnen-onderhoud"
+    },
+    {
+      "v": 1,
+      "type": "command",
+      "command": "getStatus",
+      "requestId": "c-8"
+    },
+    {
+      "v": 1,
+      "type": "command",
+      "command": "getProposals",
+      "requestId": "c-9"
+    },
+    {
+      "v": 1,
+      "type": "command",
+      "command": "signOut",
+      "requestId": "c-10"
+    },
+    {
+      "v": 1,
+      "type": "command",
+      "command": "newProject",
+      "requestId": "c-11"
+    }
+  ],
+  "commands_invalid": [
+    {
+      "why": "onbekend commando",
+      "msg": {
+        "v": 1,
+        "type": "command",
+        "command": "deleteProject",
+        "requestId": "x-1"
+      }
+    },
+    {
+      "why": "onbekende tab",
+      "msg": {
+        "v": 1,
+        "type": "command",
+        "command": "navigate",
+        "requestId": "x-2",
+        "tab": "javascript:alert(1)"
+      }
+    },
+    {
+      "why": "sub zonder account",
+      "msg": {
+        "v": 1,
+        "type": "command",
+        "command": "navigate",
+        "requestId": "x-3",
+        "tab": "planning",
+        "sub": "profiel"
+      }
+    },
+    {
+      "why": "onbekende sub",
+      "msg": {
+        "v": 1,
+        "type": "command",
+        "command": "navigate",
+        "requestId": "x-4",
+        "tab": "account",
+        "sub": "geheim"
+      }
+    },
+    {
+      "why": "slecht project-id",
+      "msg": {
+        "v": 1,
+        "type": "command",
+        "command": "openProject",
+        "requestId": "x-5",
+        "id": "../etc"
+      }
+    },
+    {
+      "why": "slechte mode",
+      "msg": {
+        "v": 1,
+        "type": "command",
+        "command": "startMeasurement",
+        "requestId": "x-6",
+        "mode": "alles"
+      }
+    },
+    {
+      "why": "element zonder sleutel",
+      "msg": {
+        "v": 1,
+        "type": "command",
+        "command": "startMeasurement",
+        "requestId": "x-7",
+        "mode": "element"
+      }
+    },
+    {
+      "why": "verkeerde versie",
+      "msg": {
+        "v": 2,
+        "type": "command",
+        "command": "getStatus",
+        "requestId": "x-8"
+      }
+    },
+    {
+      "why": "slecht requestId",
+      "msg": {
+        "v": 1,
+        "type": "command",
+        "command": "getStatus",
+        "requestId": "a b"
+      }
+    },
+    {
+      "why": "verkeerd type",
+      "msg": {
+        "v": 1,
+        "type": "proposals",
+        "command": "getStatus",
+        "requestId": "x-9"
+      }
+    }
+  ],
+  "web_ready": {
+    "v": 1,
+    "action": "webReady",
+    "requestId": "n1-abc",
+    "payload": {
+      "features": [
+        "nav1"
+      ],
+      "webVersion": "native-nav-1"
+    }
+  },
+  "native_ready": {
+    "v": 1,
+    "type": "nativeReady",
+    "features": [
+      "tabs1"
+    ],
+    "appVersion": "2",
+    "lidar": true
+  },
+  "web_state_example": {
+    "loggedIn": true,
+    "subscribed": true,
+    "planId": "11111111-2222-3333-4444-555555555555",
+    "hasBuilding": true,
+    "example": false,
+    "label": "Teststraat 1, Amsterdam",
+    "tab": "home",
+    "screen": "app",
+    "dirty": false,
+    "saveStatus": "SAVED",
+    "pendingProposals": 2,
+    "planRef": "plan-0123456789abcdef01234567",
+    "nextStep": "Bekijk je voorstel"
+  },
+  "projects_reply_example": {
+    "loggedIn": true,
+    "projects": [
+      {
+        "id": "11111111-2222-3333-4444-555555555555",
+        "label": "Teststraat 1, Amsterdam",
+        "adres": "Teststraat 1, Amsterdam",
+        "updatedAt": "2026-10-30T09:15:00Z",
+        "nextStep": "Bekijk je voorstel",
+        "current": true
+      },
+      {
+        "id": "66666666-7777-8888-9999-000000000000",
+        "label": "Voorbeeldlaan 5, Utrecht",
+        "adres": null,
+        "updatedAt": null,
+        "nextStep": "Open het gebouw en ga verder",
+        "current": false
+      }
+    ]
+  }
+}
