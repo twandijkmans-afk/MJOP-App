@@ -1,0 +1,49 @@
+# Websitetests (alleen testen).
+#
+# - Draait bij pull requests en handmatig. Er is bewust GEEN push-trigger en GEEN deploy-stap.
+# - Alleen lees-rechten (contents: read); geen secrets, geen Pages-rechten. Deployen blijft uitsluitend in deploy-pages.yml.
+# - De tests gebruiken een nagebootst Supabase-netwerk en lokale testpagina's; er worden geen productiegegevens gelezen of geschreven.
+# - Playwright, Chromium en de supabase-js-SDK worden buiten de repo-map geïnstalleerd (RUNNER_TEMP), de repo blijft schoon.
+name: Website tests
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: web-tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  web-tests:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Node installeren
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Testgereedschap installeren (Playwright, Chromium, supabase-js 2.116.0)
+        run: |
+          mkdir -p "$RUNNER_TEMP/tools"
+          cd "$RUNNER_TEMP/tools"
+          npm init -y >/dev/null
+          # exacte versies: dezelfde supabase-js als in index.html
+          npm install --no-audit --no-fund playwright@1.49.1 @supabase/supabase-js@2.116.0
+          npx playwright install --with-deps chromium
+          echo "NODE_PATH=$RUNNER_TEMP/tools/node_modules" >> "$GITHUB_ENV"
+          echo "MJOP_SUPABASE_SDK=$RUNNER_TEMP/tools/node_modules/@supabase/supabase-js/dist/umd/supabase.js" >> "$GITHUB_ENV"
+          CHROMIUM=$(NODE_PATH="$RUNNER_TEMP/tools/node_modules" node -e "console.log(require('playwright').chromium.executablePath())")
+          echo "MJOP_CHROMIUM=$CHROMIUM" >> "$GITHUB_ENV"
+          test -f "$RUNNER_TEMP/tools/node_modules/@supabase/supabase-js/dist/umd/supabase.js"
+          test -x "$CHROMIUM"
+
+      - name: Alle websitetests draaien
+        run: bash test/run-all.sh
