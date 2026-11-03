@@ -1727,6 +1727,7 @@
   function render() {
     persistWorkSession();
     scheduleAutoSave();
+    if (nativeNav) nativeNav.notify();      // iPhone-app: huidige status (alleen lezen) doorgeven als die veranderd is
     var active = document.activeElement;
     var focusInfo = null;
     if (active && root.contains(active) && active.id) {
@@ -2587,6 +2588,127 @@
     ui.melding = id ? 'Camera wordt geopend… Na afloop kom je hier terug met voorstellen.' : '';
     render();
   }
+  // ---------------------------------------------------------------------
+  // Native navigatie (iPhone-app MJOP Live vanaf versie 2, zie src/native-nav.js en docs/native-bridge-v2.md).
+  // De app stuurt gevalideerde commando's; hier staat hoe de website die uitvoert. Niets hiervan schrijft naar saved_plans:
+  // een project openen is dezelfde (alleen-lezen) actie als op de website, en een meting starten gebruikt de bestaande Fotoronde-brug.
+  // ---------------------------------------------------------------------
+  var nativeNav = null;
+  function nativeWaitFor(cond, ms) {
+    return new Promise(function (resolve, reject) {
+      var t0 = Date.now();
+      (function tick() {
+        if (cond()) return resolve();
+        if (Date.now() - t0 > ms) return reject({ code: 'TIMEOUT', message: 'De website reageerde niet op tijd.' });
+        setTimeout(tick, 100);
+      })();
+    });
+  }
+  function nativePlanById(id) { return (state.savedPlans || []).filter(function (p) { return p.id === id; })[0] || null; }
+  function nativeHasBuilding() { return !!(state.building && !state.building.isVoorbeeld); }
+  function nativeStatus() {
+    var pr = state.photoRound;
+    var proposed = pr && Array.isArray(pr.proposals) ? pr.proposals.filter(function (x) { return x.ui && x.ui.status === 'PROPOSED'; }).length : 0;
+    var hasB = !!state.building;                      // er is een gebouw geopend (ook het voorbeeldgebouw)
+    var plan = state.currentPlanId ? (nativePlanById(state.currentPlanId) || { id: state.currentPlanId }) : null;
+    var dirty = nativeHasBuilding() ? isDirty() : false;   // het voorbeeldgebouw telt niet als werk dat verloren kan gaan
+    var fout = state.plansUi && state.plansUi.fout;
+    return {
+      loggedIn: !!state.session,
+      subscribed: isSubscribed(),
+      planId: state.currentPlanId || null,
+      hasBuilding: hasB,
+      example: hasB && !!state.building.isVoorbeeld,
+      label: hasB ? String(state.building.adres || 'Gebouw').slice(0, 200) : null,
+      tab: String(state.tab || ''),
+      screen: String(currentScreen() || ''),
+      dirty: dirty,
+      saveStatus: !state.session ? 'NOT_LOGGED_IN' : fout ? 'ERROR' : !isSubscribed() ? 'NOT_SAVED' : dirty ? 'PENDING' : 'SAVED',
+      pendingProposals: proposed,
+      planRef: pr && typeof pr.planRef === 'string' ? pr.planRef : null,
+      nextStep: hasB && plan ? String(volgendeStapTekst(plan)).slice(0, 200) : null,
+    };
+  }
+  function nativeListProjects() {
+    if (!sb || !state.session) return Promise.resolve({ loggedIn: false, projects: [] });
+    var klaar = function () {
+      if (state.plansUi.fout) throw { code: 'LOAD_FAILED', message: String(state.plansUi.fout).slice(0, 200) };
+      return {
+        loggedIn: true,
+        projects: (state.savedPlans || []).slice(0, NativeNav.MAX_PROJECTS).map(function (p) {
+          return {
+            id: String(p.id), label: String(p.label || p.adres || 'Gebouw zonder naam').slice(0, 200), adres: p.adres ? String(p.adres).slice(0, 200) : null,
+            updatedAt: p.updated_at ? String(p.updated_at).slice(0, 40) : null, nextStep: String(volgendeStapTekst(p)).slice(0, 200), current: p.id === state.currentPlanId,
+          };
+        }),
+      };
+    };
+    loadSavedPlans();    // altijd verversen: de lijst kan op een ander apparaat zijn gewijzigd
+    return nativeWaitFor(function () { return !state.plansUi.bezig; }, 15000).then(klaar);
+  }
+  function nativeSetTab(tab, sub) {
+    ACTIONS['set-tab']({ tab: tab });
+    if (sub && (tab === 'account' || tab === 'instellingen')) { state.accountSubTab = sub; render(); }
+    return nativeStatus();
+  }
+  function nativeOpenProject(id, tab, force) {
+    if (!sb || !state.session) return Promise.reject({ code: 'NOT_LOGGED_IN', message: 'Je bent niet ingelogd.' });
+    var finish = function () { if (tab) nativeSetTab(tab, null); return nativeStatus(); };
+    if (id === state.currentPlanId && state.building) return Promise.resolve(finish());
+    // Nooit stil werk weggooien: een niet-opgeslagen project wordt alleen vervangen als de gebruiker dat in de app bevestigt (force).
+    if (!force && nativeHasBuilding() && isDirty()) return Promise.reject({ code: 'UNSAVED_CHANGES', message: 'Het huidige project heeft wijzigingen die nog niet zijn opgeslagen.' });
+    ACTIONS['open-plan']({ id: id, na: tab === 'fotoronde' || tab === 'gebouw' || tab === 'wizard' ? tab : undefined });
+    return nativeWaitFor(function () { return !state.plansUi.bezig && (state.currentPlanId === id || !!state.plansUi.fout); }, 20000).then(function () {
+      if (state.currentPlanId !== id) throw { code: 'OPEN_FAILED', message: String(state.plansUi.fout || 'Dit project kon niet geopend worden.').slice(0, 200) };
+      return finish();
+    });
+  }
+  function nativeStartMeasurement(c) {
+    var go = function () {
+      if (!state.building) throw { code: 'NO_PROJECT', message: 'Er is geen project geopend.' };
+      if (!PR.available()) throw { code: 'NO_BRIDGE', message: 'De scanner werkt alleen in de iPhone-app.' };
+      var el = null;
+      if (c.mode === 'element') {
+        el = findEl(c.elementKey);
+        if (!el) throw { code: 'NO_ELEMENT', message: 'Dit onderhoudsonderdeel staat niet in het project.' };
+      }
+      prStart(c.mode, el);       // dezelfde route als de knop op de website: bestaande brugacties startPhotoRound/startElementScan
+      return { started: true, mode: c.mode, planRef: state.photoRound ? state.photoRound.planRef : null };
+    };
+    if (c.planId && c.planId !== state.currentPlanId) return nativeOpenProject(c.planId, null, c.force).then(go);
+    return Promise.resolve().then(go);
+  }
+  function nativeProposals() {
+    var pr = state.photoRound;
+    var all = pr && Array.isArray(pr.proposals) ? pr.proposals : [];
+    var open = all.filter(function (x) { return x.ui && x.ui.status === 'PROPOSED'; }).slice(0, 100).map(function (x) {
+      var p = x.p, s = p.target.scope;
+      return {
+        id: p.proposal_id, kind: p.target.quantity_kind, unit: p.target.unit,
+        scope: s.type === 'BUILDING' ? 'Hele gebouw' : 'Gevel ' + s.facade_id,
+        value: typeof p.value === 'number' ? p.value : null,                 // onbekend blijft null, nooit 0
+        partialValue: typeof p.partial_value === 'number' ? p.partial_value : null,
+        level: p.reliability.level,
+      };
+    });
+    return { planRef: pr ? pr.planRef : null, total: all.length, pending: open };
+  }
+  function nativeNavEnv() {
+    return {
+      setNativeTabs: function (on) { document.documentElement.classList.toggle('native-tabs', !!on); },
+      onNativeInfo: function (info) { state.photoRoundUi.native = info; },
+      getStatus: nativeStatus,
+      listProjects: nativeListProjects,
+      setTab: nativeSetTab,
+      openProject: nativeOpenProject,
+      startMeasurement: nativeStartMeasurement,
+      getProposals: nativeProposals,
+      signOut: function () { ACTIONS.logout(); return { signedOut: true }; },
+      newProject: function () { return nativeSetTab('start', null); },
+    };
+  }
+  var NativeNav = window.MJOPNativeNav || { MAX_PROJECTS: 200 };
+
   function prRefresh() {
     if (!PR.available()) return;
     prProbe();
@@ -6259,6 +6381,12 @@
     });
     // Fotoronde: berichten van de iPhone-app (alleen aanwezig in MJOP Live); bij terugkeren in de app opnieuw voorstellen ophalen.
     PR.onMessage(prOnMessage);
+    // Native tabs (iPhone-app vanaf versie 2): meldt zich bij de app; zonder app of met een oudere app gebeurt er niets en blijft alles zoals voorheen.
+    if (window.MJOPNativeNav) {
+      nativeNav = window.MJOPNativeNav.create({ win: window, env: nativeNavEnv() });
+      window.MJOPNativeNav.install(window, nativeNav);
+      nativeNav.announce();
+    }
     if (PR.available()) {
       prProbe();
       document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') prRefresh(); });

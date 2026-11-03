@@ -1539,3 +1539,9 @@ input[type=range].ov-slider::-moz-range-thumb { width: 14px; height: 14px; borde
 .d3-tech { margin-top: 10px; font-size: 12px; color: var(--text-2); }
 .d3-tech summary { cursor: pointer; }
 .d3-tech ul { margin: 6px 0 0; padding-left: 18px; word-break: break-word; }
+
+/* Native navigatie (iPhone-app MJOP Live vanaf versie 2, zie src/native-nav.js): de app toont zelf de tabbalk onderin en de knoppen voor
+   Account/Home. Alleen als de app dit bevestigt krijgt <html> de klasse native-tabs; op de gewone website en in oudere appversies verandert er niets. */
+html.native-tabs .tab-bar,
+html.native-tabs .mobile-settings-btn,
+html.native-tabs .mobile-home-btn { display: none !important; }
