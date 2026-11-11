@@ -1,0 +1,1125 @@
+{
+  "booking_allowed" : false,
+  "building_totals" : {
+    "door_count" : {
+      "missing" : [
+        "GEEN_MODEL_VOOR_DEUR_OF_RAAM",
+        "GEVELS_ONDERLING_NIET_VERGELEKEN"
+      ],
+      "origin" : "NONE",
+      "outcome" : "NIET_VAST_TE_STELLEN",
+      "partial" : null,
+      "sigma" : null,
+      "unit" : "st",
+      "value" : null
+    },
+    "fixed_parts" : {
+      "missing" : [
+        "GEOMETRIE_NIET_IN_HET_VELD_GEVALIDEERD",
+        "GEVELS_ONDERLING_NIET_VERGELEKEN",
+        "HERKENNING_NIET_GEVALIDEERD"
+      ],
+      "origin" : "USER_INPUT",
+      "outcome" : "VOORLOPIG_VASTGESTELD",
+      "partial" : null,
+      "sigma" : null,
+      "unit" : "st",
+      "value" : 2
+    },
+    "frame_area_gross" : {
+      "missing" : [
+        "GEOMETRIE_NIET_IN_HET_VELD_GEVALIDEERD",
+        "GEVELS_ONDERLING_NIET_VERGELEKEN",
+        "HERKENNING_NIET_GEVALIDEERD"
+      ],
+      "origin" : "DERIVED_CALCULATION",
+      "outcome" : "VOORLOPIG_VASTGESTELD",
+      "partial" : null,
+      "sigma" : 0.0106,
+      "unit" : "m2",
+      "value" : 5.679
+    },
+    "frame_count" : {
+      "missing" : [
+        "GEOMETRIE_NIET_IN_HET_VELD_GEVALIDEERD",
+        "GEVELS_ONDERLING_NIET_VERGELEKEN",
+        "HERKENNING_NIET_GEVALIDEERD"
+      ],
+      "origin" : "COUNTED_FROM_ASSOCIATION",
+      "outcome" : "VOORLOPIG_VASTGESTELD",
+      "partial" : null,
+      "sigma" : null,
+      "unit" : "st",
+      "value" : 3
+    },
+    "glass_area" : {
+      "missing" : [
+        "GEOMETRIE_NIET_IN_HET_VELD_GEVALIDEERD",
+        "GEVELS_ONDERLING_NIET_VERGELEKEN",
+        "HERKENNING_NIET_GEVALIDEERD"
+      ],
+      "origin" : "DERIVED_SEGMENTATION_ON_MEASURED_PLANE",
+      "outcome" : "VOORLOPIG_VASTGESTELD",
+      "partial" : null,
+      "sigma" : 0.0548,
+      "unit" : "m2",
+      "value" : 4.176
+    },
+    "operable_parts" : {
+      "missing" : [
+        "GEOMETRIE_NIET_IN_HET_VELD_GEVALIDEERD",
+        "GEVELS_ONDERLING_NIET_VERGELEKEN",
+        "HERKENNING_NIET_GEVALIDEERD"
+      ],
+      "origin" : "USER_INPUT",
+      "outcome" : "VOORLOPIG_VASTGESTELD",
+      "partial" : null,
+      "sigma" : null,
+      "unit" : "st",
+      "value" : 4
+    }
+  },
+  "confirmation" : {
+    "status" : "PROPOSED"
+  },
+  "contract" : "mjop_gevel_inventory_v1",
+  "created_at" : "2026-11-11T10:15:00Z",
+  "element_key" : null,
+  "facades" : [
+    {
+      "capture_requests" : [
+
+      ],
+      "completeness" : "VOORLOPIG_VASTGESTELD",
+      "completeness_reasons" : [
+        "GEOMETRIE_NIET_IN_HET_VELD_GEVALIDEERD",
+        "GEVELOMVANG_ONBEKEND",
+        "HERKENNING_NIET_GEVALIDEERD",
+        "OBJECTEN_NIET_BETROUWBAAR_VASTGESTELD"
+      ],
+      "coverage" : {
+        "covered_fraction" : 0.994,
+        "determinable" : true,
+        "flags" : [
+
+        ],
+        "height_m" : 3.83,
+        "multi_view_fraction" : 0.892,
+        "photos_used" : 3,
+        "photos_without_plane" : 0,
+        "width_m" : 5.34
+      },
+      "facade_id" : "Voorgevel",
+      "objects" : [
+        {
+          "area" : {
+            "missing" : [
+              "GEOMETRIE_NIET_IN_HET_VELD_GEVALIDEERD",
+              "HERKENNING_NIET_GEVALIDEERD"
+            ],
+            "origin" : "DERIVED_CALCULATION",
+            "outcome" : "VOORLOPIG_VASTGESTELD",
+            "partial" : null,
+            "sigma" : 0.0055,
+            "unit" : "m2",
+            "value" : 1.802701
+          },
+          "class_origin" : "DERIVED_SEGMENTATION_ON_MEASURED_PLANE",
+          "condition" : [
+            {
+              "category" : null,
+              "detector" : null,
+              "id" : "GO-1f07d9c3-C0",
+              "kind" : "NIET_BEOORDEELBAAR",
+              "label_nl" : null,
+              "photo_id" : null,
+              "reasons" : [
+                "GEEN_GEBREKENMODEL"
+              ],
+              "region_px" : null,
+              "score" : null
+            }
+          ],
+          "contour_evidence" : "AUTO_CORROBORATED",
+          "count" : 1,
+          "detectors" : [
+            {
+              "classes" : [
+                "KOZIJN",
+                "GLASVLAK"
+              ],
+              "kind" : "GEOMETRIC_CANDIDATE",
+              "name" : "apple-vision-rectangles+contours\/ContourOrganizer",
+              "validated" : false,
+              "version" : "facade-composition-1"
+            }
+          ],
+          "dimension_status" : "MEASURED",
+          "element_class" : "KOZIJN",
+          "fixed_parts" : {
+            "missing" : [
+
+            ],
+            "origin" : "USER_INPUT",
+            "outcome" : "BETROUWBAAR_VASTGESTELD",
+            "partial" : null,
+            "sigma" : null,
+            "unit" : "st",
+            "value" : 1
+          },
+          "glass_area" : {
+            "missing" : [
+              "GEOMETRIE_NIET_IN_HET_VELD_GEVALIDEERD",
+              "HERKENNING_NIET_GEVALIDEERD"
+            ],
+            "origin" : "DERIVED_SEGMENTATION_ON_MEASURED_PLANE",
+            "outcome" : "VOORLOPIG_VASTGESTELD",
+            "partial" : null,
+            "sigma" : 0.0287,
+            "unit" : "m2",
+            "value" : 1.32
+          },
+          "height" : {
+            "missing" : [
+              "GEOMETRIE_NIET_IN_HET_VELD_GEVALIDEERD",
+              "HERKENNING_NIET_GEVALIDEERD"
+            ],
+            "origin" : "LIDAR_PLANE_MEASUREMENT",
+            "outcome" : "VOORLOPIG_VASTGESTELD",
+            "partial" : null,
+            "sigma" : 0.003,
+            "unit" : "m",
+            "value" : 1.501
+          },
+          "identity" : "RESOLVED",
+          "identity_reasons" : [
+
+          ],
+          "independent_viewpoints" : 3,
+          "label_nl" : "Kozijn",
+          "measured_sighting_ids" : [
+            "OBS-F001-01",
+            "OBS-F002-01",
+            "OBS-F003-01"
+          ],
+          "mullions" : [
+            {
+              "origin" : "DERIVED_CALCULATION",
+              "position_m" : 0.617,
+              "thickness_m" : 0.059
+            }
+          ],
+          "nen2767_condition_score" : null,
+          "notes_nl" : [
+
+          ],
+          "object_id" : "GO-1f07d9c3",
+          "operable_parts" : {
+            "missing" : [
+
+            ],
+            "origin" : "USER_INPUT",
+            "outcome" : "BETROUWBAAR_VASTGESTELD",
+            "partial" : null,
+            "sigma" : null,
+            "unit" : "st",
+            "value" : 1
+          },
+          "outcome" : "VOORLOPIG_VASTGESTELD",
+          "outcome_reasons" : [
+            "GEOMETRIE_NIET_IN_HET_VELD_GEVALIDEERD",
+            "HERKENNING_NIET_GEVALIDEERD"
+          ],
+          "panes" : [
+            {
+              "area_m2" : 0.6601,
+              "column" : 0,
+              "glare_suspected" : false,
+              "height_m" : 1.34,
+              "id" : "GO-1f07d9c3-G1",
+              "operability" : null,
+              "origin" : "DERIVED_SEGMENTATION_ON_MEASURED_PLANE",
+              "row" : 0,
+              "seen_in_views" : 3,
+              "sigma_area_m2" : 0.0203,
+              "width_m" : 0.493,
+              "x_m" : 0.095,
+              "y_m" : 0.081
+            },
+            {
+              "area_m2" : 0.6601,
+              "column" : 1,
+              "glare_suspected" : false,
+              "height_m" : 1.34,
+              "id" : "GO-1f07d9c3-G2",
+              "operability" : null,
+              "origin" : "DERIVED_SEGMENTATION_ON_MEASURED_PLANE",
+              "row" : 0,
+              "seen_in_views" : 3,
+              "sigma_area_m2" : 0.0203,
+              "width_m" : 0.493,
+              "x_m" : 0.647,
+              "y_m" : 0.081
+            }
+          ],
+          "photo_ids" : [
+            "F001",
+            "F002",
+            "F003"
+          ],
+          "possible_same_as" : [
+
+          ],
+          "quality_flags" : [
+
+          ],
+          "recess_cm" : 6.2,
+          "scale_method" : "LIDAR_DEPTH_PLANE",
+          "sections" : {
+            "missing" : [
+              "GEOMETRIE_NIET_IN_HET_VELD_GEVALIDEERD",
+              "HERKENNING_NIET_GEVALIDEERD"
+            ],
+            "origin" : "DERIVED_SEGMENTATION_ON_MEASURED_PLANE",
+            "outcome" : "VOORLOPIG_VASTGESTELD",
+            "partial" : null,
+            "sigma" : null,
+            "unit" : "st",
+            "value" : 2
+          },
+          "sighting_ids" : [
+            "OBS-F001-01",
+            "OBS-F002-01",
+            "OBS-F003-01"
+          ],
+          "transoms" : [
+
+          ],
+          "truncated_by" : [
+
+          ],
+          "width" : {
+            "missing" : [
+              "GEOMETRIE_NIET_IN_HET_VELD_GEVALIDEERD",
+              "HERKENNING_NIET_GEVALIDEERD"
+            ],
+            "origin" : "LIDAR_PLANE_MEASUREMENT",
+            "outcome" : "VOORLOPIG_VASTGESTELD",
+            "partial" : null,
+            "sigma" : 0.0028,
+            "unit" : "m",
+            "value" : 1.201
+          }
+        },
+        {
+          "area" : {
+            "missing" : [
+              "GEOMETRIE_NIET_IN_HET_VELD_GEVALIDEERD",
+              "HERKENNING_NIET_GEVALIDEERD"
+            ],
+            "origin" : "DERIVED_CALCULATION",
+            "outcome" : "VOORLOPIG_VASTGESTELD",
+            "partial" : null,
+            "sigma" : 0.0066,
+            "unit" : "m2",
+            "value" : 2.253001
+          },
+          "class_origin" : "DERIVED_SEGMENTATION_ON_MEASURED_PLANE",
+          "condition" : [
+            {
+              "category" : null,
+              "detector" : null,
+              "id" : "GO-1f07db76-C0",
+              "kind" : "NIET_BEOORDEELBAAR",
+              "label_nl" : null,
+              "photo_id" : null,
+              "reasons" : [
+                "GEEN_GEBREKENMODEL"
+              ],
+              "region_px" : null,
+              "score" : null
+            }
+          ],
+          "contour_evidence" : "AUTO_CORROBORATED",
+          "count" : 1,
+          "detectors" : [
+            {
+              "classes" : [
+                "KOZIJN",
+                "GLASVLAK"
+              ],
+              "kind" : "GEOMETRIC_CANDIDATE",
+              "name" : "apple-vision-rectangles+contours\/ContourOrganizer",
+              "validated" : false,
+              "version" : "facade-composition-1"
+            }
+          ],
+          "dimension_status" : "MEASURED",
+          "element_class" : "KOZIJN",
+          "fixed_parts" : {
+            "missing" : [
+
+            ],
+            "origin" : "USER_INPUT",
+            "outcome" : "BETROUWBAAR_VASTGESTELD",
+            "partial" : null,
+            "sigma" : null,
+            "unit" : "st",
+            "value" : 1
+          },
+          "glass_area" : {
+            "missing" : [
+              "GEOMETRIE_NIET_IN_HET_VELD_GEVALIDEERD",
+              "HERKENNING_NIET_GEVALIDEERD"
+            ],
+            "origin" : "DERIVED_SEGMENTATION_ON_MEASURED_PLANE",
+            "outcome" : "VOORLOPIG_VASTGESTELD",
+            "partial" : null,
+            "sigma" : 0.03,
+            "unit" : "m2",
+            "value" : 1.637
+          },
+          "height" : {
+            "missing" : [
+              "GEOMETRIE_NIET_IN_HET_VELD_GEVALIDEERD",
+              "HERKENNING_NIET_GEVALIDEERD"
+            ],
+            "origin" : "LIDAR_PLANE_MEASUREMENT",
+            "outcome" : "VOORLOPIG_VASTGESTELD",
+            "partial" : null,
+            "sigma" : 0.0031,
+            "unit" : "m",
+            "value" : 1.501
+          },
+          "identity" : "RESOLVED",
+          "identity_reasons" : [
+
+          ],
+          "independent_viewpoints" : 3,
+          "label_nl" : "Kozijn",
+          "measured_sighting_ids" : [
+            "OBS-F001-02",
+            "OBS-F002-02",
+            "OBS-F003-02"
+          ],
+          "mullions" : [
+            {
+              "origin" : "DERIVED_CALCULATION",
+              "position_m" : 0.504,
+              "thickness_m" : 0.059
+            },
+            {
+              "origin" : "DERIVED_CALCULATION",
+              "position_m" : 0.97,
+              "thickness_m" : 0.059
+            }
+          ],
+          "nen2767_condition_score" : null,
+          "notes_nl" : [
+
+          ],
+          "object_id" : "GO-1f07db76",
+          "operable_parts" : {
+            "missing" : [
+
+            ],
+            "origin" : "USER_INPUT",
+            "outcome" : "BETROUWBAAR_VASTGESTELD",
+            "partial" : null,
+            "sigma" : null,
+            "unit" : "st",
+            "value" : 2
+          },
+          "outcome" : "VOORLOPIG_VASTGESTELD",
+          "outcome_reasons" : [
+            "GEOMETRIE_NIET_IN_HET_VELD_GEVALIDEERD",
+            "HERKENNING_NIET_GEVALIDEERD"
+          ],
+          "panes" : [
+            {
+              "area_m2" : 0.5456,
+              "column" : 0,
+              "glare_suspected" : false,
+              "height_m" : 1.34,
+              "id" : "GO-1f07db76-G1",
+              "operability" : null,
+              "origin" : "DERIVED_SEGMENTATION_ON_MEASURED_PLANE",
+              "row" : 0,
+              "seen_in_views" : 3,
+              "sigma_area_m2" : 0.0173,
+              "width_m" : 0.407,
+              "x_m" : 0.067,
+              "y_m" : 0.081
+            },
+            {
+              "area_m2" : 0.5456,
+              "column" : 1,
+              "glare_suspected" : false,
+              "height_m" : 1.34,
+              "id" : "GO-1f07db76-G2",
+              "operability" : null,
+              "origin" : "DERIVED_SEGMENTATION_ON_MEASURED_PLANE",
+              "row" : 0,
+              "seen_in_views" : 3,
+              "sigma_area_m2" : 0.0173,
+              "width_m" : 0.407,
+              "x_m" : 0.533,
+              "y_m" : 0.081
+            },
+            {
+              "area_m2" : 0.5456,
+              "column" : 2,
+              "glare_suspected" : false,
+              "height_m" : 1.34,
+              "id" : "GO-1f07db76-G3",
+              "operability" : null,
+              "origin" : "DERIVED_SEGMENTATION_ON_MEASURED_PLANE",
+              "row" : 0,
+              "seen_in_views" : 3,
+              "sigma_area_m2" : 0.0173,
+              "width_m" : 0.407,
+              "x_m" : 0.999,
+              "y_m" : 0.081
+            }
+          ],
+          "photo_ids" : [
+            "F001",
+            "F002",
+            "F003"
+          ],
+          "possible_same_as" : [
+
+          ],
+          "quality_flags" : [
+
+          ],
+          "recess_cm" : 6.3,
+          "scale_method" : "LIDAR_DEPTH_PLANE",
+          "sections" : {
+            "missing" : [
+              "GEOMETRIE_NIET_IN_HET_VELD_GEVALIDEERD",
+              "HERKENNING_NIET_GEVALIDEERD"
+            ],
+            "origin" : "DERIVED_SEGMENTATION_ON_MEASURED_PLANE",
+            "outcome" : "VOORLOPIG_VASTGESTELD",
+            "partial" : null,
+            "sigma" : null,
+            "unit" : "st",
+            "value" : 3
+          },
+          "sighting_ids" : [
+            "OBS-F001-02",
+            "OBS-F002-02",
+            "OBS-F003-02"
+          ],
+          "transoms" : [
+
+          ],
+          "truncated_by" : [
+
+          ],
+          "width" : {
+            "missing" : [
+              "GEOMETRIE_NIET_IN_HET_VELD_GEVALIDEERD",
+              "HERKENNING_NIET_GEVALIDEERD"
+            ],
+            "origin" : "LIDAR_PLANE_MEASUREMENT",
+            "outcome" : "VOORLOPIG_VASTGESTELD",
+            "partial" : null,
+            "sigma" : 0.0031,
+            "unit" : "m",
+            "value" : 1.501
+          }
+        }
+      ],
+      "orientation" : "S",
+      "photo_ids" : [
+        "F001",
+        "F002",
+        "F003"
+      ],
+      "totals" : {
+        "door_count" : {
+          "missing" : [
+            "GEEN_MODEL_VOOR_DEUR_OF_RAAM"
+          ],
+          "origin" : "NONE",
+          "outcome" : "NIET_VAST_TE_STELLEN",
+          "partial" : null,
+          "sigma" : null,
+          "unit" : "st",
+          "value" : null
+        },
+        "fixed_parts" : {
+          "missing" : [
+            "GEOMETRIE_NIET_IN_HET_VELD_GEVALIDEERD",
+            "HERKENNING_NIET_GEVALIDEERD"
+          ],
+          "origin" : "USER_INPUT",
+          "outcome" : "VOORLOPIG_VASTGESTELD",
+          "partial" : null,
+          "sigma" : null,
+          "unit" : "st",
+          "value" : 2
+        },
+        "frame_area_gross" : {
+          "missing" : [
+            "GEOMETRIE_NIET_IN_HET_VELD_GEVALIDEERD",
+            "HERKENNING_NIET_GEVALIDEERD"
+          ],
+          "origin" : "DERIVED_CALCULATION",
+          "outcome" : "VOORLOPIG_VASTGESTELD",
+          "partial" : null,
+          "sigma" : 0.0086,
+          "unit" : "m2",
+          "value" : 4.056
+        },
+        "frame_count" : {
+          "missing" : [
+            "GEOMETRIE_NIET_IN_HET_VELD_GEVALIDEERD",
+            "HERKENNING_NIET_GEVALIDEERD"
+          ],
+          "origin" : "COUNTED_FROM_ASSOCIATION",
+          "outcome" : "VOORLOPIG_VASTGESTELD",
+          "partial" : null,
+          "sigma" : null,
+          "unit" : "st",
+          "value" : 2
+        },
+        "glass_area" : {
+          "missing" : [
+            "GEOMETRIE_NIET_IN_HET_VELD_GEVALIDEERD",
+            "HERKENNING_NIET_GEVALIDEERD"
+          ],
+          "origin" : "DERIVED_SEGMENTATION_ON_MEASURED_PLANE",
+          "outcome" : "VOORLOPIG_VASTGESTELD",
+          "partial" : null,
+          "sigma" : 0.0415,
+          "unit" : "m2",
+          "value" : 2.957
+        },
+        "operable_parts" : {
+          "missing" : [
+            "GEOMETRIE_NIET_IN_HET_VELD_GEVALIDEERD",
+            "HERKENNING_NIET_GEVALIDEERD"
+          ],
+          "origin" : "USER_INPUT",
+          "outcome" : "VOORLOPIG_VASTGESTELD",
+          "partial" : null,
+          "sigma" : null,
+          "unit" : "st",
+          "value" : 3
+        }
+      }
+    },
+    {
+      "capture_requests" : [
+
+      ],
+      "completeness" : "VOORLOPIG_VASTGESTELD",
+      "completeness_reasons" : [
+        "GEOMETRIE_NIET_IN_HET_VELD_GEVALIDEERD",
+        "GEVELOMVANG_ONBEKEND",
+        "HERKENNING_NIET_GEVALIDEERD",
+        "OBJECTEN_NIET_BETROUWBAAR_VASTGESTELD"
+      ],
+      "coverage" : {
+        "covered_fraction" : 0.937,
+        "determinable" : true,
+        "flags" : [
+
+        ],
+        "height_m" : 3.31,
+        "multi_view_fraction" : 0.762,
+        "photos_used" : 2,
+        "photos_without_plane" : 0,
+        "width_m" : 4.35
+      },
+      "facade_id" : "Zijgevel",
+      "objects" : [
+        {
+          "area" : {
+            "missing" : [
+              "GEOMETRIE_NIET_IN_HET_VELD_GEVALIDEERD",
+              "HERKENNING_NIET_GEVALIDEERD"
+            ],
+            "origin" : "DERIVED_CALCULATION",
+            "outcome" : "VOORLOPIG_VASTGESTELD",
+            "partial" : null,
+            "sigma" : 0.0062,
+            "unit" : "m2",
+            "value" : 1.623602
+          },
+          "class_origin" : "DERIVED_SEGMENTATION_ON_MEASURED_PLANE",
+          "condition" : [
+            {
+              "category" : null,
+              "detector" : null,
+              "id" : "GO-7ae01dde-C0",
+              "kind" : "NIET_BEOORDEELBAAR",
+              "label_nl" : null,
+              "photo_id" : null,
+              "reasons" : [
+                "GEEN_GEBREKENMODEL"
+              ],
+              "region_px" : null,
+              "score" : null
+            }
+          ],
+          "contour_evidence" : "AUTO_CORROBORATED",
+          "count" : 1,
+          "detectors" : [
+            {
+              "classes" : [
+                "KOZIJN",
+                "GLASVLAK"
+              ],
+              "kind" : "GEOMETRIC_CANDIDATE",
+              "name" : "apple-vision-rectangles+contours\/ContourOrganizer",
+              "validated" : false,
+              "version" : "facade-composition-1"
+            }
+          ],
+          "dimension_status" : "MEASURED",
+          "element_class" : "KOZIJN",
+          "fixed_parts" : {
+            "missing" : [
+
+            ],
+            "origin" : "USER_INPUT",
+            "outcome" : "BETROUWBAAR_VASTGESTELD",
+            "partial" : null,
+            "sigma" : null,
+            "unit" : "st",
+            "value" : 0
+          },
+          "glass_area" : {
+            "missing" : [
+              "GEOMETRIE_NIET_IN_HET_VELD_GEVALIDEERD",
+              "HERKENNING_NIET_GEVALIDEERD"
+            ],
+            "origin" : "DERIVED_SEGMENTATION_ON_MEASURED_PLANE",
+            "outcome" : "VOORLOPIG_VASTGESTELD",
+            "partial" : null,
+            "sigma" : 0.0358,
+            "unit" : "m2",
+            "value" : 1.219
+          },
+          "height" : {
+            "missing" : [
+              "GEOMETRIE_NIET_IN_HET_VELD_GEVALIDEERD",
+              "HERKENNING_NIET_GEVALIDEERD"
+            ],
+            "origin" : "LIDAR_PLANE_MEASUREMENT",
+            "outcome" : "VOORLOPIG_VASTGESTELD",
+            "partial" : null,
+            "sigma" : 0.004,
+            "unit" : "m",
+            "value" : 1.802
+          },
+          "identity" : "RESOLVED",
+          "identity_reasons" : [
+
+          ],
+          "independent_viewpoints" : 2,
+          "label_nl" : "Kozijn",
+          "measured_sighting_ids" : [
+            "OBS-F004-01",
+            "OBS-F005-01"
+          ],
+          "mullions" : [
+
+          ],
+          "nen2767_condition_score" : null,
+          "notes_nl" : [
+
+          ],
+          "object_id" : "GO-7ae01dde",
+          "operable_parts" : {
+            "missing" : [
+
+            ],
+            "origin" : "USER_INPUT",
+            "outcome" : "BETROUWBAAR_VASTGESTELD",
+            "partial" : null,
+            "sigma" : null,
+            "unit" : "st",
+            "value" : 1
+          },
+          "outcome" : "VOORLOPIG_VASTGESTELD",
+          "outcome_reasons" : [
+            "GEOMETRIE_NIET_IN_HET_VELD_GEVALIDEERD",
+            "HERKENNING_NIET_GEVALIDEERD"
+          ],
+          "panes" : [
+            {
+              "area_m2" : 1.2192,
+              "column" : 0,
+              "glare_suspected" : false,
+              "height_m" : 1.632,
+              "id" : "GO-7ae01dde-G1",
+              "operability" : null,
+              "origin" : "DERIVED_SEGMENTATION_ON_MEASURED_PLANE",
+              "row" : 0,
+              "seen_in_views" : 2,
+              "sigma_area_m2" : 0.0358,
+              "width_m" : 0.747,
+              "x_m" : 0.079,
+              "y_m" : 0.085
+            }
+          ],
+          "photo_ids" : [
+            "F004",
+            "F005"
+          ],
+          "possible_same_as" : [
+
+          ],
+          "quality_flags" : [
+
+          ],
+          "recess_cm" : 6.4,
+          "scale_method" : "LIDAR_DEPTH_PLANE",
+          "sections" : {
+            "missing" : [
+              "GEOMETRIE_NIET_IN_HET_VELD_GEVALIDEERD",
+              "HERKENNING_NIET_GEVALIDEERD"
+            ],
+            "origin" : "DERIVED_SEGMENTATION_ON_MEASURED_PLANE",
+            "outcome" : "VOORLOPIG_VASTGESTELD",
+            "partial" : null,
+            "sigma" : null,
+            "unit" : "st",
+            "value" : 1
+          },
+          "sighting_ids" : [
+            "OBS-F004-01",
+            "OBS-F005-01"
+          ],
+          "transoms" : [
+
+          ],
+          "truncated_by" : [
+
+          ],
+          "width" : {
+            "missing" : [
+              "GEOMETRIE_NIET_IN_HET_VELD_GEVALIDEERD",
+              "HERKENNING_NIET_GEVALIDEERD"
+            ],
+            "origin" : "LIDAR_PLANE_MEASUREMENT",
+            "outcome" : "VOORLOPIG_VASTGESTELD",
+            "partial" : null,
+            "sigma" : 0.0028,
+            "unit" : "m",
+            "value" : 0.901
+          }
+        }
+      ],
+      "orientation" : "W",
+      "photo_ids" : [
+        "F004",
+        "F005"
+      ],
+      "totals" : {
+        "door_count" : {
+          "missing" : [
+            "GEEN_MODEL_VOOR_DEUR_OF_RAAM"
+          ],
+          "origin" : "NONE",
+          "outcome" : "NIET_VAST_TE_STELLEN",
+          "partial" : null,
+          "sigma" : null,
+          "unit" : "st",
+          "value" : null
+        },
+        "fixed_parts" : {
+          "missing" : [
+            "GEOMETRIE_NIET_IN_HET_VELD_GEVALIDEERD",
+            "HERKENNING_NIET_GEVALIDEERD"
+          ],
+          "origin" : "USER_INPUT",
+          "outcome" : "VOORLOPIG_VASTGESTELD",
+          "partial" : null,
+          "sigma" : null,
+          "unit" : "st",
+          "value" : 0
+        },
+        "frame_area_gross" : {
+          "missing" : [
+            "GEOMETRIE_NIET_IN_HET_VELD_GEVALIDEERD",
+            "HERKENNING_NIET_GEVALIDEERD"
+          ],
+          "origin" : "DERIVED_CALCULATION",
+          "outcome" : "VOORLOPIG_VASTGESTELD",
+          "partial" : null,
+          "sigma" : 0.0062,
+          "unit" : "m2",
+          "value" : 1.624
+        },
+        "frame_count" : {
+          "missing" : [
+            "GEOMETRIE_NIET_IN_HET_VELD_GEVALIDEERD",
+            "HERKENNING_NIET_GEVALIDEERD"
+          ],
+          "origin" : "COUNTED_FROM_ASSOCIATION",
+          "outcome" : "VOORLOPIG_VASTGESTELD",
+          "partial" : null,
+          "sigma" : null,
+          "unit" : "st",
+          "value" : 1
+        },
+        "glass_area" : {
+          "missing" : [
+            "GEOMETRIE_NIET_IN_HET_VELD_GEVALIDEERD",
+            "HERKENNING_NIET_GEVALIDEERD"
+          ],
+          "origin" : "DERIVED_SEGMENTATION_ON_MEASURED_PLANE",
+          "outcome" : "VOORLOPIG_VASTGESTELD",
+          "partial" : null,
+          "sigma" : 0.0358,
+          "unit" : "m2",
+          "value" : 1.219
+        },
+        "operable_parts" : {
+          "missing" : [
+            "GEOMETRIE_NIET_IN_HET_VELD_GEVALIDEERD",
+            "HERKENNING_NIET_GEVALIDEERD"
+          ],
+          "origin" : "USER_INPUT",
+          "outcome" : "VOORLOPIG_VASTGESTELD",
+          "partial" : null,
+          "sigma" : null,
+          "unit" : "st",
+          "value" : 1
+        }
+      }
+    }
+  ],
+  "inventory_id" : "3F2A9C10-AAAA-BBBB-CCCC--inv-r1",
+  "photos" : [
+    {
+      "camera_direction" : [
+        0,
+        0,
+        -1
+      ],
+      "camera_position_m" : [
+        1.9,
+        1.6,
+        3.8
+      ],
+      "captured_at" : "2026-11-11T10:00:00Z",
+      "depth_median_range_m" : 3.8,
+      "depth_source" : "LIDAR_SCENE_DEPTH",
+      "depth_valid_fraction" : 0.972,
+      "facade_id" : "Voorgevel",
+      "flags" : [
+
+      ],
+      "intrinsics" : {
+        "cx" : 960,
+        "cy" : 720,
+        "fx" : 1500,
+        "fy" : 1500,
+        "height" : 1440,
+        "width" : 1920
+      },
+      "overexposed_fraction" : 0.01,
+      "photo_id" : "F001",
+      "session_ref" : "S1",
+      "sharpness" : 400,
+      "support_depth_frames" : 0,
+      "tracking_normal" : true
+    },
+    {
+      "camera_direction" : [
+        -0.0698,
+        0,
+        -0.9976
+      ],
+      "camera_position_m" : [
+        2.6,
+        1.6,
+        3.8
+      ],
+      "captured_at" : "2026-11-11T10:00:00Z",
+      "depth_median_range_m" : 3.84,
+      "depth_source" : "LIDAR_SCENE_DEPTH",
+      "depth_valid_fraction" : 0.973,
+      "facade_id" : "Voorgevel",
+      "flags" : [
+
+      ],
+      "intrinsics" : {
+        "cx" : 960,
+        "cy" : 720,
+        "fx" : 1500,
+        "fy" : 1500,
+        "height" : 1440,
+        "width" : 1920
+      },
+      "overexposed_fraction" : 0.01,
+      "photo_id" : "F002",
+      "session_ref" : "S1",
+      "sharpness" : 400,
+      "support_depth_frames" : 0,
+      "tracking_normal" : true
+    },
+    {
+      "camera_direction" : [
+        0.0349,
+        0,
+        -0.9994
+      ],
+      "camera_position_m" : [
+        2.25,
+        1.7,
+        3.7
+      ],
+      "captured_at" : "2026-11-11T10:00:00Z",
+      "depth_median_range_m" : 3.73,
+      "depth_source" : "LIDAR_SCENE_DEPTH",
+      "depth_valid_fraction" : 0.971,
+      "facade_id" : "Voorgevel",
+      "flags" : [
+
+      ],
+      "intrinsics" : {
+        "cx" : 960,
+        "cy" : 720,
+        "fx" : 1500,
+        "fy" : 1500,
+        "height" : 1440,
+        "width" : 1920
+      },
+      "overexposed_fraction" : 0.01,
+      "photo_id" : "F003",
+      "session_ref" : "S1",
+      "sharpness" : 400,
+      "support_depth_frames" : 0,
+      "tracking_normal" : true
+    },
+    {
+      "camera_direction" : [
+        0,
+        0,
+        -1
+      ],
+      "camera_position_m" : [
+        1.2,
+        1.6,
+        3.2
+      ],
+      "captured_at" : "2026-11-11T10:00:00Z",
+      "depth_median_range_m" : 3.2,
+      "depth_source" : "LIDAR_SCENE_DEPTH",
+      "depth_valid_fraction" : 0.974,
+      "facade_id" : "Zijgevel",
+      "flags" : [
+
+      ],
+      "intrinsics" : {
+        "cx" : 960,
+        "cy" : 720,
+        "fx" : 1500,
+        "fy" : 1500,
+        "height" : 1440,
+        "width" : 1920
+      },
+      "overexposed_fraction" : 0.01,
+      "photo_id" : "F004",
+      "session_ref" : "S2",
+      "sharpness" : 400,
+      "support_depth_frames" : 0,
+      "tracking_normal" : true
+    },
+    {
+      "camera_direction" : [
+        -0.1045,
+        0,
+        -0.9945
+      ],
+      "camera_position_m" : [
+        1.9,
+        1.6,
+        3.2
+      ],
+      "captured_at" : "2026-11-11T10:00:00Z",
+      "depth_median_range_m" : 3.26,
+      "depth_source" : "LIDAR_SCENE_DEPTH",
+      "depth_valid_fraction" : 0.975,
+      "facade_id" : "Zijgevel",
+      "flags" : [
+
+      ],
+      "intrinsics" : {
+        "cx" : 960,
+        "cy" : 720,
+        "fx" : 1500,
+        "fy" : 1500,
+        "height" : 1440,
+        "width" : 1920
+      },
+      "overexposed_fraction" : 0.01,
+      "photo_id" : "F005",
+      "session_ref" : "S2",
+      "sharpness" : 400,
+      "support_depth_frames" : 0,
+      "tracking_normal" : true
+    }
+  ],
+  "project" : {
+    "bag_pand_id" : "0363100012345678",
+    "building_id" : "Singelstraat 8",
+    "mjop_plan_id" : "11111111-2222",
+    "plan_ref" : "plan-abc12345"
+  },
+  "recognition" : {
+    "derived_by_geometry" : [
+      "GEVELVLAK",
+      "TUSSENSTIJL",
+      "TUSSENDORPEL"
+    ],
+    "detectors" : [
+      {
+        "classes" : [
+          "KOZIJN",
+          "GLASVLAK"
+        ],
+        "kind" : "GEOMETRIC_CANDIDATE",
+        "name" : "apple-vision-rectangles+contours\/ContourOrganizer",
+        "validated" : false,
+        "version" : "facade-composition-1"
+      }
+    ],
+    "not_recognizable" : [
+      "RAAM",
+      "DEUR",
+      "DRAAIEND_DEEL",
+      "VAST_DEEL",
+      "GEVELPANEEL",
+      "AANSLUITING",
+      "AFWERKING"
+    ]
+  },
+  "revision" : 1,
+  "round_id" : "3F2A9C10-AAAA-BBBB-CCCC-000000000001",
+  "validation" : {
+    "auto_processing_allowed" : false,
+    "detector_validated" : false,
+    "geometry_field_validated" : false,
+    "reasons" : [
+      "GEOMETRIE_NIET_IN_HET_VELD_GEVALIDEERD",
+      "HERKENNING_NIET_GEVALIDEERD"
+    ]
+  },
+  "versions" : {
+    "association" : "association-plane-iou-1",
+    "capture" : "capture-quality-1",
+    "condition" : "condition-rules-1",
+    "geometry" : "frame-geometry-1+level-a-v2",
+    "pipeline" : "gevelscan-2.0.0",
+    "thresholds_status" : "PROVISIONAL_UNVALIDATED"
+  }
+}
