@@ -28,8 +28,16 @@
   h1 { font-size: 1.25rem; margin: 0 0 4px; }
   header p { margin: 0; color: var(--muted); font-size: .9rem; }
   main { display: grid; gap: 14px; padding-block: 10px 40px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); max-width: 1280px; margin: 0 auto; grid-template-columns: minmax(0, 1fr); }
-  @media (min-width: 980px) { main { grid-template-columns: minmax(0, 1.5fr) minmax(340px, 1fr); align-items: start; } #stage { position: sticky; top: 10px; } }
-  section, #stage { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px; }
+  @media (min-width: 980px) { main { grid-template-columns: minmax(0, 1.5fr) minmax(340px, 1fr); align-items: start; } }
+  section, #stage { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px; min-width: 0; }
+  /* De foto blijft in beeld terwijl je door de stappen scrolt; de band erboven dekt wat eronderdoor schuift. */
+  #stage { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 6px); z-index: 5; box-shadow: 0 6px 14px -8px #0007; }
+  body::before { content: ""; position: fixed; inset: 0 0 auto; height: calc(env(safe-area-inset-top, 0px) + 6px); z-index: 10; background: var(--bg); }
+  @media (max-width: 979px) { #stage { padding: 8px; } }
+  .row > * { min-width: 0; } select, input[type=text], input[type=password] { max-width: 100%; }
+  .msg { overflow-wrap: anywhere; }
+  details.sub > summary { color: var(--ink); font-weight: 600; font-size: .92rem; }
+  details.sub > summary span { font-weight: 400; color: var(--muted); }
   #panel { display: grid; gap: 14px; grid-template-columns: minmax(0, 1fr); }
   h2 { font-size: 1rem; margin: 0 0 8px; }
   h2 small { font-weight: 400; color: var(--muted); }
@@ -50,9 +58,9 @@
   .msg.ok { background: var(--ok-bg); color: var(--ok-ink); }
   .msg:empty { display: none; }
   #canvasWrap { position: relative; }
-  canvas { display: block; width: 100%; border-radius: 6px; background: #8884; touch-action: manipulation; }
-  canvas.busy { touch-action: none; cursor: crosshair; }
-  #hint { min-height: 1.4em; font-size: .92rem; margin: 8px 0 0; }
+  canvas { display: block; margin: 0 auto; border-radius: 6px; background: #8884; touch-action: none; }
+  canvas.busy { cursor: crosshair; }
+  #hint { min-height: 1.4em; font-size: .88rem; margin: 6px 0 0; }
   #empty { padding: 60px 10px; text-align: center; color: var(--muted); }
   ul#items { list-style: none; margin: 8px 0; padding: 0; display: grid; gap: 6px; }
   ul#items li { border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 10px; align-items: start; cursor: pointer; }
@@ -131,51 +139,54 @@
     </section>
 
     <section>
-      <h2>3. Maat opgeven</h2>
-      <p class="muted">Zonder bekende maat zijn er geen meters. Haal de gevelbreedte op via het adres, of wijs iets aan waarvan je de echte maat weet.</p>
+      <h2>3. Maat</h2>
+      <p class="muted">Zoek het adres en tik de gevelzijde aan die op de foto staat. De maten worden dan vanzelf ingevuld.</p>
       <div id="hostedNote" class="msg warn" hidden></div>
-      <div class="sub" id="bagBlock">
-        <strong>Maat via het adres (BAG)</strong>
+      <div id="bagBlock">
         <div class="row">
-          <input id="addr" type="text" placeholder="Adres, bv. Dorpsstraat 12 Utrecht" style="flex:1" autocomplete="off">
-          <button id="addrBtn">Zoek</button>
+          <input id="addr" type="text" placeholder="Adres, bv. Dorpsstraat 12 Utrecht" style="flex:1" autocomplete="off" enterkeyhint="search">
+          <button id="addrBtn" class="primary">Zoek</button>
         </div>
         <div class="row" id="addrPickRow" hidden><select id="addrPick" style="flex:1"></select></div>
         <div id="bagMap"></div>
         <div id="bagMsg" class="msg"></div>
-      </div>
-      <p class="muted" id="orNote">Of geef zelf een maat op:</p>
-      <div class="row">
-        <label><input type="radio" name="refmode" value="line" checked> Eén maat (foto recht van voren)</label>
-      </div>
-      <div class="row">
-        <label><input type="radio" name="refmode" value="rect"> Rechthoek met breedte en hoogte (een groot vlak corrigeert ook een schuine foto)</label>
-      </div>
-      <div class="row">
-        <button id="refPick" disabled>Punten aanwijzen</button>
-        <button id="refFromSel" disabled title="Gebruik de hoeken van het geselecteerde element">Geselecteerd element gebruiken</button>
-      </div>
-      <div class="row" id="refLineInputs">
-        <label>Lengte <input id="refLen" class="num" type="text" inputmode="decimal" placeholder="bv. 2,30"> m</label>
-      </div>
-      <div class="row" id="refRectInputs" hidden>
-        <label>Breedte <input id="refW" class="num" type="text" inputmode="decimal" placeholder="bv. 0,93"> m</label>
-        <label>Hoogte <input id="refH" class="num" type="text" inputmode="decimal" placeholder="bv. 2,31"> m</label>
+        <div class="row" id="bagPickRow" hidden><button id="bagPick">Gevelhoeken zelf aanwijzen</button></div>
       </div>
       <div id="refMsg" class="msg"></div>
-      <div class="sub">
-        <strong>Controlemaat</strong> <span class="muted">(aanbevolen bij een maat uit de BAG)</span>
+      <details class="sub" id="manualRef">
+        <summary>Zelf een maat opgeven <span>(zonder adres)</span></summary>
+        <div class="row">
+          <label><input type="radio" name="refmode" value="line" checked> Eén maat (foto recht van voren)</label>
+        </div>
+        <div class="row">
+          <label><input type="radio" name="refmode" value="rect"> Rechthoek met breedte en hoogte (een groot vlak corrigeert ook een schuine foto)</label>
+        </div>
+        <div class="row">
+          <button id="refPick" disabled>Punten aanwijzen</button>
+          <button id="refFromSel" disabled title="Gebruik de hoeken van het geselecteerde element">Geselecteerd element gebruiken</button>
+        </div>
+        <div class="row" id="refLineInputs">
+          <label>Lengte <input id="refLen" class="num" type="text" inputmode="decimal" placeholder="bv. 2,30"> m</label>
+        </div>
+        <div class="row" id="refRectInputs" hidden>
+          <label>Breedte <input id="refW" class="num" type="text" inputmode="decimal" placeholder="bv. 0,93"> m</label>
+          <label>Hoogte <input id="refH" class="num" type="text" inputmode="decimal" placeholder="bv. 2,31"> m</label>
+        </div>
+      </details>
+      <details class="sub" id="checkBox">
+        <summary>Controlemaat <span>(optioneel)</span></summary>
+        <p class="muted">Alleen ter controle: dit verandert niets aan de hoeveelheden. Wijs iets aan wat je zelf hebt opgemeten, bijvoorbeeld een deurhoogte.</p>
         <div class="row">
           <button id="checkPick" disabled>Punten aanwijzen</button>
           <label>Echte lengte <input id="checkLen" class="num" type="text" inputmode="decimal" placeholder="bv. 2,30"> m</label>
         </div>
         <div id="checkMsg" class="msg"></div>
-      </div>
+      </details>
     </section>
 
     <section>
       <h2>4. Controleren en kiezen</h2>
-      <p class="muted">Tik op een element om het te selecteren en sleep de hoekpunten goed. Vink aan wat je in het MJOP wilt.</p>
+      <p class="muted">Tik op de foto of in de lijst op een element en sleep de witte punten naar de echte hoeken. Vink aan wat je in het MJOP wilt.</p>
       <div class="row">
         <select id="addType"></select>
         <button id="addBtn" disabled>Zelf intekenen</button>
@@ -515,8 +526,10 @@ function viewScale() { const cv = $("cv"); return cv.clientWidth / state.W; }
 
 function draw() {
   const cv = $("cv"); if (!state.img) return;
-  const dpr = window.devicePixelRatio || 1, cssW = cv.clientWidth, cssH = cssW * state.H / state.W;
-  cv.style.height = cssH + "px";
+  // De foto past in de breedte en neemt op een telefoon hooguit een deel van de schermhoogte, zodat de stappen eronder zichtbaar blijven.
+  const maxH = window.innerHeight * (window.innerWidth < 980 ? 0.4 : 0.78);
+  const dpr = window.devicePixelRatio || 1, cssW = Math.max(120, Math.min($("canvasWrap").clientWidth, maxH * state.W / state.H)), cssH = cssW * state.H / state.W;
+  cv.style.width = cssW + "px"; cv.style.height = cssH + "px";
   if (cv.width !== Math.round(cssW * dpr) || cv.height !== Math.round(cssH * dpr)) { cv.width = Math.round(cssW * dpr); cv.height = Math.round(cssH * dpr); }
   const g = cv.getContext("2d"), k = cssW / state.W;
   g.setTransform(dpr * k, 0, 0, dpr * k, 0, 0);
@@ -545,14 +558,25 @@ function draw() {
     path(state.ref.mode === "rect" && rp.length === 4 ? Geo.orderQuad(rp) : rp, state.ref.mode === "rect" && rp.length === 4); g.stroke(); g.setLineDash([]);
     for (const p of rp) { g.beginPath(); g.arc(p[0], p[1], px(6), 0, 7); g.fillStyle = "#ffd400"; g.fill(); g.lineWidth = px(1.5); g.strokeStyle = "#000"; g.stroke(); }
   }
+  const tag = (at, text, bg, fg) => { g.font = `600 ${px(12)}px system-ui, sans-serif`; const w = g.measureText(text).width + px(10);
+    const x = Math.max(0, Math.min(state.W - w, at[0] - w / 2)), y = Math.max(0, at[1] - px(24)); g.fillStyle = bg; g.fillRect(x, y, w, px(18)); g.fillStyle = fg; g.textBaseline = "top"; g.fillText(text, x + px(5), y + px(3)); };
+  const mid = (a, b) => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+  if (rp && rp.length === 2 && state.ref.mode === "line" && state.ref.length) tag(mid(rp[0], rp[1]), `${fmt(state.ref.length)} m${state.ref.source ? " (BAG)" : ""}`, "#ffd400", "#000");
   const cp = state.check.pts;
   if (cp && cp.length === 2) { g.strokeStyle = "#00e5ff"; g.lineWidth = px(3); g.setLineDash([px(3), px(4)]); path(cp, false); g.stroke(); g.setLineDash([]);
-    for (const p of cp) { g.beginPath(); g.arc(p[0], p[1], px(5), 0, 7); g.fillStyle = "#00e5ff"; g.fill(); g.lineWidth = px(1.5); g.strokeStyle = "#000"; g.stroke(); } }
+    for (const p of cp) { g.beginPath(); g.arc(p[0], p[1], px(5), 0, 7); g.fillStyle = "#00e5ff"; g.fill(); g.lineWidth = px(1.5); g.strokeStyle = "#000"; g.stroke(); }
+    const cr = checkResult(); if (cr) tag(mid(cp[0], cp[1]), `controle: ${fmt(cr.measured_m)} m`, "#00e5ff", "#000"); }
   // punten van het lopende gereedschap
   if (state.tool && state.tool.pts.length) {
     g.strokeStyle = "#fff"; g.lineWidth = px(2); path(state.tool.pts, false); g.stroke();
     for (const p of state.tool.pts) { g.beginPath(); g.arc(p[0], p[1], px(6), 0, 7); g.fillStyle = "#111"; g.fill(); g.lineWidth = px(2); g.strokeStyle = "#fff"; g.stroke(); }
-  }
+  }  // vergrootglas: tijdens aanwijzen of slepen zit je vinger op het punt; dit laat zien wat eronder ligt
+  const lp = state.loupe;
+  if (lp) { const R = px(58), src = px(19), cx = lp[0] < state.W / 2 ? state.W - R - px(8) : R + px(8), cy = R + px(8);
+    g.save(); g.beginPath(); g.arc(cx, cy, R, 0, 7); g.clip(); g.fillStyle = "#000"; g.fill();
+    g.drawImage(state.img, lp[0] - src, lp[1] - src, 2 * src, 2 * src, cx - R, cy - R, 2 * R, 2 * R); g.restore();
+    g.beginPath(); g.arc(cx, cy, R, 0, 7); g.lineWidth = px(3); g.strokeStyle = "#fff"; g.stroke(); g.lineWidth = px(1); g.strokeStyle = "#000"; g.stroke();
+    g.beginPath(); g.moveTo(cx - px(12), cy); g.lineTo(cx + px(12), cy); g.moveTo(cx, cy - px(12)); g.lineTo(cx, cy + px(12)); g.lineWidth = px(1.5); g.strokeStyle = "#ffd400"; g.stroke(); }
 }
 
 // ------------------------------------------------ lijst, totalen, export --------------------------------------------
@@ -653,12 +677,16 @@ function readRef() {
   const r = state.ref; r.length = parseNum($("refLen").value); r.w = parseNum($("refW").value); r.h = parseNum($("refH").value);
 }
 function renderRef() {
-  const r = state.ref, toM = metricMap(r), need = r.mode === "line" ? 2 : 4;
+  const r = state.ref, toM = metricMap(r), need = r.mode === "line" ? 2 : 4, src = r.source;
   $("refLineInputs").hidden = r.mode !== "line"; $("refRectInputs").hidden = r.mode !== "rect";
+  $("bagPickRow").hidden = !(src && state.bag.side != null);
   if (!state.img) return setMsg("refMsg", "");
-  if (!r.pts || r.pts.length !== need) return setMsg("refMsg", r.mode === "line" ? "Wijs twee punten aan en vul de echte afstand ertussen in." : "Wijs de vier hoeken van een rechthoek op de gevel aan en vul breedte en hoogte in. Een groot vlak (bijvoorbeeld de hele gevel) corrigeert ook een schuine foto.", "warn");
+  if (src && (!r.pts || r.pts.length !== 2)) return setMsg("refMsg", state.tool && state.tool.isRef ? "Zet de twee punten op de foto." : `Zijde gekozen: ${fmt(r.length)} m. Laat bij stap 2 de elementen herkennen, dan worden de maten vanzelf ingevuld. Of wijs de gevelhoeken zelf aan.`, "warn");
+  if (!r.pts || r.pts.length !== need) return setMsg("refMsg", $("manualRef").open ? (r.mode === "line" ? "Wijs twee punten aan en vul de echte afstand ertussen in." : "Wijs de vier hoeken van een rechthoek op de gevel aan en vul breedte en hoogte in. Een groot vlak (bijvoorbeeld de hele gevel) corrigeert ook een schuine foto.") : "Nog geen maat: de hoeveelheden in meters zijn nu onbekend.", "warn");
   if (!toM) return setMsg("refMsg", r.mode === "line" ? "Vul de lengte in meter in." : "Vul breedte en hoogte in meter in.", "warn");
-  if (r.mode === "line" && r.source) return setMsg("refMsg", `Schaal uit de BAG: gevelbreedte ${fmt(r.length)} m (zijde ${r.source.side_facing}). De BAG-omtrek is van boven ingemeten en kan enkele decimeters afwijken; controleer met een controlemaat. Alleen betrouwbaar als de foto recht van voren is genomen.`, "ok");
+  if (r.mode === "line" && src) return setMsg("refMsg", (src.placement === "AUTO_WALL_WIDTH"
+    ? `Maten ingevuld uit de BAG: de breedte van het herkende gevelvlak (element ${src.wall_element_id}) is gelijkgesteld aan de gevelzijde van ${fmt(r.length)} m (${src.side_facing}). Loopt de gele lijn niet van hoek tot hoek van déze gevel? Sleep de gele punten dan goed.`
+    : `Maten ingevuld uit de BAG: gevelbreedte ${fmt(r.length)} m (${src.side_facing}) tussen de gele punten.`) + " De BAG-omtrek kan enkele decimeters afwijken en de foto moet recht van voren zijn genomen.", "ok");
   if (r.mode === "line") return setMsg("refMsg", `Schaal: ${fmt(r.length / Geo.dist(r.pts[0], r.pts[1]) * 1000, 1)} mm per pixel. Alleen betrouwbaar als de foto recht van voren is genomen.`, "ok");
   const info = rectInfo(r, Geo.orderQuad(r.pts));
   if (info.perspective) return setMsg("refMsg", "Maat ingesteld met correctie voor een schuine foto.", "ok");
@@ -745,14 +773,35 @@ function renderBag() {
   box.append(svg);
 }
 
-function chooseBagSide(i) {
-  const b = state.bag, s = b.sides[i]; if (!s || !state.img) return setMsg("bagMsg", "Kies eerst een foto en tik daarna op de zijde.", "warn");
-  b.side = i; document.querySelector("input[name=refmode][value=line]").checked = true;
-  state.ref = { mode: "line", pts: null, source: { type: "BAG_FOOTPRINT_SIDE", bag_pand_id: b.pand.id, address: b.address, side_length_m: round2(s.length), side_facing: s.facing, retrieved_at: b.retrievedAt } };
-  $("refLen").value = fmt(s.length);
-  startTool({ isRef: true, need: 2, hint: `Tik op de linker- en de rechterhoek van deze gevel (${fmt(s.length)} m), allebei op dezelfde hoogte, bijvoorbeeld onderaan.`, done: (pts) => { state.ref.pts = pts; } });
+function bagSource(placement) {
+  const b = state.bag, sd = b.sides[b.side];
+  return { type: "BAG_FOOTPRINT_SIDE", bag_pand_id: b.pand.id, address: b.address, side_length_m: round2(sd.length), side_facing: sd.facing, retrieved_at: b.retrievedAt, placement };
 }
 
+// Zet de maat zonder aanwijzen: de breedte van het grootste herkende gevelvlak wordt gelijkgesteld aan de gekozen BAG-zijde.
+// Dat is een aanname (de foto toont precies deze gevel van dit pand); de gele punten blijven versleepbaar en de herkomst gaat mee in de export.
+function autoRefFromBag() {
+  const b = state.bag; if (b.side == null || !b.pand) return false;
+  const wall = state.elements.filter((e) => TYPES[e.type].wall).sort((x, y) => Geo.area(y.pts) - Geo.area(x.pts))[0]; if (!wall) return false;
+  const xs = wall.pts.map((p) => p[0]), y = Math.max(...wall.pts.map((p) => p[1])), x1 = Math.min(...xs), x2 = Math.max(...xs); if (x2 - x1 < 4) return false;
+  state.ref = { mode: "line", pts: [[x1, y], [x2, y]], auto: true, source: Object.assign(bagSource("AUTO_WALL_WIDTH"), { wall_element_id: wall.id }) };
+  document.querySelector("input[name=refmode][value=line]").checked = true; $("refLen").value = fmt(b.sides[b.side].length);
+  return true;
+}
+
+function pickBagCorners() {
+  const b = state.bag, sd = b.sides[b.side]; if (!sd) return;
+  document.querySelector("input[name=refmode][value=line]").checked = true;
+  state.ref = { mode: "line", pts: null, auto: false, source: bagSource("USER_POINTS") }; $("refLen").value = fmt(sd.length);
+  startTool({ isRef: true, need: 2, hint: `Zet een punt op de linker- en op de rechterhoek van deze gevel (${fmt(sd.length)} m), allebei op dezelfde hoogte.`, done: (pts) => { state.ref.pts = pts; } });
+}
+
+function chooseBagSide(i) {
+  const b = state.bag, sd = b.sides[i]; if (!sd || !state.img) return;
+  b.side = i;
+  if (!autoRefFromBag()) { state.ref = { mode: "line", pts: null, auto: true, source: bagSource("PENDING") }; document.querySelector("input[name=refmode][value=line]").checked = true; $("refLen").value = fmt(sd.length); }
+  refresh();
+}
 function bagText() {
   const b = state.bag; if (!b.pand) return "";
   const h = b.heights, parts = [`${b.address} · pand ${b.pand.id}${b.pand.bouwjaar ? " · bouwjaar " + b.pand.bouwjaar : ""}.`, "Tik op de zijde die op de foto staat (maten in meter, noorden boven)."];
@@ -773,7 +822,7 @@ function renderCheck() {
   if (!metricMap(state.ref)) return setMsg("checkMsg", "Stel eerst een maat in.", "warn");
   if (!r) return setMsg("checkMsg", "Vul de echte lengte in.", "warn");
   const bad = Math.abs(r.deviation_pct) > 5;
-  setMsg("checkMsg", `De pagina meet hier ${fmt(r.measured_m)} m; jij geeft ${fmt(r.known_m)} m op. Verschil ${fmt(Math.abs(r.deviation_pct), 1)}%.` + (bad ? " Dat is veel: controleer de aangewezen punten, of de foto is schuin genomen." : ""), bad ? "warn" : "ok");
+  setMsg("checkMsg", `De pagina meet hier ${fmt(r.measured_m)} m; jij geeft ${fmt(r.known_m)} m op. Verschil ${fmt(Math.abs(r.deviation_pct), 1)}%.` + (bad ? " Dat is veel: staan de gele punten op de hoeken van de juiste gevel, en is de foto recht genomen?" : ""), bad ? "warn" : "ok");
 }
 
 // ------------------------------------------------ camera met waterpas ------------------------------------------------
@@ -858,30 +907,37 @@ function eventPoint(ev) { const r = $("cv").getBoundingClientRect(), k = viewSca
 
 function bindCanvas() {
   const cv = $("cv"); let down = null;
+  const near = (pts, p) => { const tol = 24 / viewScale(); return pts ? pts.findIndex((q) => Geo.dist(q, p) < tol) : -1; };
   cv.addEventListener("pointerdown", (ev) => {
     if (!state.img) return; const p = eventPoint(ev); down = { x: ev.clientX, y: ev.clientY };
-    const a = state.elements.find((e) => e.id === state.active);
-    if (a && !state.tool) { const tol = 22 / viewScale(); const i = a.pts.findIndex((q) => Geo.dist(q, p) < tol);
-      if (i >= 0) { state.drag = { el: a, i }; cv.setPointerCapture(ev.pointerId); ev.preventDefault(); } }
+    let d = null;
+    if (state.tool) d = { kind: "place", p };                              // punt wordt gezet waar je loslaat
+    else {
+      const a = state.elements.find((e) => e.id === state.active), ia = a ? near(a.pts, p) : -1, ir = near(state.ref.pts, p), ic = near(state.check.pts, p);
+      if (ia >= 0) d = { kind: "el", pts: a.pts, i: ia, el: a }; else if (ir >= 0) d = { kind: "ref", pts: state.ref.pts, i: ir }; else if (ic >= 0) d = { kind: "check", pts: state.check.pts, i: ic };
+    }
+    if (d) { state.drag = d; state.loupe = p; try { cv.setPointerCapture(ev.pointerId); } catch (e) { /* niet overal beschikbaar */ } ev.preventDefault(); draw(); }
   });
-  cv.addEventListener("pointermove", (ev) => { if (!state.drag) return; state.drag.el.pts[state.drag.i] = eventPoint(ev); state.drag.moved = true; draw(); });
+  cv.addEventListener("pointermove", (ev) => { const d = state.drag; if (!d) return; const p = eventPoint(ev); state.loupe = p;
+    if (d.kind === "place") d.p = p; else { d.pts[d.i] = p; d.moved = true; } draw(); });
   const up = (ev) => {
-    if (state.drag) { const d = state.drag; state.drag = null; if (d.moved) { d.el.edited = true; refresh(); } down = null; return; }
+    const d = state.drag; state.drag = null; state.loupe = null;
+    if (d) { down = null;
+      if (d.kind === "place") return toolPoint(d.p);
+      if (d.moved) { if (d.kind === "el") d.el.edited = true; if (d.kind === "ref") { state.ref.auto = false; if (state.ref.source) state.ref.source.placement = "USER_ADJUSTED"; } }
+      return refresh(); }
     if (!down || !state.img) return; const tap = Math.hypot(ev.clientX - down.x, ev.clientY - down.y) < 10; down = null; if (!tap) return;
-    const p = eventPoint(ev);
-    if (state.tool) return toolPoint(p);
-    const h = hitElement(p); state.active = h ? (h.id === state.active ? null : h.id) : null; refresh();
-    if (h && state.active) { const li = document.querySelector(`#items li[data-id="${h.id}"]`); if (li && li.scrollIntoView) li.scrollIntoView({ block: "nearest" }); }
+    const h = hitElement(eventPoint(ev)); state.active = h ? (h.id === state.active ? null : h.id) : null; refresh();
   };
   cv.addEventListener("pointerup", up);
-  cv.addEventListener("pointercancel", () => { state.drag = null; down = null; });
+  cv.addEventListener("pointercancel", () => { state.drag = null; state.loupe = null; down = null; draw(); });
 }
 
 // ------------------------------------------------ alles bijwerken ----------------------------------------------------
 function refresh() {
   const has = !!state.img, busy = !!state.tool || state.active != null, any = state.elements.some((e) => e.chosen);
   $("cv").classList.toggle("busy", busy);
-  $("hint").textContent = state.tool ? state.tool.hint : state.active != null ? "Sleep de witte punten naar de echte hoeken. Tik naast het element om klaar te zijn." : has ? "Tik op een element om het te selecteren." : "";
+  $("hint").textContent = state.tool ? state.tool.hint : state.active != null ? "Sleep de witte punten naar de echte hoeken. Tik ernaast om klaar te zijn." : has ? "Tik op een element om het aan te passen. Gele en blauwe punten kun je verslepen." : "";
   $("detectBtn").disabled = !has || !(Host.claude ? Host.sample : $("key").value.trim()) || state.detecting;
   $("refPick").disabled = !has; $("addBtn").disabled = !has; $("checkPick").disabled = !has;
   const a = state.elements.find((e) => e.id === state.active);
@@ -889,6 +945,7 @@ function refresh() {
   $("polyDone").hidden = !(state.tool && state.tool.open); $("cancelTool").hidden = !state.tool;
   $("allOn").disabled = $("allOff").disabled = !state.elements.length;
   ["copyBtn", "csvBtn", "jsonBtn"].forEach((id) => { $(id).disabled = !any; });
+  if (state.ref.auto && state.bag.side != null && !(state.tool && state.tool.isRef)) autoRefFromBag();
   readRef(); renderRef(); renderCheck(); renderBag(); renderList(); renderTotals(); draw();
 }
 
@@ -903,7 +960,7 @@ function init() {
   $("file").addEventListener("change", async (ev) => { const f = ev.target.files[0]; ev.target.value = ""; if (!f) return;
     try { await loadPhoto(f); } catch (e) { setMsg("photoMsg", e.message || "Deze afbeelding kan niet worden geopend.", "err"); } });
   $("demoBtn").addEventListener("click", () => { const d = demoScene(); setPhoto(d.canvas, "voorbeeldgevel"); addElements(d.elements, "demo");
-    setMsg("photoMsg", "Voorbeeldgevel geladen: een getekende gevel met vooraf ingevulde elementen. Vul bij stap 3 als maat de deurhoogte van 2,30 m in.", "ok"); refresh(); });
+    setMsg("photoMsg", "Voorbeeldgevel geladen: een getekende gevel met vooraf ingevulde elementen. Open bij stap 3 'Zelf een maat opgeven' en vul als maat de deurhoogte van 2,30 m in, of zoek een adres.", "ok"); refresh(); });
 
   $("detectBtn").addEventListener("click", async () => {
     state.detecting = true; refresh(); setMsg("detectMsg", ""); $("detectStatus").textContent = "Bezig… dit duurt vaak een halve minuut.";
@@ -922,16 +979,17 @@ function init() {
   });
 
   document.querySelectorAll("input[name=refmode]").forEach((r) => r.addEventListener("change", () => { state.ref = { mode: r.value, pts: null }; state.bag.side = null; if (state.tool && state.tool.isRef) state.tool = null; refresh(); }));
-  $("refPick").addEventListener("click", () => { const m = state.ref.mode; state.ref.pts = null;
+  $("refPick").addEventListener("click", () => { const m = state.ref.mode; state.ref.pts = null; state.ref.auto = false;
     startTool({ isRef: true, need: m === "line" ? 2 : 4, hint: m === "line" ? "Tik op het begin en het eind van de bekende maat." : "Tik op de vier hoeken van de rechthoek.", done: (pts) => { state.ref.pts = pts; setTimeout(() => $(m === "line" ? "refLen" : "refW").focus(), 0); } }); });
   $("refFromSel").addEventListener("click", () => { const a = state.elements.find((e) => e.id === state.active); if (!a) return;
     document.querySelector("input[name=refmode][value=rect]").checked = true; state.ref = { mode: "rect", pts: a.pts.map((p) => p.slice()) }; state.active = null; refresh(); $("refW").focus(); });
-  $("refLen").addEventListener("input", () => { state.ref.source = null; state.bag.side = null; });      // zelf getypte maat is geen BAG-maat meer
+  $("refLen").addEventListener("input", () => { state.ref.source = null; state.ref.auto = false; state.bag.side = null; });
+  $("bagPick").addEventListener("click", pickBagCorners); $("manualRef").addEventListener("toggle", refresh);      // zelf getypte maat is geen BAG-maat meer
   ["refLen", "refW", "refH", "checkLen"].forEach((id) => $(id).addEventListener("input", refresh));
   $("checkPick").addEventListener("click", () => { state.check.pts = null; startTool({ need: 2, hint: "Tik op het begin en het eind van een afstand die je zelf hebt opgemeten.", done: (pts) => { state.check.pts = pts; setTimeout(() => $("checkLen").focus(), 0); } }); });
 
   const pickAddress = async (doc) => { setMsg("bagMsg", "Pand ophalen…"); try { await bagLoad(doc); setMsg("bagMsg", state.bag.sides.length ? bagText() : "De omtrek van dit pand kon niet in zijden worden verdeeld. Geef zelf een maat op.", state.bag.sides.length ? "" : "warn"); } catch (e) { state.bag.pand = null; setMsg("bagMsg", e.message, "err"); } refresh(); };
-  const search = async () => { const q = $("addr").value.trim(); if (!q) return; setMsg("bagMsg", "Zoeken…"); $("addrPickRow").hidden = true;
+  const search = async () => { const q = $("addr").value.trim(); if (!q) return; try { localStorage.setItem("gevelfoto_adres", q); } catch (e) { /* opslag niet beschikbaar */ } setMsg("bagMsg", "Zoeken…"); $("addrPickRow").hidden = true;
     try { const docs = await bagSearch(q); state.bag.docs = docs;
       if (!docs.length) return setMsg("bagMsg", "Geen adres gevonden. Typ straat, huisnummer en plaats.", "warn");
       const sel = $("addrPick"); sel.replaceChildren(...docs.map((d, i) => el("option", { value: i, text: d.name }))); $("addrPickRow").hidden = docs.length < 2;
@@ -957,12 +1015,13 @@ function init() {
   $("copyBtn").addEventListener("click", async () => { try { await navigator.clipboard.writeText(exportText()); setMsg("exportMsg", "Gekopieerd.", "ok"); } catch (e) { setMsg("exportMsg", exportText()); } });
 
   if (Host.claude) {
-    ["keyRow", "rememberRow", "noKeyNote", "camBtn", "bagBlock", "orNote"].forEach((id) => { $(id).hidden = true; });
+    ["keyRow", "rememberRow", "noKeyNote", "camBtn", "bagBlock"].forEach((id) => { $(id).hidden = true; });
     $("aiNote").textContent = "De foto wordt hiervoor naar Claude gestuurd, via je eigen Claude-account. Stuur geen foto's met herkenbare personen of kentekens.";
-    $("hostedNote").hidden = false; $("hostedNote").textContent = "In deze gehoste versie werken 'maat via het adres' en de camera met waterpas niet. Geef hier zelf een maat op.";
+    $("hostedNote").hidden = false; $("hostedNote").textContent = "In deze gehoste versie werken 'maat via het adres' en de camera met waterpas niet. Geef hier zelf een maat op."; $("manualRef").open = true;
     Host.claude.use("sample").then((x) => { Host.sample = x; if (!x) setMsg("detectMsg", "Herkennen met Claude is in deze weergave niet beschikbaar. Je kunt elementen zelf intekenen bij stap 4.", "warn"); refresh(); });
     Host.claude.use("downloads").then((x) => { Host.downloads = x; if (!x) { $("csvBtn").hidden = true; $("jsonBtn").hidden = true; } });
   }
+  try { const a = localStorage.getItem("gevelfoto_adres"); if (a) $("addr").value = a; } catch (e) { /* opslag niet beschikbaar */ }
   bindCanvas(); window.addEventListener("resize", draw);
   // Beginstand: de voorbeeldgevel, zodat meteen te zien is wat de pagina doet.
   const d = demoScene(); setPhoto(d.canvas, "voorbeeldgevel"); addElements(d.elements, "demo");
@@ -970,7 +1029,7 @@ function init() {
 }
 
 // Voor geautomatiseerde controle van de rekenkern (zie README).
-window.Gevelfoto = { Geo, metricMap, quantities, parseModelResponse, buildPrompt, buildExport, state, TYPES, demoScene, footprintSides, tiltFromOrientation };
+window.Gevelfoto = { autoRefFromBag, Geo, metricMap, quantities, parseModelResponse, buildPrompt, buildExport, state, TYPES, demoScene, footprintSides, tiltFromOrientation };
 init();
 </script>
 </body>
