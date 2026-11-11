@@ -299,6 +299,7 @@ node test/price-source-labels.spec.js     # prijsbron-labels: app-schattingen (g
 node test/auth.spec.js                   # inloglink met de echte Supabase-SDK; Supabase-netwerk nagebootst
 node test/quantity-missingness.spec.js    # MISSING != 0: ontbrekend 3D BAG-veld -> niet beschikbaar, kosten onbekend (geen € 0)
 node test/reservefonds.spec.js
+node test/gevelfoto.spec.js              # los prototype gevelfoto/ (AI- en BAG-diensten nagebootst)
 ```
 
 `auth.spec.js` laadt de Supabase-SDK standaard van de CDN. Zonder internettoegang: zet
@@ -333,3 +334,11 @@ offerte.
   PDOK/BAG/3D BAG-aanroepen en de CDN's voor xlsx/pdf-parsing geblokkeerd
   zijn; in een gewone browser op het publieke internet werken deze
   aanroepen rechtstreeks.
+
+## Gevelfoto-prototype (`gevelfoto/`)
+
+`gevelfoto/index.html` is een losse, niet-gevalideerde proefpagina: foto van een gevel → herkende elementen → hoeveelheden → export. Bereikbaar op `…/MJOP-App/gevelfoto/`; er wordt vanuit de app niet naar gelinkt en de pagina vraagt zoekmachines haar niet op te nemen. Ze gebruikt geen Supabase, leest of schrijft geen opgeslagen MJOP's en deelt geen code met `src/`.
+
+- Bron en uitleg: repository `mjop-learning`, map `gevelfoto_prototype/`. Wijzig daar en kopieer het bestand hierheen.
+- Herkennen stuurt de foto vanuit de browser naar de Anthropic API met een sleutel die de gebruiker zelf invult. Die sleutel staat nergens in deze repository. Kiest de gebruiker "onthouden", dan staat hij in de browseropslag van dit domein, dezelfde opslag als die van de MJOP-app; gebruik daarom een sleutel met een laag bestedingslimiet.
+- Maat via het adres gebruikt de openbare diensten van PDOK (BAG) en 3D BAG.

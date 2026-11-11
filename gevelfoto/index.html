@@ -1,0 +1,977 @@
+<!doctype html>
+<!-- Bron: repository mjop-learning, gevelfoto_prototype/index.html. Wijzig daar en kopieer het bestand hierheen. -->
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gevelfoto naar hoeveelheden</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="robots" content="noindex">
+<style>
+  :root {
+    --bg: #f5f4f0; --panel: #ffffff; --ink: #1c1b19; --muted: #6b6860; --line: #dcd9d1;
+    --accent: #1f5fbf; --accent-ink: #ffffff; --warn-bg: #fff4d6; --warn-ink: #6b4a00; --err-bg: #fde4e1; --err-ink: #8a1c12;
+    --ok-bg: #e2f3e6; --ok-ink: #17592b;
+  }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+      --bg: #161614; --panel: #201f1d; --ink: #edebe6; --muted: #a09c93; --line: #383632;
+      --accent: #6ea4f5; --accent-ink: #0c1626; --warn-bg: #3d3212; --warn-ink: #f3d78a; --err-bg: #47201c; --err-ink: #f6b5ad;
+      --ok-bg: #1b3a24; --ok-ink: #a6e0b5; color-scheme: dark; } }
+  :root[data-theme="dark"] {
+      --bg: #161614; --panel: #201f1d; --ink: #edebe6; --muted: #a09c93; --line: #383632;
+      --accent: #6ea4f5; --accent-ink: #0c1626; --warn-bg: #3d3212; --warn-ink: #f3d78a; --err-bg: #47201c; --err-ink: #f6b5ad;
+      --ok-bg: #1b3a24; --ok-ink: #a6e0b5; color-scheme: dark; }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  header { padding-block: 14px 6px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); max-width: 1280px; margin: 0 auto; }
+  h1 { font-size: 1.25rem; margin: 0 0 4px; }
+  header p { margin: 0; color: var(--muted); font-size: .9rem; }
+  main { display: grid; gap: 14px; padding-block: 10px 40px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); max-width: 1280px; margin: 0 auto; grid-template-columns: minmax(0, 1fr); }
+  @media (min-width: 980px) { main { grid-template-columns: minmax(0, 1.5fr) minmax(340px, 1fr); align-items: start; } #stage { position: sticky; top: 10px; } }
+  section, #stage { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px; }
+  #panel { display: grid; gap: 14px; grid-template-columns: minmax(0, 1fr); }
+  h2 { font-size: 1rem; margin: 0 0 8px; }
+  h2 small { font-weight: 400; color: var(--muted); }
+  p { margin: 6px 0; }
+  .muted { color: var(--muted); font-size: .88rem; }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 8px 0; }
+  button, .filebtn { font: inherit; padding: 9px 14px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); cursor: pointer; }
+  button.primary, .filebtn { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 600; }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  button.small { padding: 5px 10px; font-size: .88rem; }
+  input[type=text], input[type=password], select { font: inherit; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); min-width: 0; }
+  input.num { width: 7em; }
+  label { font-size: .92rem; }
+  .filebtn input { display: none; }
+  .msg { padding: 8px 10px; border-radius: 8px; font-size: .9rem; margin: 8px 0; }
+  .msg.warn { background: var(--warn-bg); color: var(--warn-ink); }
+  .msg.err { background: var(--err-bg); color: var(--err-ink); }
+  .msg.ok { background: var(--ok-bg); color: var(--ok-ink); }
+  .msg:empty { display: none; }
+  #canvasWrap { position: relative; }
+  canvas { display: block; width: 100%; border-radius: 6px; background: #8884; touch-action: manipulation; }
+  canvas.busy { touch-action: none; cursor: crosshair; }
+  #hint { min-height: 1.4em; font-size: .92rem; margin: 8px 0 0; }
+  #empty { padding: 60px 10px; text-align: center; color: var(--muted); }
+  ul#items { list-style: none; margin: 8px 0; padding: 0; display: grid; gap: 6px; }
+  ul#items li { border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 10px; align-items: start; cursor: pointer; }
+  ul#items li.active { border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 30%, transparent); }
+  ul#items li input[type=checkbox] { width: 20px; height: 20px; margin-top: 2px; }
+  .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; }
+  .qty { font-variant-numeric: tabular-nums; }
+  .tag { font-size: .75rem; padding: 1px 6px; border-radius: 10px; border: 1px solid var(--line); color: var(--muted); margin-left: 6px; display: inline-block; max-width: 100%; overflow-wrap: anywhere; }
+  .edit { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding-top: 6px; border-top: 1px dashed var(--line); }
+  table { border-collapse: collapse; width: 100%; font-size: .92rem; }
+  th, td { text-align: left; padding: 5px 6px; border-bottom: 1px solid var(--line); }
+  td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; }
+  .sub { border: 1px solid var(--line); border-radius: 8px; padding: 10px; margin: 10px 0; }
+  .sub > strong { font-size: .92rem; }
+  #bagMap svg { width: 100%; max-height: 260px; display: block; margin-top: 6px; }
+  #bagMap .side { stroke: var(--muted); stroke-width: 3; cursor: pointer; }
+  #bagMap .side.on { stroke: var(--accent); stroke-width: 6; }
+  #bagMap .hit { stroke: transparent; stroke-width: 22; cursor: pointer; }
+  #bagMap text { font: 600 11px system-ui, sans-serif; fill: var(--ink); pointer-events: none; }
+  #cam { position: fixed; inset: 0; z-index: 20; background: #000; color: #fff; display: flex; flex-direction: column; }
+  #camView { position: relative; flex: 1; min-height: 0; }
+  #camVideo { width: 100%; height: 100%; object-fit: contain; display: block; }
+  #level { position: absolute; left: 50%; top: 50%; width: 130px; height: 130px; margin: -65px 0 0 -65px; border: 2px solid #fff; border-radius: 50%; box-shadow: 0 0 0 1px #0008; }
+  #level::before, #level::after { content: ""; position: absolute; background: #fff; opacity: .7; }
+  #level::before { left: 50%; top: 35%; width: 1px; height: 30%; } #level::after { top: 50%; left: 35%; height: 1px; width: 30%; }
+  #levelDot { position: absolute; left: 50%; top: 50%; width: 26px; height: 26px; margin: -13px 0 0 -13px; border-radius: 50%; background: #ffb020; border: 2px solid #000; }
+  #level.ok { border-color: #3ddc84; } #level.ok #levelDot { background: #3ddc84; }
+  #level.off { opacity: .35; } #level.off #levelDot { display: none; }
+  #camText { margin: 0; padding: 10px 14px; text-align: center; font-size: .95rem; min-height: 3.2em; background: #111; }
+  #camBar { display: flex; gap: 10px; justify-content: space-between; padding: 10px 14px calc(12px + env(safe-area-inset-bottom)); background: #111; }
+  #camBar button { background: #2a2a2a; color: #fff; border-color: #555; } #camBar button.primary { background: #fff; color: #000; border-color: #fff; min-width: 9em; }
+  details summary { cursor: pointer; color: var(--muted); font-size: .9rem; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Gevelfoto naar hoeveelheden <span class="tag">prototype, niet gevalideerd</span></h1>
+  <p>Foto van een gevel → herkende elementen → hoeveelheden → kiezen wat je in het MJOP wilt. Alles is een voorstel dat je zelf controleert.</p>
+</header>
+<main>
+  <div id="stage">
+    <div id="canvasWrap">
+      <div id="empty">Kies eerst een foto, of probeer de voorbeeldgevel.</div>
+      <canvas id="cv" hidden></canvas>
+    </div>
+    <p id="hint" class="muted"></p>
+  </div>
+
+  <div id="panel">
+    <section>
+      <h2>1. Foto</h2>
+      <div class="row">
+        <label class="filebtn">Foto maken of kiezen<input id="file" type="file" accept="image/*" capture="environment"></label>
+        <button id="camBtn">Camera met waterpas</button>
+        <button id="demoBtn">Voorbeeldgevel</button>
+      </div>
+      <p class="muted">Sta zo recht mogelijk voor de gevel en zorg dat de hele gevel erop staat.</p>
+      <div id="photoMsg" class="msg"></div>
+    </section>
+
+    <section>
+      <h2>2. Elementen herkennen <small>(AI)</small></h2>
+      <div id="aiNote" class="msg warn">De foto wordt hiervoor naar Anthropic (Claude) gestuurd. Stuur geen foto's met herkenbare personen of kentekens.</div>
+      <div class="row" id="keyRow">
+        <input id="key" type="password" placeholder="Anthropic API-sleutel (sk-ant-…)" autocomplete="off" style="flex:1">
+      </div>
+      <div class="row" id="rememberRow">
+        <label><input id="remember" type="checkbox"> Sleutel onthouden op dit apparaat</label>
+      </div>
+      <div class="row">
+        <button id="detectBtn" class="primary" disabled>Herken elementen</button>
+        <span id="detectStatus" class="muted"></span>
+      </div>
+      <div id="detectMsg" class="msg"></div>
+      <p class="muted" id="noKeyNote">Geen sleutel? Je kunt elementen ook zelf intekenen bij stap 4.</p>
+    </section>
+
+    <section>
+      <h2>3. Maat opgeven</h2>
+      <p class="muted">Zonder bekende maat zijn er geen meters. Haal de gevelbreedte op via het adres, of wijs iets aan waarvan je de echte maat weet.</p>
+      <div id="hostedNote" class="msg warn" hidden></div>
+      <div class="sub" id="bagBlock">
+        <strong>Maat via het adres (BAG)</strong>
+        <div class="row">
+          <input id="addr" type="text" placeholder="Adres, bv. Dorpsstraat 12 Utrecht" style="flex:1" autocomplete="off">
+          <button id="addrBtn">Zoek</button>
+        </div>
+        <div class="row" id="addrPickRow" hidden><select id="addrPick" style="flex:1"></select></div>
+        <div id="bagMap"></div>
+        <div id="bagMsg" class="msg"></div>
+      </div>
+      <p class="muted" id="orNote">Of geef zelf een maat op:</p>
+      <div class="row">
+        <label><input type="radio" name="refmode" value="line" checked> Eén maat (foto recht van voren)</label>
+      </div>
+      <div class="row">
+        <label><input type="radio" name="refmode" value="rect"> Rechthoek met breedte en hoogte (een groot vlak corrigeert ook een schuine foto)</label>
+      </div>
+      <div class="row">
+        <button id="refPick" disabled>Punten aanwijzen</button>
+        <button id="refFromSel" disabled title="Gebruik de hoeken van het geselecteerde element">Geselecteerd element gebruiken</button>
+      </div>
+      <div class="row" id="refLineInputs">
+        <label>Lengte <input id="refLen" class="num" type="text" inputmode="decimal" placeholder="bv. 2,30"> m</label>
+      </div>
+      <div class="row" id="refRectInputs" hidden>
+        <label>Breedte <input id="refW" class="num" type="text" inputmode="decimal" placeholder="bv. 0,93"> m</label>
+        <label>Hoogte <input id="refH" class="num" type="text" inputmode="decimal" placeholder="bv. 2,31"> m</label>
+      </div>
+      <div id="refMsg" class="msg"></div>
+      <div class="sub">
+        <strong>Controlemaat</strong> <span class="muted">(aanbevolen bij een maat uit de BAG)</span>
+        <div class="row">
+          <button id="checkPick" disabled>Punten aanwijzen</button>
+          <label>Echte lengte <input id="checkLen" class="num" type="text" inputmode="decimal" placeholder="bv. 2,30"> m</label>
+        </div>
+        <div id="checkMsg" class="msg"></div>
+      </div>
+    </section>
+
+    <section>
+      <h2>4. Controleren en kiezen</h2>
+      <p class="muted">Tik op een element om het te selecteren en sleep de hoekpunten goed. Vink aan wat je in het MJOP wilt.</p>
+      <div class="row">
+        <select id="addType"></select>
+        <button id="addBtn" disabled>Zelf intekenen</button>
+        <button id="polyDone" hidden>Klaar met vlak</button>
+        <button id="cancelTool" hidden>Annuleren</button>
+      </div>
+      <div class="row">
+        <button id="allOn" class="small" disabled>Alles aanvinken</button>
+        <button id="allOff" class="small" disabled>Niets aanvinken</button>
+      </div>
+      <ul id="items"></ul>
+      <div id="itemsMsg" class="msg"></div>
+    </section>
+
+    <section>
+      <h2>5. Naar het MJOP</h2>
+      <div id="totals"></div>
+      <div class="row">
+        <button id="copyBtn" disabled>Kopieer als tekst</button>
+        <button id="csvBtn" disabled>Download CSV</button>
+        <button id="jsonBtn" disabled>Download JSON</button>
+      </div>
+      <div id="exportMsg" class="msg"></div>
+      <details>
+        <summary>Wat dit prototype wel en niet doet</summary>
+        <p class="muted">Hoeveelheden worden door vaste rekenregels in deze pagina berekend uit de aangewezen punten en jouw referentiemaat, niet door het AI-model. Het model wijst alleen aan waar iets zit en doet een inschatting van het materiaal. Er is geen conditiescore, geen prijs en geen NEN 2767-beoordeling. De nauwkeurigheid op echte gevels is niet gemeten. De export bevat geen foto.</p>
+      </details>
+    </section>
+  </div>
+</main>
+
+<div id="cam" hidden>
+  <div id="camView"><video id="camVideo" playsinline autoplay muted></video><div id="level" class="off"><div id="levelDot"></div></div></div>
+  <p id="camText"></p>
+  <div id="camBar"><button id="camClose">Sluiten</button><button id="camShot" class="primary">Foto maken</button></div>
+</div>
+
+<script>
+"use strict";
+// ---------------------------------------------------------------------------------------------------------------------
+// Gevelfoto-prototype. Eén zelfstandig bestand, geen build, geen externe scripts.
+// Rolverdeling: het AI-model levert alleen POSITIES (pixels) en een materiaalinschatting; alle hoeveelheden komen uit de
+// deterministische functies hieronder (referentiemaat -> meters). Zonder referentiemaat blijft elke maat onbekend (null).
+// ---------------------------------------------------------------------------------------------------------------------
+
+const MODEL = "claude-opus-5-5";
+const PROMPT_VERSION = "gevelfoto_v0.1";
+const MAX_EDGE = 2000;            // lange zijde van de afbeelding die naar het model gaat (pixels)
+const API_URL = "https://api.anthropic.com/v1/messages";
+
+// kind: quad = vierhoek (kozijn e.d.), line = lijn (hwa, goot), poly = vlak (metselwerk)
+const TYPES = {
+  kozijn_raam:    { label: "Raamkozijn",            kind: "quad", color: "#1f6feb", opening: true },
+  kozijn_deur:    { label: "Deurkozijn / buitendeur", kind: "quad", color: "#d1242f", opening: true },
+  garagedeur:     { label: "Garagedeur",            kind: "quad", color: "#b3541e", opening: true },
+  metselwerk:     { label: "Metselwerk",            kind: "poly", color: "#c2410c", wall: true },
+  stucwerk:       { label: "Stucwerk",              kind: "poly", color: "#a16207", wall: true },
+  gevelbekleding: { label: "Gevelbekleding",        kind: "poly", color: "#7c5e10", wall: true },
+  hwa:            { label: "Hemelwaterafvoer",      kind: "line", color: "#0e9384" },
+  dakgoot:        { label: "Dakgoot",               kind: "line", color: "#6d28d9" },
+  boeiboord:      { label: "Boeiboord / dakrand",   kind: "line", color: "#be185d" },
+  waterslag:      { label: "Waterslag / lekdorpel", kind: "line", color: "#0369a1" },
+  hekwerk:        { label: "Hekwerk / balustrade",  kind: "line", color: "#4d7c0f" },
+  balkon:         { label: "Balkon",                kind: "quad", color: "#8250df" },
+  luifel:         { label: "Luifel",                kind: "quad", color: "#57606a" },
+  rooster:        { label: "Ventilatierooster",     kind: "quad", color: "#1a7f37" },
+  overig:         { label: "Overig",                kind: "quad", color: "#6e7781" },
+};
+
+const $ = (id) => document.getElementById(id);
+const state = { img: null, W: 0, H: 0, photoName: null, elements: [], active: null, nextId: 1,
+                ref: { mode: "line", pts: null }, check: { pts: null }, tool: null, drag: null, recognition: null, capture: null,
+                bag: { docs: [], address: null, pand: null, sides: [], heights: null, side: null } };
+
+// ------------------------------------------------ rekenkern (zuivere functies) ---------------------------------------
+const Geo = {
+  dist: (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]),
+  area(pts) { let s = 0; for (let i = 0; i < pts.length; i++) { const a = pts[i], b = pts[(i + 1) % pts.length]; s += a[0] * b[1] - b[0] * a[1]; } return Math.abs(s) / 2; },
+  length(pts) { let s = 0; for (let i = 1; i < pts.length; i++) s += Geo.dist(pts[i - 1], pts[i]); return s; },
+  centroid(pts) { return [pts.reduce((s, p) => s + p[0], 0) / pts.length, pts.reduce((s, p) => s + p[1], 0) / pts.length]; },
+  inside(p, pts) { let c = false; for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) { const a = pts[i], b = pts[j];
+      if ((a[1] > p[1]) !== (b[1] > p[1]) && p[0] < (b[0] - a[0]) * (p[1] - a[1]) / (b[1] - a[1]) + a[0]) c = !c; } return c; },
+  distToSegment(p, a, b) { const dx = b[0] - a[0], dy = b[1] - a[1], l2 = dx * dx + dy * dy;
+    const t = l2 ? Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / l2)) : 0; return Math.hypot(p[0] - a[0] - t * dx, p[1] - a[1] - t * dy); },
+  // Zet vier punten in de volgorde linksboven, rechtsboven, rechtsonder, linksonder (beeld: y omlaag).
+  orderQuad(pts) { const c = Geo.centroid(pts); const s = pts.slice().sort((a, b) => Math.atan2(a[1] - c[1], a[0] - c[0]) - Math.atan2(b[1] - c[1], b[0] - c[0]));
+    let k = 0; s.forEach((p, i) => { if (p[0] + p[1] < s[k][0] + s[k][1]) k = i; }); return s.slice(k).concat(s.slice(0, k)); },
+  boxToQuad(a, b) { const x1 = Math.min(a[0], b[0]), x2 = Math.max(a[0], b[0]), y1 = Math.min(a[1], b[1]), y2 = Math.max(a[1], b[1]); return [[x1, y1], [x2, y1], [x2, y2], [x1, y2]]; },
+  // Homografie die vier bronpunten op vier doelpunten afbeeldt (8 vergelijkingen, Gauss-eliminatie met pivotering). null als ontaard.
+  homography(src, dst) {
+    const A = [];
+    for (let i = 0; i < 4; i++) { const [x, y] = src[i], [u, v] = dst[i];
+      A.push([x, y, 1, 0, 0, 0, -u * x, -u * y, u]); A.push([0, 0, 0, x, y, 1, -v * x, -v * y, v]); }
+    for (let c = 0; c < 8; c++) {
+      let p = c; for (let r = c + 1; r < 8; r++) if (Math.abs(A[r][c]) > Math.abs(A[p][c])) p = r;
+      if (Math.abs(A[p][c]) < 1e-12) return null;
+      [A[c], A[p]] = [A[p], A[c]];
+      for (let r = 0; r < 8; r++) if (r !== c) { const f = A[r][c] / A[c][c]; for (let k = c; k < 9; k++) A[r][k] -= f * A[c][k]; }
+    }
+    const h = A.map((row, i) => row[8] / row[i]);
+    return (p) => { const w = h[6] * p[0] + h[7] * p[1] + 1; return [(h[0] * p[0] + h[1] * p[1] + h[2]) / w, (h[3] * p[0] + h[4] * p[1] + h[5]) / w]; };
+  },
+};
+
+function parseNum(s) { const v = parseFloat(String(s).trim().replace(",", ".")); return Number.isFinite(v) && v > 0 ? v : null; }
+const round2 = (v) => v == null ? null : Math.round(v * 100) / 100;
+const fmt = (v, d = 2) => v == null ? "onbekend" : v.toLocaleString("nl-NL", { minimumFractionDigits: d, maximumFractionDigits: d });
+
+// Geeft een functie pixel -> meter (op het gevelvlak), of null zolang de referentiemaat niet compleet is.
+function metricMap(ref) {
+  if (!ref || !ref.pts) return null;
+  if (ref.mode === "line") {
+    if (ref.pts.length !== 2 || !ref.length) return null;
+    const d = Geo.dist(ref.pts[0], ref.pts[1]); if (d < 2) return null;
+    const s = ref.length / d; return (p) => [p[0] * s, p[1] * s];
+  }
+  if (ref.pts.length !== 4 || !ref.w || !ref.h) return null;
+  const q = Geo.orderQuad(ref.pts), info = rectInfo(ref, q);
+  if (info.perspective) return Geo.homography(q, [[0, 0], [ref.w, 0], [ref.w, ref.h], [0, ref.h]]);
+  return (p) => [p[0] * info.scale, p[1] * info.scale];
+}
+
+// Een kleine referentierechthoek (bv. één deur) is te gevoelig om er de hele gevel mee recht te trekken: een paar pixels fout in een hoek
+// geeft verderop meters fout. Daarom corrigeert alleen een grote rechthoek het perspectief; een kleine levert uitsluitend een schaal.
+const PERSPECTIVE_MIN_SHARE = 0.2;
+function rectInfo(ref, q) {
+  const sx = ref.w / ((Geo.dist(q[0], q[1]) + Geo.dist(q[3], q[2])) / 2), sy = ref.h / ((Geo.dist(q[0], q[3]) + Geo.dist(q[1], q[2])) / 2), scale = (sx + sy) / 2;
+  return { perspective: Geo.area(q) / (state.W * state.H) >= PERSPECTIVE_MIN_SHARE, scale, mismatch: Math.abs(sx - sy) / scale };
+}
+
+// Hoeveelheden van één element. Alles null zonder referentiemaat; het aantal (stuks) is altijd bekend.
+function quantities(el, toM, all) {
+  const t = TYPES[el.type], q = { count: 1, width_m: null, height_m: null, area_m2: null, length_m: null, gross_area_m2: null, openings_area_m2: null, net_area_m2: null };
+  if (!toM) return q;
+  const m = el.pts.map(toM);
+  if (m.some((p) => !Number.isFinite(p[0]) || !Number.isFinite(p[1]))) return q;
+  if (t.kind === "line") q.length_m = Geo.length(m);
+  else if (t.kind === "quad") {
+    q.width_m = (Geo.dist(m[0], m[1]) + Geo.dist(m[3], m[2])) / 2;
+    q.height_m = (Geo.dist(m[0], m[3]) + Geo.dist(m[1], m[2])) / 2;
+    q.area_m2 = Geo.area(m);
+  } else {
+    q.gross_area_m2 = Geo.area(m);
+    // Openingen (kozijnen, deuren) waarvan het middelpunt in dit vlak ligt worden afgetrokken.
+    q.openings_area_m2 = all.filter((o) => TYPES[o.type].opening && Geo.inside(Geo.centroid(o.pts), el.pts)).reduce((s, o) => s + Geo.area(o.pts.map(toM)), 0);
+    q.net_area_m2 = Math.max(0, q.gross_area_m2 - q.openings_area_m2);
+  }
+  return q;
+}
+
+// De hoeveelheid die in een MJOP-regel hoort: vlakken in m2 (netto), lijnen in m1, de rest in stuks.
+function primary(el, q) {
+  const k = TYPES[el.type].kind;
+  if (k === "poly") return { value: round2(q.net_area_m2), unit: "m2" };
+  if (k === "line") return { value: round2(q.length_m), unit: "m1" };
+  return { value: 1, unit: "st" };
+}
+
+function describe(el, q) {
+  const k = TYPES[el.type].kind;
+  if (k === "line") return q.length_m == null ? "lengte onbekend" : fmt(q.length_m) + " m¹";
+  if (k === "quad") return q.area_m2 == null ? "1 st · maat onbekend" : `1 st · ${fmt(q.width_m)} × ${fmt(q.height_m)} m · ${fmt(q.area_m2)} m²`;
+  return q.net_area_m2 == null ? "oppervlak onbekend" : `${fmt(q.net_area_m2)} m² netto (bruto ${fmt(q.gross_area_m2)} − openingen ${fmt(q.openings_area_m2)})`;
+}
+
+// ------------------------------------------------ herkenning (extern AI-model) ---------------------------------------
+const SCHEMA = {
+  type: "object", additionalProperties: false, required: ["elements"],
+  properties: { elements: { type: "array", items: {
+    type: "object", additionalProperties: false, required: ["type", "points", "material", "confidence", "note"],
+    properties: {
+      type: { type: "string", enum: Object.keys(TYPES) },
+      points: { type: "array", items: { type: "object", additionalProperties: false, required: ["x", "y"], properties: { x: { type: "number" }, y: { type: "number" } } } },
+      material: { type: "string" },
+      confidence: { type: "string", enum: ["low", "medium", "high"] },
+      note: { type: "string" },
+    } } } },
+};
+
+function buildPrompt(W, H) {
+  const list = Object.entries(TYPES).map(([k, t]) => `- ${k} (${t.label}): ${t.kind === "quad" ? "bounding box, exactly 2 points: top-left and bottom-right" : t.kind === "line" ? "polyline along the element, 2 or more points" : "polygon outlining the surface, 3 or more points in order"}`).join("\n");
+  return `This is one photo of a building facade in the Netherlands, taken for a multi-year maintenance plan (MJOP). The image is ${W} x ${H} pixels.
+
+Find the building elements that are clearly visible on the facade in the foreground and report where they are. Coordinates are pixels in this image: origin at the top-left corner, x to the right, y down.
+
+Element types and the geometry to return for each:
+${list}
+
+Guidelines:
+- One physical frame (kozijn) is one element, even when it holds several panes or opening sashes. Box the outer edge of the frame, not the glass.
+- For a wall surface (metselwerk, stucwerk, gevelbekleding) return one polygon per continuous surface of one material, following its outer edge and including the window and door openings that lie in it. The openings are subtracted afterwards by the calling program.
+- For hwa (downpipe), dakgoot (gutter), boeiboord (fascia), waterslag (sill) and hekwerk (railing), follow the centre line of the element from one end to the other.
+- Report only what you can actually see. Leave out elements that are hidden, that belong to a neighbouring building, or that you would have to guess.
+- "material": one short Dutch word when the material is clearly recognisable (for example hout, kunststof, aluminium, staal, baksteen, zink, pvc, beton), otherwise an empty string.
+- "confidence": how sure you are that the element exists and is of this type.
+- "note": at most a few words in Dutch when something limits the result (for example "deels achter boom"), otherwise an empty string.
+
+Do not estimate sizes in metres, condition, defects or costs: measurements are computed separately from your coordinates.
+
+Return only a JSON object of this shape, with no other text:
+{"elements": [{"type": "<one of the type keys above>", "points": [{"x": 0, "y": 0}], "material": "", "confidence": "low|medium|high", "note": ""}]}`;
+}
+
+async function callModel(apiKey, jpegBase64, W, H) {
+  const body = {
+    model: MODEL, max_tokens: 16000,
+    output_config: { effort: "high", format: { type: "json_schema", schema: SCHEMA } },
+    fallbacks: "default",
+    messages: [{ role: "user", content: [
+      { type: "image", source: { type: "base64", media_type: "image/jpeg", data: jpegBase64 } },
+      { type: "text", text: buildPrompt(W, H) } ] }],
+  };
+  const headers = { "content-type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01",
+                    "anthropic-beta": "server-side-fallback-2026-07-01", "anthropic-dangerous-direct-browser-access": "true" };
+  // Twee optionele onderdelen (terugvalmodel bij een weigering, afgedwongen JSON-schema) worden bij een 400-fout één voor één weggelaten,
+  // zodat de aanvraag ook werkt als een account of platform ze niet ondersteunt. De prompt vraagt hoe dan ook om alleen JSON.
+  const attempts = [
+    () => ({ headers, body }),
+    () => { const h = { ...headers }; delete h["anthropic-beta"]; const b = { ...body }; delete b.fallbacks; return { headers: h, body: b }; },
+    () => { const h = { ...headers }; delete h["anthropic-beta"]; const b = { ...body, output_config: { effort: "high" } }; delete b.fallbacks; return { headers: h, body: b }; },
+  ];
+  let last = null;
+  for (const make of attempts) {
+    const a = make();
+    let res;
+    try { res = await fetch(API_URL, { method: "POST", headers: a.headers, body: JSON.stringify(a.body) }); }
+    catch (e) { throw new Error("Geen verbinding met de AI-dienst. Controleer je internet. (" + e.message + ")"); }
+    let data = null; try { data = await res.json(); } catch (e) { /* geen JSON */ }
+    if (res.ok) return data;
+    const detail = data && data.error && data.error.message ? data.error.message : "HTTP " + res.status;
+    if (res.status === 401) throw new Error("De API-sleutel is niet geldig.");
+    if (res.status === 403) throw new Error("Deze API-sleutel mag dit niet doen: " + detail);
+    if (res.status === 429) throw new Error("Te veel aanvragen of tegoed op. Probeer het zo opnieuw. (" + detail + ")");
+    if (res.status >= 500) throw new Error("De AI-dienst heeft een storing. Probeer het zo opnieuw. (" + detail + ")");
+    last = new Error("De aanvraag is geweigerd: " + detail);
+    if (res.status !== 400) throw last;
+  }
+  throw last;
+}
+
+// Haalt de elementen uit het modelantwoord en controleert ze. Ongeldige elementen worden overgeslagen en geteld, nooit gerepareerd door te gokken.
+function parseModelResponse(data, W, H) {
+  if (!data || data.stop_reason === "refusal") throw new Error("Het model heeft deze foto geweigerd.");
+  if (data.stop_reason === "max_tokens") throw new Error("Het antwoord van het model is afgekapt. Probeer een foto met minder elementen.");
+  const text = (data.content || []).filter((b) => b.type === "text").map((b) => b.text).join("");
+  let obj = null;
+  try { obj = JSON.parse(text); } catch (e) { const m = text.match(/\{[\s\S]*\}/); if (m) { try { obj = JSON.parse(m[0]); } catch (e2) { /* blijft null */ } } }
+  return parseElements(obj, W, H, 1);
+}
+
+// `scale` rekent coördinaten van de (kleinere) afbeelding die het model zag terug naar de werkfoto.
+function parseElements(obj, W, H, scale) {
+  if (!obj || !Array.isArray(obj.elements)) throw new Error("Het antwoord van het model was niet leesbaar.");
+  const out = []; let skipped = 0;
+  for (const raw of obj.elements) {
+    const t = TYPES[raw && raw.type];
+    let pts = raw && Array.isArray(raw.points) ? raw.points.map((p) => [Number(p && p.x) * scale, Number(p && p.y) * scale]) : [];
+    if (!t || pts.some((p) => !Number.isFinite(p[0]) || !Number.isFinite(p[1]))) { skipped++; continue; }
+    pts = pts.map((p) => [Math.max(0, Math.min(W, p[0])), Math.max(0, Math.min(H, p[1]))]);
+    if (t.kind === "quad") { if (pts.length === 2) pts = Geo.boxToQuad(pts[0], pts[1]); else if (pts.length === 4) pts = Geo.orderQuad(pts); else { skipped++; continue; } if (Geo.area(pts) < 16) { skipped++; continue; } }
+    else if (t.kind === "line") { if (pts.length < 2 || Geo.length(pts) < 4) { skipped++; continue; } }
+    else if (pts.length < 3 || Geo.area(pts) < 16) { skipped++; continue; }
+    out.push({ type: raw.type, pts, material: typeof raw.material === "string" && raw.material.trim() ? raw.material.trim().slice(0, 40) : null,
+               confidence: ["low", "medium", "high"].includes(raw.confidence) ? raw.confidence : null,
+               note: typeof raw.note === "string" && raw.note.trim() ? raw.note.trim().slice(0, 120) : null });
+  }
+  return { elements: out, skipped };
+}
+
+// Gehoste variant (claude.ai-artifact): de pagina vraagt Claude via het account van de kijker, zonder API-sleutel. Het platform verkleint
+// een afbeelding tot ongeveer 1,2 megapixel; daarom gaat er een kopie van hooguit 1,1 megapixel heen, met háár afmetingen in de prompt.
+const Host = { claude: window.claude && typeof window.claude.use === "function" ? window.claude : null, sample: null, downloads: null };
+const HOST_MAX_PIXELS = 1100000;
+const HOST_ERRORS = { not_granted: "Je hebt deze pagina geen toestemming gegeven om Claude te gebruiken. Je kunt elementen zelf intekenen bij stap 4.",
+  rate_limited: "Te veel aanvragen of je gebruikslimiet is bereikt. Probeer het later opnieuw.", session_expired: "Je bent uitgelogd. Log opnieuw in en probeer het nog eens.",
+  image_rejected: "Deze foto wordt niet geaccepteerd. Probeer een andere foto.", images_unavailable: "In deze weergave kan de pagina geen foto naar Claude sturen.",
+  refused: "Claude heeft deze foto geweigerd.", invalid_json: "Het antwoord van het model was niet leesbaar. Probeer het opnieuw.", empty_completion: "Het model gaf geen antwoord. Probeer het opnieuw." };
+
+async function callHosted() {
+  const lim = await Host.sample.limits().catch(() => null);
+  if (!lim || !lim.images) throw new Error(HOST_ERRORS.images_unavailable);
+  const k = Math.min(1, Math.sqrt(HOST_MAX_PIXELS / (state.W * state.H))), c = document.createElement("canvas");
+  c.width = Math.round(state.W * k); c.height = Math.round(state.H * k); c.getContext("2d").drawImage(state.img, 0, 0, c.width, c.height);
+  const blob = await new Promise((ok) => c.toBlob(ok, "image/jpeg", 0.9));
+  let obj;
+  try { obj = await Host.sample.json(buildPrompt(c.width, c.height), { images: blob, modelTier: "complex", cache: false }); }
+  catch (e) { throw new Error(HOST_ERRORS[e && e.code] || "Herkennen is niet gelukt" + (e && e.message ? ": " + e.message : ".")); }
+  return { parsed: parseElements(obj, state.W, state.H, state.W / c.width), sent: [c.width, c.height] };
+}
+
+// ------------------------------------------------ foto laden ---------------------------------------------------------
+async function loadPhoto(file, capture) {
+  let bmp;
+  try { bmp = await createImageBitmap(file, { imageOrientation: "from-image" }); }
+  catch (e) { bmp = await new Promise((ok, no) => { const i = new Image(); i.onload = () => ok(i); i.onerror = () => no(new Error("Deze afbeelding kan niet worden geopend.")); i.src = URL.createObjectURL(file); }); }
+  const k = Math.min(1, MAX_EDGE / Math.max(bmp.width, bmp.height));
+  const c = document.createElement("canvas"); c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k);
+  c.getContext("2d").drawImage(bmp, 0, 0, c.width, c.height);
+  setPhoto(c, file.name || "foto", capture);
+}
+
+function setPhoto(canvas, name, capture) {
+  Object.assign(state, { img: canvas, W: canvas.width, H: canvas.height, photoName: name, elements: [], active: null, nextId: 1, tool: null, drag: null, recognition: null, capture: capture || null });
+  state.ref = { mode: state.ref.mode, pts: null }; state.check = { pts: null }; state.bag.side = null;
+  $("empty").hidden = true; $("cv").hidden = false;
+  ["refLen", "refW", "refH", "checkLen"].forEach((id) => { $(id).value = ""; });
+  ["detectMsg", "itemsMsg", "exportMsg", "photoMsg"].forEach((id) => setMsg(id, ""));
+  refresh();
+}
+
+// Voorbeeldgevel met bekende maten (100 pixels per meter) om de pagina zonder sleutel te proberen.
+function demoScene() {
+  const c = document.createElement("canvas"); c.width = 1600; c.height = 1100; const g = c.getContext("2d");
+  g.fillStyle = "#bcd6ee"; g.fillRect(0, 0, 1600, 1100); g.fillStyle = "#7d8a6a"; g.fillRect(0, 1000, 1600, 100);
+  g.fillStyle = "#a5553a"; g.fillRect(100, 150, 1400, 850);
+  g.strokeStyle = "#8d4630"; g.lineWidth = 1;
+  for (let y = 150; y < 1000; y += 14) { g.beginPath(); g.moveTo(100, y); g.lineTo(1500, y); g.stroke(); for (let x = 100 + ((y / 14) % 2) * 22; x < 1500; x += 44) { g.beginPath(); g.moveTo(x, y); g.lineTo(x, y + 14); g.stroke(); } }
+  const win = (x, y, w, h, door) => { g.fillStyle = "#f3f1ea"; g.fillRect(x, y, w, h); g.fillStyle = door ? "#35543f" : "#4c6b86"; g.fillRect(x + 10, y + 10, w - 20, h - 20);
+    if (!door) { g.fillStyle = "#f3f1ea"; g.fillRect(x + w / 2 - 4, y, 8, h); } };
+  const quads = [[250, 250, 180, 140], [710, 250, 180, 140], [1170, 250, 180, 140], [250, 650, 200, 150], [1100, 650, 200, 150]];
+  quads.forEach((q) => win(...q)); win(700, 770, 100, 230, true);
+  g.fillStyle = "#d8dadc"; g.fillRect(90, 138, 1420, 16); g.fillStyle = "#8a8f94"; g.fillRect(1444, 154, 12, 846);
+  const els = quads.map((q) => ({ type: "kozijn_raam", pts: Geo.boxToQuad([q[0], q[1]], [q[0] + q[2], q[1] + q[3]]), material: "hout" }));
+  els.push({ type: "kozijn_deur", pts: Geo.boxToQuad([700, 770], [800, 1000]), material: "hout" });
+  els.push({ type: "metselwerk", pts: [[100, 150], [1500, 150], [1500, 1000], [100, 1000]], material: "baksteen" });
+  els.push({ type: "hwa", pts: [[1450, 154], [1450, 1000]], material: "zink" });
+  els.push({ type: "dakgoot", pts: [[90, 146], [1510, 146]], material: "zink" });
+  return { canvas: c, elements: els };
+}
+
+function addElements(list, source) {
+  for (const e of list) state.elements.push({ id: state.nextId++, type: e.type, pts: e.pts, orig: source === "ai" ? { type: e.type, pts: e.pts.map((p) => p.slice()) } : null, material: e.material || null, confidence: e.confidence || null, note: e.note || null, source, edited: false, chosen: true });
+}
+
+// ------------------------------------------------ tekenen ------------------------------------------------------------
+function viewScale() { const cv = $("cv"); return cv.clientWidth / state.W; }
+
+function draw() {
+  const cv = $("cv"); if (!state.img) return;
+  const dpr = window.devicePixelRatio || 1, cssW = cv.clientWidth, cssH = cssW * state.H / state.W;
+  cv.style.height = cssH + "px";
+  if (cv.width !== Math.round(cssW * dpr) || cv.height !== Math.round(cssH * dpr)) { cv.width = Math.round(cssW * dpr); cv.height = Math.round(cssH * dpr); }
+  const g = cv.getContext("2d"), k = cssW / state.W;
+  g.setTransform(dpr * k, 0, 0, dpr * k, 0, 0);
+  g.drawImage(state.img, 0, 0);
+  const px = (v) => v / k;                               // schermpixels -> beeldpixels (lijndikte blijft gelijk bij elk formaat)
+  const path = (pts, close) => { g.beginPath(); pts.forEach((p, i) => i ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1])); if (close) g.closePath(); };
+  // vlakken eerst, zodat kozijnen en lijnen erbovenop liggen
+  const order = state.elements.slice().sort((a, b) => (TYPES[a.type].kind === "poly" ? 0 : 1) - (TYPES[b.type].kind === "poly" ? 0 : 1));
+  for (const el of order) {
+    const t = TYPES[el.type], act = el.id === state.active;
+    g.lineJoin = "round"; g.lineCap = "round"; g.strokeStyle = t.color; g.setLineDash(el.chosen ? [] : [px(6), px(5)]);
+    g.lineWidth = px(act ? 4 : t.kind === "line" ? 4 : 2.5);
+    path(el.pts, t.kind !== "line");
+    if (t.kind !== "line") { g.globalAlpha = el.chosen ? (t.kind === "poly" ? 0.12 : 0.28) : 0.05; g.fillStyle = t.color; g.fill(); g.globalAlpha = 1; }
+    g.stroke(); g.setLineDash([]);
+    const at = t.kind === "poly" ? el.pts[0] : t.kind === "line" ? [(el.pts[0][0] + el.pts[1][0]) / 2, (el.pts[0][1] + el.pts[1][1]) / 2] : el.pts[0];
+    const label = String(el.id); g.font = `600 ${px(12)}px system-ui, sans-serif`;
+    const w = g.measureText(label).width + px(8);
+    g.fillStyle = t.color; g.fillRect(at[0], at[1], w, px(17)); g.fillStyle = "#fff"; g.textBaseline = "top"; g.fillText(label, at[0] + px(4), at[1] + px(2.5));
+    if (act) for (const p of el.pts) { g.beginPath(); g.arc(p[0], p[1], px(8), 0, 7); g.fillStyle = "#fff"; g.fill(); g.lineWidth = px(3); g.strokeStyle = t.color; g.stroke(); }
+  }
+  // referentiemaat
+  const rp = state.ref.pts;
+  if (rp && rp.length) {
+    g.strokeStyle = "#ffd400"; g.lineWidth = px(3); g.setLineDash([px(8), px(5)]);
+    path(state.ref.mode === "rect" && rp.length === 4 ? Geo.orderQuad(rp) : rp, state.ref.mode === "rect" && rp.length === 4); g.stroke(); g.setLineDash([]);
+    for (const p of rp) { g.beginPath(); g.arc(p[0], p[1], px(6), 0, 7); g.fillStyle = "#ffd400"; g.fill(); g.lineWidth = px(1.5); g.strokeStyle = "#000"; g.stroke(); }
+  }
+  const cp = state.check.pts;
+  if (cp && cp.length === 2) { g.strokeStyle = "#00e5ff"; g.lineWidth = px(3); g.setLineDash([px(3), px(4)]); path(cp, false); g.stroke(); g.setLineDash([]);
+    for (const p of cp) { g.beginPath(); g.arc(p[0], p[1], px(5), 0, 7); g.fillStyle = "#00e5ff"; g.fill(); g.lineWidth = px(1.5); g.strokeStyle = "#000"; g.stroke(); } }
+  // punten van het lopende gereedschap
+  if (state.tool && state.tool.pts.length) {
+    g.strokeStyle = "#fff"; g.lineWidth = px(2); path(state.tool.pts, false); g.stroke();
+    for (const p of state.tool.pts) { g.beginPath(); g.arc(p[0], p[1], px(6), 0, 7); g.fillStyle = "#111"; g.fill(); g.lineWidth = px(2); g.strokeStyle = "#fff"; g.stroke(); }
+  }
+}
+
+// ------------------------------------------------ lijst, totalen, export --------------------------------------------
+function el(tag, props, ...kids) { const n = document.createElement(tag); if (props) for (const [k, v] of Object.entries(props)) { if (k === "class") n.className = v; else if (k === "text") n.textContent = v; else if (k.startsWith("on")) n.addEventListener(k.slice(2), v); else n[k] = v; } for (const c of kids) if (c != null) n.append(c); return n; }
+function setMsg(id, text, kind) { const n = $(id); n.textContent = text || ""; n.className = "msg" + (kind ? " " + kind : ""); }
+const CONF = { low: "AI onzeker", medium: "AI redelijk zeker", high: "AI zeker" };
+
+function renderList() {
+  const toM = metricMap(state.ref), ul = $("items"); ul.replaceChildren();
+  for (const e of state.elements) {
+    const t = TYPES[e.type], q = quantities(e, toM, state.elements), act = e.id === state.active;
+    const cb = el("input", { type: "checkbox", checked: e.chosen, title: "Opnemen in het MJOP", onclick: (ev) => ev.stopPropagation(), onchange: () => { e.chosen = cb.checked; refresh(); } });
+    const head = el("div", null, el("span", { class: "dot" }), el("strong", { text: `${e.id}. ${t.label}` }));
+    head.querySelector(".dot").style.background = t.color;
+    if (e.material) head.append(el("span", { class: "tag", text: e.material + (e.source === "demo" ? " (voorbeeld)" : " (AI-inschatting)") }));
+    if (e.source === "hand") head.append(el("span", { class: "tag", text: "zelf ingetekend" }));
+    else if (e.edited) head.append(el("span", { class: "tag", text: "aangepast" }));
+    else if (e.confidence) head.append(el("span", { class: "tag", text: CONF[e.confidence] }));
+    const body = el("div", null, head, el("div", { class: "qty", text: describe(e, q) }));
+    if (e.note) body.append(el("div", { class: "muted", text: e.note }));
+    const li = el("li", { class: act ? "active" : "", onclick: () => { state.active = act ? null : e.id; refresh(); } }, cb, body);
+    li.dataset.id = e.id;
+    if (act) {
+      const sel = el("select", { onclick: (ev) => ev.stopPropagation(), onchange: () => { e.type = sel.value; e.edited = true; refresh(); } });
+      for (const [k, tt] of Object.entries(TYPES)) if (tt.kind === t.kind) sel.append(el("option", { value: k, text: tt.label, selected: k === e.type }));
+      li.append(el("div", { class: "edit" }, el("label", { text: "Soort " }), sel,
+        el("button", { class: "small", text: "Verwijderen", onclick: (ev) => { ev.stopPropagation(); state.elements = state.elements.filter((x) => x !== e); state.active = null; refresh(); } })));
+    }
+    ul.append(li);
+  }
+  const big = toM ? state.elements.filter((e) => { const q = quantities(e, toM, state.elements); return TYPES[e.type].opening && (q.width_m > 12 || q.height_m > 12 || q.width_m < 0.15 || q.height_m < 0.15 || (e.type === "kozijn_deur" && (q.height_m < 1.8 || q.height_m > 3.2))); }) : [];
+  setMsg("itemsMsg", big.length ? `Onwaarschijnlijke maat bij element ${big.map((e) => e.id).join(", ")}. Een deurkozijn is meestal 2,0 tot 2,8 m hoog. Controleer de maat en de hoekpunten.` : "", "warn");
+}
+
+function totals() {
+  const toM = metricMap(state.ref), rows = new Map();
+  for (const e of state.elements.filter((x) => x.chosen)) {
+    const q = quantities(e, toM, state.elements), k = TYPES[e.type].kind;
+    const r = rows.get(e.type) || { type: e.type, label: TYPES[e.type].label, kind: k, count: 0, sum: 0, unknown: false, area: 0 };
+    r.count++;
+    const v = k === "poly" ? q.net_area_m2 : k === "line" ? q.length_m : q.area_m2;
+    if (v == null) r.unknown = true; else r.sum += v;
+    rows.set(e.type, r);
+  }
+  // Onbekend blijft onbekend: geen deelsom als van één van de elementen de maat ontbreekt.
+  return [...rows.values()].map((r) => ({ type: r.type, label: r.label, count: r.count, unit: r.kind === "line" ? "m1" : "m2", total: r.unknown ? null : round2(r.sum), main: r.kind === "quad" ? "st" : r.kind === "line" ? "m1" : "m2" }));
+}
+
+function renderTotals() {
+  const t = totals(), box = $("totals"); box.replaceChildren();
+  if (!t.length) { box.append(el("p", { class: "muted", text: "Nog niets aangevinkt." })); return; }
+  const tb = el("tbody");
+  for (const r of t) tb.append(el("tr", null, el("td", { text: r.label }), el("td", { class: "n", text: r.main === "st" ? r.count + " st" : "" }),
+    el("td", { class: "n", text: r.unit === "m1" ? fmt(r.total) + (r.total == null ? "" : " m¹") : fmt(r.total) + (r.total == null ? "" : " m²") })));
+  box.append(el("table", null, el("thead", null, el("tr", null, el("th", { text: "Element" }), el("th", { class: "n", text: "Aantal" }), el("th", { class: "n", text: "Hoeveelheid" }))), tb));
+}
+
+function buildExport() {
+  const toM = metricMap(state.ref), ref = state.ref, rp = (p) => [Math.round(p[0]), Math.round(p[1])];
+  return {
+    contract: "gevelfoto_prototype_v0", status: "PROPOSED", booking_allowed: false, validated: false,
+    created_at: new Date().toISOString(),
+    photo: { name: state.photoName, width_px: state.W, height_px: state.H, included_in_export: false, capture: state.capture },
+    building: state.bag.pand ? { address: state.bag.address, bag_pand_id: state.bag.pand.id, bouwjaar: state.bag.pand.bouwjaar || null, heights_3dbag: state.bag.heights, source: "PDOK BAG / 3D BAG", retrieved_at: state.bag.retrievedAt } : null,
+    recognition: state.recognition || { provider: "none" },
+    scale: !toM ? null : ref.mode === "line"
+      ? { method: "REFERENCE_LINE", length_m: ref.length, points_px: ref.pts.map(rp), perspective_corrected: false, source: ref.source || { type: "USER_INPUT" } }
+      : { method: "REFERENCE_RECTANGLE", width_m: ref.w, height_m: ref.h, points_px: Geo.orderQuad(ref.pts).map(rp), perspective_corrected: rectInfo(ref, Geo.orderQuad(ref.pts)).perspective, source: { type: "USER_INPUT" } },
+    scale_check: checkResult(),
+    items: state.elements.filter((e) => e.chosen).map((e) => { const q = quantities(e, toM, state.elements); const r = {}; for (const [k, v] of Object.entries(q)) r[k] = k === "count" ? v : round2(v);
+      return { id: e.id, type: e.type, label: TYPES[e.type].label, geometry_origin: e.source === "hand" ? "USER_DRAWN" : e.edited ? "AI_PROPOSAL_USER_EDITED" : e.source === "demo" ? "DEMO" : "AI_PROPOSAL",
+               material_ai_estimate: e.material, confidence_ai: e.confidence, note: e.note, points_px: e.pts.map((p) => [Math.round(p[0]), Math.round(p[1])]),
+               ai_original: e.orig && e.edited ? { type: e.orig.type, points_px: e.orig.pts.map((p) => [Math.round(p[0]), Math.round(p[1])]) } : null, quantities: r, mjop_quantity: primary(e, q) }; }),
+    totals: totals().map((r) => ({ type: r.type, label: r.label, count: r.count, total: r.total, unit: r.unit })),
+  };
+}
+
+function exportCsv() {
+  const x = buildExport(), n = (v) => v == null ? "" : String(v).replace(".", ","), s = (v) => '"' + String(v == null ? "" : v).replace(/"/g, '""') + '"';
+  const rows = [["nr", "element", "materiaal (AI-inschatting)", "hoeveelheid", "eenheid", "breedte_m", "hoogte_m", "oppervlak_m2", "herkomst", "status"].join(";")];
+  for (const i of x.items) rows.push([i.id, s(i.label), s(i.material_ai_estimate), n(i.mjop_quantity.value), i.mjop_quantity.unit, n(i.quantities.width_m), n(i.quantities.height_m),
+    n(i.quantities.area_m2 != null ? i.quantities.area_m2 : i.quantities.net_area_m2), i.geometry_origin, "VOORSTEL"].join(";"));
+  return "﻿" + rows.join("\r\n") + "\r\n";
+}
+
+function exportText() {
+  const t = totals(); return ["Gevelfoto (voorstel, niet gevalideerd)" + (state.photoName ? " – " + state.photoName : "")]
+    .concat(t.map((r) => `${r.label}: ${r.main === "st" ? r.count + " st, " : ""}${r.total == null ? "maat onbekend" : fmt(r.total) + (r.unit === "m1" ? " m1" : " m2")}`)).join("\n");
+}
+
+async function download(name, text, mime) {
+  if (Host.downloads) { try { await Host.downloads.save({ filename: name, data: text }); } catch (e) { setMsg("exportMsg", "Het bestand is niet opgeslagen. Gebruik 'Kopieer als tekst'.", "warn"); } return; }
+  const a = el("a", { href: URL.createObjectURL(new Blob([text], { type: mime })), download: name }); document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+}
+
+// ------------------------------------------------ referentiemaat -----------------------------------------------------
+function readRef() {
+  const r = state.ref; r.length = parseNum($("refLen").value); r.w = parseNum($("refW").value); r.h = parseNum($("refH").value);
+}
+function renderRef() {
+  const r = state.ref, toM = metricMap(r), need = r.mode === "line" ? 2 : 4;
+  $("refLineInputs").hidden = r.mode !== "line"; $("refRectInputs").hidden = r.mode !== "rect";
+  if (!state.img) return setMsg("refMsg", "");
+  if (!r.pts || r.pts.length !== need) return setMsg("refMsg", r.mode === "line" ? "Wijs twee punten aan en vul de echte afstand ertussen in." : "Wijs de vier hoeken van een rechthoek op de gevel aan en vul breedte en hoogte in. Een groot vlak (bijvoorbeeld de hele gevel) corrigeert ook een schuine foto.", "warn");
+  if (!toM) return setMsg("refMsg", r.mode === "line" ? "Vul de lengte in meter in." : "Vul breedte en hoogte in meter in.", "warn");
+  if (r.mode === "line" && r.source) return setMsg("refMsg", `Schaal uit de BAG: gevelbreedte ${fmt(r.length)} m (zijde ${r.source.side_facing}). De BAG-omtrek is van boven ingemeten en kan enkele decimeters afwijken; controleer met een controlemaat. Alleen betrouwbaar als de foto recht van voren is genomen.`, "ok");
+  if (r.mode === "line") return setMsg("refMsg", `Schaal: ${fmt(r.length / Geo.dist(r.pts[0], r.pts[1]) * 1000, 1)} mm per pixel. Alleen betrouwbaar als de foto recht van voren is genomen.`, "ok");
+  const info = rectInfo(r, Geo.orderQuad(r.pts));
+  if (info.perspective) return setMsg("refMsg", "Maat ingesteld met correctie voor een schuine foto.", "ok");
+  if (info.mismatch > 0.05) return setMsg("refMsg", `Breedte en hoogte geven een schaal die ${fmt(info.mismatch * 100, 0)}% verschilt: de foto is schuin genomen of een maat klopt niet. De rechthoek is te klein om dat te corrigeren; wijs een groot vlak aan (bijvoorbeeld de hele gevel).`, "warn");
+  setMsg("refMsg", "Schaal ingesteld. Deze rechthoek is te klein om een schuine foto te corrigeren; voor correctie wijs je een groot vlak aan (bijvoorbeeld de hele gevel).", "ok");
+}
+
+// ------------------------------------------------ maat via het adres (BAG / 3D BAG) ----------------------------------
+// Openbare, sleutelloze diensten: PDOK Locatieserver (adres -> punt), BAG (omtrek van het pand in meters, RD-stelsel) en 3D BAG (hoogtes).
+// De gevelbreedte is de lengte van de zijde van de BAG-omtrek die de gebruiker aanwijst. De omtrek is van boven ingemeten en kan enkele
+// decimeters afwijken van de gevel op ooghoogte; daarom blijft het een voorstel en is er een controlemaat.
+const PDOK_SEARCH = "https://api.pdok.nl/bzk/locatieserver/search/v3_1/free";
+const BAG_PAND = "https://api.pdok.nl/kadaster/bag/ogc/v2/collections/pand/items";
+const BAG3D_PAND = "https://api.3dbag.nl/collections/pand/items/";
+const RD_CRS = "http://www.opengis.net/def/crs/EPSG/0/28992";
+
+async function getJson(url) {
+  let res; try { res = await fetch(url, { headers: { accept: "application/json" } }); } catch (e) { throw new Error("Geen verbinding met de BAG-dienst."); }
+  if (!res.ok) throw new Error("De BAG-dienst gaf een fout (HTTP " + res.status + ").");
+  return res.json();
+}
+
+// Voegt opeenvolgende, bijna rechte stukken van de omtrek samen tot gevelzijden. Ring in meters; geeft [{a, b, length, facing}].
+function footprintSides(ring, tolDeg = 10) {
+  let pts = ring.map((p) => [p[0], p[1]]);
+  if (pts.length > 1 && Geo.dist(pts[0], pts[pts.length - 1]) < 1e-6) pts.pop();
+  pts = pts.filter((p, i) => Geo.dist(p, pts[(i + 1) % pts.length]) > 0.01);
+  if (pts.length < 3) return [];
+  const n = pts.length, dir = (i) => Math.atan2(pts[(i + 1) % n][1] - pts[i][1], pts[(i + 1) % n][0] - pts[i][0]);
+  const turn = (i) => { let d = Math.abs(dir(i) - dir((i + n - 1) % n)) * 180 / Math.PI; if (d > 180) d = 360 - d; return d; };   // knik bij punt i
+  const corners = []; for (let i = 0; i < n; i++) if (turn(i) > tolDeg) corners.push(i);
+  if (corners.length < 3) return [];
+  let signed = 0; for (let i = 0; i < n; i++) signed += pts[i][0] * pts[(i + 1) % n][1] - pts[(i + 1) % n][0] * pts[i][1];
+  const names = ["noord", "noordoost", "oost", "zuidoost", "zuid", "zuidwest", "west", "noordwest"];
+  return corners.map((c, k) => { const a = pts[c], b = pts[corners[(k + 1) % corners.length]], dx = b[0] - a[0], dy = b[1] - a[1];
+    const nx = signed > 0 ? dy : -dy, ny = signed > 0 ? -dx : dx;                 // naar buiten gerichte normaal (x = oost, y = noord)
+    const az = (Math.atan2(nx, ny) * 180 / Math.PI + 360) % 360;
+    return { a, b, length: Math.hypot(dx, dy), facing: names[Math.round(az / 45) % 8] }; });
+}
+
+function outerRing(geom) {
+  if (!geom) return null;
+  if (geom.type === "Polygon") return geom.coordinates[0];
+  if (geom.type === "MultiPolygon") return geom.coordinates.map((p) => p[0]).sort((a, b) => Geo.area(b) - Geo.area(a))[0];
+  return null;
+}
+
+async function bagSearch(q) {
+  const d = await getJson(`${PDOK_SEARCH}?q=${encodeURIComponent(q)}&fq=type:adres&rows=6&fl=weergavenaam,centroide_rd`);
+  return ((d.response && d.response.docs) || []).map((x) => { const m = /POINT\(([-\d.]+) ([-\d.]+)\)/.exec(x.centroide_rd || ""); return m ? { name: x.weergavenaam, pt: [parseFloat(m[1]), parseFloat(m[2])] } : null; }).filter(Boolean);
+}
+
+async function bagLoad(doc) {
+  const [x, y] = doc.pt, r = 30;
+  const d = await getJson(`${BAG_PAND}?bbox=${x - r},${y - r},${x + r},${y + r}&bbox-crs=${encodeURIComponent(RD_CRS)}&crs=${encodeURIComponent(RD_CRS)}&limit=50&f=json`);
+  const feats = (d.features || []).map((f) => ({ id: f.properties && f.properties.identificatie, bouwjaar: f.properties && f.properties.bouwjaar, ring: outerRing(f.geometry) })).filter((f) => f.ring && f.id);
+  if (!feats.length) throw new Error("Bij dit adres is geen pand gevonden in de BAG.");
+  const distTo = (f) => Geo.inside(doc.pt, f.ring) ? 0 : Math.min(...f.ring.map((p, i) => Geo.distToSegment(doc.pt, p, f.ring[(i + 1) % f.ring.length])));
+  const pand = feats.slice().sort((a, b) => distTo(a) - distTo(b))[0];
+  let heights = null;
+  try { const h = await getJson(BAG3D_PAND + "NL.IMBAG.Pand." + pand.id); const a = Object.values(h.feature.CityObjects)[0].attributes;
+    if (Number.isFinite(a.b3_h_maaiveld)) heights = { eaves_min_m: Number.isFinite(a.b3_h_dak_min) ? round2(a.b3_h_dak_min - a.b3_h_maaiveld) : null, top_max_m: Number.isFinite(a.b3_h_dak_max) ? round2(a.b3_h_dak_max - a.b3_h_maaiveld) : null, roof_type: a.b3_dak_type || null };
+  } catch (e) { /* hoogtes zijn aanvullend; zonder 3D BAG blijven ze onbekend */ }
+  Object.assign(state.bag, { address: doc.name, pand, neighbours: feats.filter((f) => f !== pand), sides: footprintSides(pand.ring), heights, side: null, retrievedAt: new Date().toISOString() });
+}
+
+function renderBag() {
+  const b = state.bag, box = $("bagMap"); box.replaceChildren();
+  if (!b.pand) return;
+  const NS = "http://www.w3.org/2000/svg", mk = (tag, attrs) => { const n = document.createElementNS(NS, tag); for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, v); return n; };
+  const xs = b.pand.ring.map((p) => p[0]), ys = b.pand.ring.map((p) => p[1]), pad = 4;
+  const minX = Math.min(...xs) - pad, maxX = Math.max(...xs) + pad, minY = Math.min(...ys) - pad, maxY = Math.max(...ys) + pad, k = 300 / Math.max(maxX - minX, maxY - minY);
+  const P = (p) => [(p[0] - minX) * k, (maxY - p[1]) * k], path = (ring) => ring.map((p) => P(p).map((v) => v.toFixed(1)).join(",")).join(" ");
+  const svg = mk("svg", { viewBox: `0 0 ${((maxX - minX) * k).toFixed(0)} ${((maxY - minY) * k).toFixed(0)}`, role: "img", "aria-label": "Omtrek van het pand volgens de BAG, noorden boven" });
+  for (const n of b.neighbours || []) svg.append(mk("polygon", { points: path(n.ring), fill: "none", stroke: "currentColor", "stroke-opacity": "0.2" }));
+  svg.append(mk("polygon", { points: path(b.pand.ring), fill: "currentColor", "fill-opacity": "0.08", stroke: "none" }));
+  const c = P(Geo.centroid(b.pand.ring));
+  b.sides.forEach((s, i) => { const a = P(s.a), e = P(s.b), mid = [(a[0] + e[0]) / 2, (a[1] + e[1]) / 2], out = Math.hypot(mid[0] - c[0], mid[1] - c[1]) || 1;
+    const line = { x1: a[0], y1: a[1], x2: e[0], y2: e[1] };
+    svg.append(mk("line", { ...line, class: "side" + (b.side === i ? " on" : "") }));
+    if (s.length >= 1.5) { const t = mk("text", { x: mid[0] + (mid[0] - c[0]) / out * 16, y: mid[1] + (mid[1] - c[1]) / out * 16, "text-anchor": "middle", "dominant-baseline": "middle" }); t.textContent = fmt(s.length, 1); svg.append(t); }
+    if (s.length < 0.5) return;                                  // te kort om een gevel te zijn; niet aan te wijzen
+    const hit = mk("line", { ...line, class: "hit" }); hit.dataset.side = i; hit.addEventListener("click", () => chooseBagSide(i)); svg.append(hit); });
+  box.append(svg);
+}
+
+function chooseBagSide(i) {
+  const b = state.bag, s = b.sides[i]; if (!s || !state.img) return setMsg("bagMsg", "Kies eerst een foto en tik daarna op de zijde.", "warn");
+  b.side = i; document.querySelector("input[name=refmode][value=line]").checked = true;
+  state.ref = { mode: "line", pts: null, source: { type: "BAG_FOOTPRINT_SIDE", bag_pand_id: b.pand.id, address: b.address, side_length_m: round2(s.length), side_facing: s.facing, retrieved_at: b.retrievedAt } };
+  $("refLen").value = fmt(s.length);
+  startTool({ isRef: true, need: 2, hint: `Tik op de linker- en de rechterhoek van deze gevel (${fmt(s.length)} m), allebei op dezelfde hoogte, bijvoorbeeld onderaan.`, done: (pts) => { state.ref.pts = pts; } });
+}
+
+function bagText() {
+  const b = state.bag; if (!b.pand) return "";
+  const h = b.heights, parts = [`${b.address} · pand ${b.pand.id}${b.pand.bouwjaar ? " · bouwjaar " + b.pand.bouwjaar : ""}.`, "Tik op de zijde die op de foto staat (maten in meter, noorden boven)."];
+  if (h && (h.eaves_min_m != null || h.top_max_m != null)) parts.push(`Hoogte volgens 3D BAG, ter controle: laagste dakrand ${fmt(h.eaves_min_m, 1)} m, hoogste punt ${fmt(h.top_max_m, 1)} m boven maaiveld.`);
+  return parts.join(" ");
+}
+
+// Controlemaat: een tweede, zelf opgemeten afstand die de ingestelde schaal toetst. Verandert de schaal niet.
+function checkResult() {
+  const toM = metricMap(state.ref), c = state.check, known = parseNum($("checkLen").value);
+  if (!toM || !c.pts || c.pts.length !== 2 || !known) return null;
+  const measured = Geo.dist(toM(c.pts[0]), toM(c.pts[1]));
+  return { known_m: known, measured_m: round2(measured), deviation_pct: Math.round((measured - known) / known * 1000) / 10, points_px: c.pts.map((p) => [Math.round(p[0]), Math.round(p[1])]) };
+}
+function renderCheck() {
+  const c = state.check, r = checkResult();
+  if (!state.img || !c.pts) return setMsg("checkMsg", "");
+  if (!metricMap(state.ref)) return setMsg("checkMsg", "Stel eerst een maat in.", "warn");
+  if (!r) return setMsg("checkMsg", "Vul de echte lengte in.", "warn");
+  const bad = Math.abs(r.deviation_pct) > 5;
+  setMsg("checkMsg", `De pagina meet hier ${fmt(r.measured_m)} m; jij geeft ${fmt(r.known_m)} m op. Verschil ${fmt(Math.abs(r.deviation_pct), 1)}%.` + (bad ? " Dat is veel: controleer de aangewezen punten, of de foto is schuin genomen." : ""), bad ? "warn" : "ok");
+}
+
+// ------------------------------------------------ camera met waterpas ------------------------------------------------
+// Uit de stand van de telefoon (DeviceOrientation: beta, gamma) volgt de richting van 'omhoog' in toestelassen:
+// (-cos b * sin g, sin b, cos b * cos g). Daaruit: pitch = hoek van de camera-as met het horizontale vlak (+ = camera wijst omhoog),
+// roll = scheefstand in het schermvlak ten opzichte van de dichtstbijzijnde staande of liggende stand.
+// De draaiing ten opzichte van de gevel (links/rechts) is met deze sensoren niet te meten.
+const LEVEL_TOL_DEG = 3;
+function tiltFromOrientation(beta, gamma) {
+  if (!Number.isFinite(beta) || !Number.isFinite(gamma)) return null;
+  const b = beta * Math.PI / 180, g = gamma * Math.PI / 180, ux = -Math.cos(b) * Math.sin(g), uy = Math.sin(b), uz = Math.cos(b) * Math.cos(g);
+  const pitch = -Math.asin(Math.max(-1, Math.min(1, uz))) * 180 / Math.PI;
+  if (Math.hypot(ux, uy) < 0.3) return { pitch, roll: null };          // telefoon ligt bijna plat: scheefstand is dan niet te bepalen
+  const ang = Math.atan2(ux, uy) * 180 / Math.PI;
+  return { pitch, roll: ang - Math.round(ang / 90) * 90 };
+}
+
+const Cam = { stream: null, tilt: null, sensor: false };
+function onOrientation(ev) { const t = tiltFromOrientation(ev.beta, ev.gamma); if (t) { Cam.tilt = t; Cam.sensor = true; renderLevel(); } }
+function isLevel(t) { return !!t && t.roll != null && Math.abs(t.pitch) <= LEVEL_TOL_DEG && Math.abs(t.roll) <= LEVEL_TOL_DEG; }
+function renderLevel() {
+  const lv = $("level"), t = Cam.tilt;
+  if (!Cam.sensor || !t) { lv.className = "off"; $("camText").textContent = "Dit apparaat geeft geen hellingsensor door; de waterpas werkt hier niet. Houd de telefoon zelf zo recht mogelijk."; return; }
+  const ok = isLevel(t), clamp = (v) => Math.max(-1, Math.min(1, v / 12)) * 52;
+  lv.className = ok ? "ok" : "";
+  $("levelDot").style.transform = `translate(${clamp(t.roll || 0)}px, ${clamp(-t.pitch)}px)`;
+  const tips = [];
+  if (t.pitch > LEVEL_TOL_DEG) tips.push(`camera wijst ${Math.round(t.pitch)}° omhoog`); else if (t.pitch < -LEVEL_TOL_DEG) tips.push(`camera wijst ${Math.round(-t.pitch)}° omlaag`);
+  if (t.roll == null) tips.push("houd de telefoon rechtop"); else if (Math.abs(t.roll) > LEVEL_TOL_DEG) tips.push(`telefoon staat ${Math.round(Math.abs(t.roll))}° scheef`);
+  $("camText").textContent = ok ? "Recht. Sta je ook recht tegenover het midden van de gevel? Maak dan de foto."
+    : tips.join(", ").replace(/^./, (c) => c.toUpperCase()) + ". Breng het bolletje naar het midden. Past de gevel er niet op? Doe een stap achteruit in plaats van te kantelen.";
+}
+
+async function openCamera() {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return setMsg("photoMsg", "De camera met waterpas werkt alleen als de pagina via https is geopend. Gebruik hier 'Foto maken of kiezen'.", "warn");
+  // iOS vraagt apart toestemming voor de bewegingssensor, en alleen direct na een tik.
+  try { if (window.DeviceOrientationEvent && typeof DeviceOrientationEvent.requestPermission === "function") await DeviceOrientationEvent.requestPermission(); } catch (e) { /* geweigerd: camera werkt, waterpas niet */ }
+  try { Cam.stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: { ideal: "environment" }, width: { ideal: 3840 }, height: { ideal: 2160 } } }); }
+  catch (e) { return setMsg("photoMsg", "De camera kon niet worden geopend (geen toestemming of geen camera). Gebruik 'Foto maken of kiezen'.", "err"); }
+  Cam.tilt = null; Cam.sensor = false;
+  $("camVideo").srcObject = Cam.stream; $("cam").hidden = false; renderLevel();
+  window.addEventListener("deviceorientation", onOrientation);
+}
+function closeCamera() {
+  window.removeEventListener("deviceorientation", onOrientation);
+  if (Cam.stream) Cam.stream.getTracks().forEach((t) => t.stop()); Cam.stream = null; $("camVideo").srcObject = null; $("cam").hidden = true;
+}
+function shoot() {
+  const v = $("camVideo"); if (!v.videoWidth) return;
+  const k = Math.min(1, MAX_EDGE / Math.max(v.videoWidth, v.videoHeight)), c = document.createElement("canvas");
+  c.width = Math.round(v.videoWidth * k); c.height = Math.round(v.videoHeight * k); c.getContext("2d").drawImage(v, 0, 0, c.width, c.height);
+  const t = Cam.sensor ? Cam.tilt : null, cap = { source: "CAMERA_WITH_LEVEL", pitch_deg: t ? Math.round(t.pitch * 10) / 10 : null, roll_deg: t && t.roll != null ? Math.round(t.roll * 10) / 10 : null, level: t ? isLevel(t) : null, tolerance_deg: LEVEL_TOL_DEG };
+  closeCamera(); setPhoto(c, "camera-" + new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-"), cap);
+  if (cap.level === false) setMsg("photoMsg", `Deze foto is niet recht genomen (${cap.pitch_deg > 0 ? "omhoog" : "omlaag"} ${fmt(Math.abs(cap.pitch_deg), 0)}°${cap.roll_deg != null ? ", scheef " + fmt(Math.abs(cap.roll_deg), 0) + "°" : ""}). Maten kunnen daardoor afwijken; maak hem liever opnieuw of gebruik bij stap 3 een grote rechthoek.`, "warn");
+  else if (cap.level) setMsg("photoMsg", "Foto recht genomen.", "ok");
+  refresh();
+}
+
+// ------------------------------------------------ gereedschap en aanwijzen -------------------------------------------
+// Op een smal scherm staat de foto boven de knoppen: breng hem in beeld zodra er iets aangewezen moet worden.
+function showPhoto() { const r = $("stage").getBoundingClientRect(); if (r.top < 0 || r.top > window.innerHeight * 0.5) $("stage").scrollIntoView({ block: "start", behavior: "smooth" }); }
+function startTool(tool) { state.tool = Object.assign({ pts: [] }, tool); state.active = null; refresh(); showPhoto(); }
+function endTool() { state.tool = null; refresh(); }
+
+function toolPoint(p) {
+  const t = state.tool; t.pts.push(p);
+  if (t.need && t.pts.length >= t.need) { const pts = t.pts; state.tool = null; t.done(pts); }
+  refresh();
+}
+
+function hitElement(p) {
+  const tol = 14 / viewScale(); let best = null, bestA = Infinity;
+  for (const e of state.elements) {
+    const k = TYPES[e.type].kind;
+    if (k === "line") { for (let i = 1; i < e.pts.length; i++) if (Geo.distToSegment(p, e.pts[i - 1], e.pts[i]) < tol && bestA > 0) { best = e; bestA = 0; } }
+    else if (Geo.inside(p, e.pts)) { const a = Geo.area(e.pts); if (a < bestA) { best = e; bestA = a; } }
+  }
+  return best;
+}
+
+function eventPoint(ev) { const r = $("cv").getBoundingClientRect(), k = viewScale(); return [Math.max(0, Math.min(state.W, (ev.clientX - r.left) / k)), Math.max(0, Math.min(state.H, (ev.clientY - r.top) / k))]; }
+
+function bindCanvas() {
+  const cv = $("cv"); let down = null;
+  cv.addEventListener("pointerdown", (ev) => {
+    if (!state.img) return; const p = eventPoint(ev); down = { x: ev.clientX, y: ev.clientY };
+    const a = state.elements.find((e) => e.id === state.active);
+    if (a && !state.tool) { const tol = 22 / viewScale(); const i = a.pts.findIndex((q) => Geo.dist(q, p) < tol);
+      if (i >= 0) { state.drag = { el: a, i }; cv.setPointerCapture(ev.pointerId); ev.preventDefault(); } }
+  });
+  cv.addEventListener("pointermove", (ev) => { if (!state.drag) return; state.drag.el.pts[state.drag.i] = eventPoint(ev); state.drag.moved = true; draw(); });
+  const up = (ev) => {
+    if (state.drag) { const d = state.drag; state.drag = null; if (d.moved) { d.el.edited = true; refresh(); } down = null; return; }
+    if (!down || !state.img) return; const tap = Math.hypot(ev.clientX - down.x, ev.clientY - down.y) < 10; down = null; if (!tap) return;
+    const p = eventPoint(ev);
+    if (state.tool) return toolPoint(p);
+    const h = hitElement(p); state.active = h ? (h.id === state.active ? null : h.id) : null; refresh();
+    if (h && state.active) { const li = document.querySelector(`#items li[data-id="${h.id}"]`); if (li && li.scrollIntoView) li.scrollIntoView({ block: "nearest" }); }
+  };
+  cv.addEventListener("pointerup", up);
+  cv.addEventListener("pointercancel", () => { state.drag = null; down = null; });
+}
+
+// ------------------------------------------------ alles bijwerken ----------------------------------------------------
+function refresh() {
+  const has = !!state.img, busy = !!state.tool || state.active != null, any = state.elements.some((e) => e.chosen);
+  $("cv").classList.toggle("busy", busy);
+  $("hint").textContent = state.tool ? state.tool.hint : state.active != null ? "Sleep de witte punten naar de echte hoeken. Tik naast het element om klaar te zijn." : has ? "Tik op een element om het te selecteren." : "";
+  $("detectBtn").disabled = !has || !(Host.claude ? Host.sample : $("key").value.trim()) || state.detecting;
+  $("refPick").disabled = !has; $("addBtn").disabled = !has; $("checkPick").disabled = !has;
+  const a = state.elements.find((e) => e.id === state.active);
+  $("refFromSel").disabled = !(a && TYPES[a.type].kind === "quad");
+  $("polyDone").hidden = !(state.tool && state.tool.open); $("cancelTool").hidden = !state.tool;
+  $("allOn").disabled = $("allOff").disabled = !state.elements.length;
+  ["copyBtn", "csvBtn", "jsonBtn"].forEach((id) => { $(id).disabled = !any; });
+  readRef(); renderRef(); renderCheck(); renderBag(); renderList(); renderTotals(); draw();
+}
+
+// ------------------------------------------------ knoppen ------------------------------------------------------------
+function init() {
+  for (const [k, t] of Object.entries(TYPES)) $("addType").append(el("option", { value: k, text: t.label }));
+  let saved = null; try { saved = localStorage.getItem("gevelfoto_api_key"); } catch (e) { /* opslag niet beschikbaar */ }
+  if (saved) { $("key").value = saved; $("remember").checked = true; }
+  const storeKey = () => { try { if ($("remember").checked && $("key").value.trim()) localStorage.setItem("gevelfoto_api_key", $("key").value.trim()); else localStorage.removeItem("gevelfoto_api_key"); } catch (e) { /* opslag niet beschikbaar */ } };
+  $("key").addEventListener("input", () => { storeKey(); refresh(); }); $("remember").addEventListener("change", storeKey);
+
+  $("file").addEventListener("change", async (ev) => { const f = ev.target.files[0]; ev.target.value = ""; if (!f) return;
+    try { await loadPhoto(f); } catch (e) { setMsg("photoMsg", e.message || "Deze afbeelding kan niet worden geopend.", "err"); } });
+  $("demoBtn").addEventListener("click", () => { const d = demoScene(); setPhoto(d.canvas, "voorbeeldgevel"); addElements(d.elements, "demo");
+    setMsg("photoMsg", "Voorbeeldgevel geladen: een getekende gevel met vooraf ingevulde elementen. Vul bij stap 3 als maat de deurhoogte van 2,30 m in.", "ok"); refresh(); });
+
+  $("detectBtn").addEventListener("click", async () => {
+    state.detecting = true; refresh(); setMsg("detectMsg", ""); $("detectStatus").textContent = "Bezig… dit duurt vaak een halve minuut.";
+    try {
+      let r, data = {};
+      if (Host.sample) { const h = await callHosted(); r = h.parsed; data.sent = h.sent; }
+      else { data = await callModel($("key").value.trim(), state.img.toDataURL("image/jpeg", 0.85).split(",")[1], state.W, state.H); r = parseModelResponse(data, state.W, state.H); }
+      state.elements = state.elements.filter((e) => e.source === "hand"); state.active = null;
+      addElements(r.elements, "ai");
+      state.recognition = Host.sample ? { provider: "claude.ai (account van de kijker)", model_tier: "complex", prompt_version: PROMPT_VERSION, image_sent: true, image_sent_px: data.sent } : { provider: "anthropic", requested_model: MODEL, served_model: data.model || null, prompt_version: PROMPT_VERSION, image_sent: true,
+                            usage: data.usage ? { input_tokens: data.usage.input_tokens, output_tokens: data.usage.output_tokens } : null };
+      const other = data.model && data.model !== MODEL ? ` Beantwoord door ${data.model}.` : "";
+      setMsg("detectMsg", r.elements.length ? `${r.elements.length} elementen gevonden${r.skipped ? `, ${r.skipped} overgeslagen omdat de gegevens niet klopten` : ""}. Controleer ze: het model kan iets missen of verkeerd aanwijzen.${other}` : "Het model heeft geen elementen gevonden. Teken ze zelf in bij stap 4.", r.elements.length ? "ok" : "warn");
+    } catch (e) { setMsg("detectMsg", e.message, "err"); }
+    state.detecting = false; $("detectStatus").textContent = ""; refresh();
+  });
+
+  document.querySelectorAll("input[name=refmode]").forEach((r) => r.addEventListener("change", () => { state.ref = { mode: r.value, pts: null }; state.bag.side = null; if (state.tool && state.tool.isRef) state.tool = null; refresh(); }));
+  $("refPick").addEventListener("click", () => { const m = state.ref.mode; state.ref.pts = null;
+    startTool({ isRef: true, need: m === "line" ? 2 : 4, hint: m === "line" ? "Tik op het begin en het eind van de bekende maat." : "Tik op de vier hoeken van de rechthoek.", done: (pts) => { state.ref.pts = pts; setTimeout(() => $(m === "line" ? "refLen" : "refW").focus(), 0); } }); });
+  $("refFromSel").addEventListener("click", () => { const a = state.elements.find((e) => e.id === state.active); if (!a) return;
+    document.querySelector("input[name=refmode][value=rect]").checked = true; state.ref = { mode: "rect", pts: a.pts.map((p) => p.slice()) }; state.active = null; refresh(); $("refW").focus(); });
+  $("refLen").addEventListener("input", () => { state.ref.source = null; state.bag.side = null; });      // zelf getypte maat is geen BAG-maat meer
+  ["refLen", "refW", "refH", "checkLen"].forEach((id) => $(id).addEventListener("input", refresh));
+  $("checkPick").addEventListener("click", () => { state.check.pts = null; startTool({ need: 2, hint: "Tik op het begin en het eind van een afstand die je zelf hebt opgemeten.", done: (pts) => { state.check.pts = pts; setTimeout(() => $("checkLen").focus(), 0); } }); });
+
+  const pickAddress = async (doc) => { setMsg("bagMsg", "Pand ophalen…"); try { await bagLoad(doc); setMsg("bagMsg", state.bag.sides.length ? bagText() : "De omtrek van dit pand kon niet in zijden worden verdeeld. Geef zelf een maat op.", state.bag.sides.length ? "" : "warn"); } catch (e) { state.bag.pand = null; setMsg("bagMsg", e.message, "err"); } refresh(); };
+  const search = async () => { const q = $("addr").value.trim(); if (!q) return; setMsg("bagMsg", "Zoeken…"); $("addrPickRow").hidden = true;
+    try { const docs = await bagSearch(q); state.bag.docs = docs;
+      if (!docs.length) return setMsg("bagMsg", "Geen adres gevonden. Typ straat, huisnummer en plaats.", "warn");
+      const sel = $("addrPick"); sel.replaceChildren(...docs.map((d, i) => el("option", { value: i, text: d.name }))); $("addrPickRow").hidden = docs.length < 2;
+      await pickAddress(docs[0]);
+    } catch (e) { setMsg("bagMsg", e.message, "err"); } };
+  $("addrBtn").addEventListener("click", search); $("addr").addEventListener("keydown", (ev) => { if (ev.key === "Enter") search(); });
+  $("addrPick").addEventListener("change", () => pickAddress(state.bag.docs[+$("addrPick").value]));
+
+  $("camBtn").addEventListener("click", openCamera); $("camClose").addEventListener("click", closeCamera); $("camShot").addEventListener("click", shoot);
+
+  $("addBtn").addEventListener("click", () => { const type = $("addType").value, kind = TYPES[type].kind;
+    const finish = (pts) => { if (kind === "quad") pts = Geo.boxToQuad(pts[0], pts[1]); if (kind !== "line" && Geo.area(pts) < 16) return; addElements([{ type, pts }], "hand"); state.active = state.elements[state.elements.length - 1].id; };
+    startTool(kind === "poly" ? { open: true, hint: "Tik de hoeken van het vlak één voor één aan en kies daarna 'Klaar met vlak'.", done: finish }
+      : { need: 2, hint: kind === "quad" ? "Tik op twee tegenoverliggende hoeken (linksboven en rechtsonder)." : "Tik op het begin en het eind.", done: finish }); });
+  $("polyDone").addEventListener("click", () => { const t = state.tool; if (!t || t.pts.length < 3) return setMsg("itemsMsg", "Een vlak heeft minstens drie hoeken nodig.", "warn"); state.tool = null; t.done(t.pts); refresh(); });
+  $("cancelTool").addEventListener("click", endTool);
+  $("allOn").addEventListener("click", () => { state.elements.forEach((e) => { e.chosen = true; }); refresh(); });
+  $("allOff").addEventListener("click", () => { state.elements.forEach((e) => { e.chosen = false; }); refresh(); });
+
+  const stamp = () => new Date().toISOString().slice(0, 16).replace(/[:T]/g, "-");
+  $("jsonBtn").addEventListener("click", () => download(`gevelfoto-${stamp()}.json`, JSON.stringify(buildExport(), null, 2), "application/json"));
+  $("csvBtn").addEventListener("click", () => download(`gevelfoto-${stamp()}.csv`, exportCsv(), "text/csv;charset=utf-8"));
+  $("copyBtn").addEventListener("click", async () => { try { await navigator.clipboard.writeText(exportText()); setMsg("exportMsg", "Gekopieerd.", "ok"); } catch (e) { setMsg("exportMsg", exportText()); } });
+
+  if (Host.claude) {
+    ["keyRow", "rememberRow", "noKeyNote", "camBtn", "bagBlock", "orNote"].forEach((id) => { $(id).hidden = true; });
+    $("aiNote").textContent = "De foto wordt hiervoor naar Claude gestuurd, via je eigen Claude-account. Stuur geen foto's met herkenbare personen of kentekens.";
+    $("hostedNote").hidden = false; $("hostedNote").textContent = "In deze gehoste versie werken 'maat via het adres' en de camera met waterpas niet. Geef hier zelf een maat op.";
+    Host.claude.use("sample").then((x) => { Host.sample = x; if (!x) setMsg("detectMsg", "Herkennen met Claude is in deze weergave niet beschikbaar. Je kunt elementen zelf intekenen bij stap 4.", "warn"); refresh(); });
+    Host.claude.use("downloads").then((x) => { Host.downloads = x; if (!x) { $("csvBtn").hidden = true; $("jsonBtn").hidden = true; } });
+  }
+  bindCanvas(); window.addEventListener("resize", draw);
+  // Beginstand: de voorbeeldgevel, zodat meteen te zien is wat de pagina doet.
+  const d = demoScene(); setPhoto(d.canvas, "voorbeeldgevel"); addElements(d.elements, "demo");
+  setMsg("photoMsg", "Dit is een getekende voorbeeldgevel met vooraf ingevulde elementen. Kies je eigen foto om te beginnen.", "ok"); refresh();
+}
+
+// Voor geautomatiseerde controle van de rekenkern (zie README).
+window.Gevelfoto = { Geo, metricMap, quantities, parseModelResponse, buildPrompt, buildExport, state, TYPES, demoScene, footprintSides, tiltFromOrientation };
+init();
+</script>
+</body>
+</html>
