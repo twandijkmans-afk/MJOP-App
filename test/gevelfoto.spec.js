@@ -13,8 +13,10 @@ var near = function (a, b, tol) { return typeof a === 'number' && Math.abs(a - b
 
 async function main() {
   var fs = require('fs');
-  var browser = await chromium.launch(fs.existsSync(CHROMIUM_PATH) ? { executablePath: CHROMIUM_PATH } : {});
-  var page = await browser.newPage({ viewport: { width: 390, height: 844 } }), errors = [], aiRequest = null, outside = [];
+  var opts = { args: ['--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream'] }; if (fs.existsSync(CHROMIUM_PATH)) opts.executablePath = CHROMIUM_PATH;
+  var browser = await chromium.launch(opts);
+  var ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, permissions: ['camera'] });
+  var page = await ctx.newPage(), errors = [], aiRequest = null, outside = [];
   page.on('pageerror', function (e) { errors.push(String(e)); });
   await page.route(/^https?:\/\/(?!localhost)/, function (route) {
     var url = route.request().url(), j = function (body) { return route.fulfill({ status: 200, contentType: 'application/json', headers: CORS, body: JSON.stringify(body) }); };
@@ -34,7 +36,8 @@ async function main() {
     outside.push(url); return route.abort();
   });
   await page.goto(BASE + 'gevelfoto/index.html');
-  var tap = async function (x, y) { await page.waitForTimeout(900); var box = await page.locator('#cv').boundingBox(), k = box.width / 1600; await page.mouse.click(box.x + x * k, box.y + y * k); };
+  var at = function (x, y) { return page.evaluate(function (p) { return window.Gevelfoto.imageToClient(p); }, [x, y]); };
+  var tap = async function (x, y) { await page.waitForTimeout(900); var c = await at(x, y); await page.mouse.click(c[0], c[1]); };
   var totals = function () { return page.evaluate(function () { var o = {}; window.Gevelfoto.buildExport().totals.forEach(function (t) { o[t.type] = t; }); return o; }); };
 
   var t = await totals();
@@ -60,8 +63,8 @@ async function main() {
 
   // een geel punt verslepen: de maat volgt, en de automatische plaatsing wordt niet meer overschreven
   await page.waitForTimeout(900);
-  var box = await page.locator('#cv').boundingBox(), k = box.width / 1600;
-  await page.mouse.move(box.x + 100 * k, box.y + 1000 * k); await page.mouse.down(); await page.mouse.move(box.x + 400 * k, box.y + 1000 * k, { steps: 5 }); await page.mouse.up();
+  var c1 = await at(100, 1000), c2 = await at(400, 1000);
+  await page.mouse.move(c1[0], c1[1]); await page.mouse.down(); await page.mouse.move(c2[0], c2[1], { steps: 5 }); await page.mouse.up();
   ex = await page.evaluate(function () { return window.Gevelfoto.buildExport(); }); t2 = await totals();
   check('6b. geel punt versleept: hoeveelheden schalen mee en de herkomst zegt dat de gebruiker heeft bijgesteld', ex.scale.source.placement === 'USER_ADJUSTED' && t2.hwa.total > t.hwa.total * 1.2, JSON.stringify([ex.scale.source.placement, t2.hwa]));
 
@@ -73,6 +76,24 @@ async function main() {
 
   var tilt = await page.evaluate(function () { return [window.Gevelfoto.tiltFromOrientation(90, 0), window.Gevelfoto.tiltFromOrientation(80, 0), window.Gevelfoto.tiltFromOrientation(85, -90)]; });
   check('9. waterpas: rechtop = 0 graden, voorover = omlaag, 5 graden scheef herkend', near(tilt[0].pitch, 0, 0.01) && near(tilt[1].pitch, -10, 0.01) && near(Math.abs(tilt[2].roll), 5, 0.01), JSON.stringify(tilt));
+
+  // inzoomen op de foto: een tik komt nog steeds op het juiste beeldpunt, en slepen naast een punt verschuift de foto
+  await page.evaluate(function () { window.scrollTo(0, 0); }); await page.waitForTimeout(500);
+  var c0 = await at(340, 320); await page.mouse.move(c0[0], c0[1]); await page.mouse.wheel(0, -300); await page.mouse.wheel(0, -300);
+  var z = await page.evaluate(function () { return window.Gevelfoto.state.view.z; });
+  var c3 = await at(340, 320); await page.mouse.click(c3[0], c3[1]);
+  var act = await page.evaluate(function () { var s = window.Gevelfoto.state, e = s.elements.filter(function (x) { return x.id === s.active; })[0]; return e ? e.type : null; });
+  var ox0 = await page.evaluate(function () { return window.Gevelfoto.state.view.ox; });
+  var cp = await at(600, 600); await page.mouse.move(cp[0], cp[1]); await page.mouse.down(); await page.mouse.move(cp[0] - 60, cp[1], { steps: 4 }); await page.mouse.up();
+  var ox1 = await page.evaluate(function () { return window.Gevelfoto.state.view.ox; });
+  check('12. inzoomen op de foto: tik raakt het juiste element, slepen verschuift het beeld, 1x toont weer alles', z > 1.4 && act === 'kozijn_raam' && ox1 > ox0 + 20 && await page.evaluate(function () { document.getElementById('zoomReset').click(); return window.Gevelfoto.state.view.z === 1; }), JSON.stringify([z, act, ox0, ox1]));
+
+  // camera: zoom snijdt het midden uit (de testcamera biedt geen lenszoom)
+  await page.click('#camBtn'); await page.waitForFunction(function () { return document.querySelector('#camVideo').videoWidth > 0; });
+  var vw = await page.evaluate(function () { return document.querySelector('#camVideo').videoWidth; });
+  await page.evaluate(function () { window.Gevelfoto.setCamZoom(2); }); await page.click('#camShot');
+  var shot = await page.evaluate(function () { var s = window.Gevelfoto.state; return [s.W, s.capture && s.capture.zoom, s.capture && s.capture.zoom_kind]; });
+  check('13. camera met zoom 2x: de foto is het uitgesneden midden en de zoom staat in de export', Math.abs(shot[0] - Math.min(2000, vw / 2)) <= 1 && shot[1] === 2 && shot[2] === 'DIGITAL', JSON.stringify([vw, shot]));
 
   var keys = await page.evaluate(function () { var k = []; for (var i = 0; i < localStorage.length; i++) k.push(localStorage.key(i)); return k; });
   check('10. zonder "onthouden" staat de sleutel niet in de browseropslag; alleen het laatst gezochte adres wordt bewaard', keys.join() === 'gevelfoto_adres', keys.join());

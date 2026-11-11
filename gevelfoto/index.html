@@ -58,6 +58,11 @@
   .msg.ok { background: var(--ok-bg); color: var(--ok-ink); }
   .msg:empty { display: none; }
   #canvasWrap { position: relative; }
+  #zoomBar { position: absolute; right: 6px; bottom: 6px; display: flex; gap: 4px; }
+  #zoomBar button { width: 38px; height: 38px; padding: 0; border-radius: 50%; background: #000a; color: #fff; border-color: #fff8; font-weight: 700; }
+  #camView { overflow: hidden; touch-action: none; }
+  #camZoomRow { display: flex; gap: 10px; align-items: center; padding: 8px 14px 0; background: #111; font-size: .9rem; }
+  #camZoomRow input { flex: 1; min-width: 0; } #camZoomVal { min-width: 3.2em; text-align: right; font-variant-numeric: tabular-nums; }
   canvas { display: block; margin: 0 auto; border-radius: 6px; background: #8884; touch-action: none; }
   canvas.busy { cursor: crosshair; }
   #hint { min-height: 1.4em; font-size: .88rem; margin: 6px 0 0; }
@@ -105,6 +110,7 @@
     <div id="canvasWrap">
       <div id="empty">Kies eerst een foto, of probeer de voorbeeldgevel.</div>
       <canvas id="cv" hidden></canvas>
+      <div id="zoomBar" hidden><button id="zoomOut" aria-label="Uitzoomen">−</button><button id="zoomReset" aria-label="Hele foto tonen">1×</button><button id="zoomIn" aria-label="Inzoomen">+</button></div>
     </div>
     <p id="hint" class="muted"></p>
   </div>
@@ -221,6 +227,7 @@
 <div id="cam" hidden>
   <div id="camView"><video id="camVideo" playsinline autoplay muted></video><div id="level" class="off"><div id="levelDot"></div></div></div>
   <p id="camText"></p>
+  <div id="camZoomRow"><span>Zoom</span><input id="camZoom" type="range" min="1" max="4" step="0.1" value="1" aria-label="Zoom"><span id="camZoomVal">1,0×</span></div>
   <div id="camBar"><button id="camClose">Sluiten</button><button id="camShot" class="primary">Foto maken</button></div>
 </div>
 
@@ -259,6 +266,7 @@ const TYPES = {
 const $ = (id) => document.getElementById(id);
 const state = { img: null, W: 0, H: 0, photoName: null, elements: [], active: null, nextId: 1,
                 ref: { mode: "line", pts: null }, check: { pts: null }, tool: null, drag: null, recognition: null, capture: null,
+                view: { z: 1, ox: 0, oy: 0 },
                 bag: { docs: [], address: null, pand: null, sides: [], heights: null, side: null } };
 
 // ------------------------------------------------ rekenkern (zuivere functies) ---------------------------------------
@@ -490,7 +498,7 @@ async function loadPhoto(file, capture) {
 
 function setPhoto(canvas, name, capture) {
   Object.assign(state, { img: canvas, W: canvas.width, H: canvas.height, photoName: name, elements: [], active: null, nextId: 1, tool: null, drag: null, recognition: null, capture: capture || null });
-  state.ref = { mode: state.ref.mode, pts: null }; state.check = { pts: null }; state.bag.side = null;
+  state.ref = { mode: state.ref.mode, pts: null }; state.check = { pts: null }; state.bag.side = null; state.view = { z: 1, ox: 0, oy: 0 };
   $("empty").hidden = true; $("cv").hidden = false;
   ["refLen", "refW", "refH", "checkLen"].forEach((id) => { $(id).value = ""; });
   ["detectMsg", "itemsMsg", "exportMsg", "photoMsg"].forEach((id) => setMsg(id, ""));
@@ -522,7 +530,14 @@ function addElements(list, source) {
 }
 
 // ------------------------------------------------ tekenen ------------------------------------------------------------
-function viewScale() { const cv = $("cv"); return cv.clientWidth / state.W; }
+// Weergave van de foto: z = zoomfactor, (ox, oy) = beeldpunt in de linkerbovenhoek. viewScale = schermpixels per beeldpixel.
+const MAX_ZOOM = 8;
+function baseScale() { return $("cv").clientWidth / state.W; }
+function viewScale() { return baseScale() * state.view.z; }
+function clampView() { const v = state.view; v.z = Math.max(1, Math.min(MAX_ZOOM, v.z)); v.ox = Math.max(0, Math.min(state.W - state.W / v.z, v.ox)); v.oy = Math.max(0, Math.min(state.H - state.H / v.z, v.oy)); }
+// Zoomt naar factor z en houdt het beeldpunt onder schermpositie (cx, cy; in pixels binnen het canvas) op zijn plek.
+function zoomAt(z, cx, cy) { const v = state.view, k0 = viewScale(), ix = cx / k0 + v.ox, iy = cy / k0 + v.oy; v.z = Math.max(1, Math.min(MAX_ZOOM, z)); const k1 = viewScale(); v.ox = ix - cx / k1; v.oy = iy - cy / k1; clampView(); draw(); }
+function imageToClient(p) { const r = $("cv").getBoundingClientRect(), k = viewScale(); return [r.left + (p[0] - state.view.ox) * k, r.top + (p[1] - state.view.oy) * k]; }
 
 function draw() {
   const cv = $("cv"); if (!state.img) return;
@@ -531,8 +546,10 @@ function draw() {
   const dpr = window.devicePixelRatio || 1, cssW = Math.max(120, Math.min($("canvasWrap").clientWidth, maxH * state.W / state.H)), cssH = cssW * state.H / state.W;
   cv.style.width = cssW + "px"; cv.style.height = cssH + "px";
   if (cv.width !== Math.round(cssW * dpr) || cv.height !== Math.round(cssH * dpr)) { cv.width = Math.round(cssW * dpr); cv.height = Math.round(cssH * dpr); }
-  const g = cv.getContext("2d"), k = cssW / state.W;
-  g.setTransform(dpr * k, 0, 0, dpr * k, 0, 0);
+  clampView();
+  const g = cv.getContext("2d"), v = state.view, k = cssW / state.W * v.z, vx0 = v.ox, vy0 = v.oy, vx1 = v.ox + state.W / v.z;
+  g.setTransform(dpr * k, 0, 0, dpr * k, -v.ox * dpr * k, -v.oy * dpr * k);
+  $("zoomBar").hidden = false; $("zoomReset").textContent = v.z > 1.01 ? fmt(v.z, 1) + "×" : "1×";
   g.drawImage(state.img, 0, 0);
   const px = (v) => v / k;                               // schermpixels -> beeldpixels (lijndikte blijft gelijk bij elk formaat)
   const path = (pts, close) => { g.beginPath(); pts.forEach((p, i) => i ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1])); if (close) g.closePath(); };
@@ -559,7 +576,7 @@ function draw() {
     for (const p of rp) { g.beginPath(); g.arc(p[0], p[1], px(6), 0, 7); g.fillStyle = "#ffd400"; g.fill(); g.lineWidth = px(1.5); g.strokeStyle = "#000"; g.stroke(); }
   }
   const tag = (at, text, bg, fg) => { g.font = `600 ${px(12)}px system-ui, sans-serif`; const w = g.measureText(text).width + px(10);
-    const x = Math.max(0, Math.min(state.W - w, at[0] - w / 2)), y = Math.max(0, at[1] - px(24)); g.fillStyle = bg; g.fillRect(x, y, w, px(18)); g.fillStyle = fg; g.textBaseline = "top"; g.fillText(text, x + px(5), y + px(3)); };
+    const x = Math.max(vx0, Math.min(vx1 - w, at[0] - w / 2)), y = Math.max(vy0, at[1] - px(24)); g.fillStyle = bg; g.fillRect(x, y, w, px(18)); g.fillStyle = fg; g.textBaseline = "top"; g.fillText(text, x + px(5), y + px(3)); };
   const mid = (a, b) => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
   if (rp && rp.length === 2 && state.ref.mode === "line" && state.ref.length) tag(mid(rp[0], rp[1]), `${fmt(state.ref.length)} m${state.ref.source ? " (BAG)" : ""}`, "#ffd400", "#000");
   const cp = state.check.pts;
@@ -572,7 +589,7 @@ function draw() {
     for (const p of state.tool.pts) { g.beginPath(); g.arc(p[0], p[1], px(6), 0, 7); g.fillStyle = "#111"; g.fill(); g.lineWidth = px(2); g.strokeStyle = "#fff"; g.stroke(); }
   }  // vergrootglas: tijdens aanwijzen of slepen zit je vinger op het punt; dit laat zien wat eronder ligt
   const lp = state.loupe;
-  if (lp) { const R = px(58), src = px(19), cx = lp[0] < state.W / 2 ? state.W - R - px(8) : R + px(8), cy = R + px(8);
+  if (lp) { const R = px(58), src = px(19), cx = lp[0] < (vx0 + vx1) / 2 ? vx1 - R - px(8) : vx0 + R + px(8), cy = vy0 + R + px(8);
     g.save(); g.beginPath(); g.arc(cx, cy, R, 0, 7); g.clip(); g.fillStyle = "#000"; g.fill();
     g.drawImage(state.img, lp[0] - src, lp[1] - src, 2 * src, 2 * src, cx - R, cy - R, 2 * R, 2 * R); g.restore();
     g.beginPath(); g.arc(cx, cy, R, 0, 7); g.lineWidth = px(3); g.strokeStyle = "#fff"; g.stroke(); g.lineWidth = px(1); g.strokeStyle = "#000"; g.stroke();
@@ -840,7 +857,22 @@ function tiltFromOrientation(beta, gamma) {
   return { pitch, roll: ang - Math.round(ang / 90) * 90 };
 }
 
-const Cam = { stream: null, tilt: null, sensor: false };
+const Cam = { stream: null, tilt: null, sensor: false, zoom: 1, hw: null };
+// Zoom in de camera: via de lens als de telefoon dat aan de browser aanbiedt, anders digitaal (het midden van het beeld wordt uitgesneden).
+function setCamZoom(z) {
+  const el = $("camZoom"), lo = Number(el.min), hi = Number(el.max); z = Math.max(lo, Math.min(hi, z)); Cam.zoom = z; el.value = z;
+  $("camZoomVal").textContent = fmt(Cam.hw ? z / lo : z, 1) + "×";
+  if (Cam.hw) { Cam.hw.applyConstraints({ advanced: [{ zoom: z }] }).catch(() => { /* lens weigert: beeld blijft zoals het is */ }); $("camVideo").style.transform = ""; }
+  else $("camVideo").style.transform = z > 1 ? `scale(${z})` : "";
+}
+function initCamZoom() {
+  const track = Cam.stream.getVideoTracks()[0], el = $("camZoom"); let caps = null;
+  try { caps = track.getCapabilities ? track.getCapabilities() : null; } catch (e) { /* geen mogelijkheden bekend */ }
+  const z = caps && caps.zoom && caps.zoom.max > caps.zoom.min ? caps.zoom : null;
+  Cam.hw = z ? track : null;
+  el.min = z ? z.min : 1; el.max = z ? Math.min(z.max, z.min * 10) : 4; el.step = z && z.step ? z.step : 0.1;
+  setCamZoom(Number(el.min));
+}
 function onOrientation(ev) { const t = tiltFromOrientation(ev.beta, ev.gamma); if (t) { Cam.tilt = t; Cam.sensor = true; renderLevel(); } }
 function isLevel(t) { return !!t && t.roll != null && Math.abs(t.pitch) <= LEVEL_TOL_DEG && Math.abs(t.roll) <= LEVEL_TOL_DEG; }
 function renderLevel() {
@@ -863,7 +895,7 @@ async function openCamera() {
   try { Cam.stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: { ideal: "environment" }, width: { ideal: 3840 }, height: { ideal: 2160 } } }); }
   catch (e) { return setMsg("photoMsg", "De camera kon niet worden geopend (geen toestemming of geen camera). Gebruik 'Foto maken of kiezen'.", "err"); }
   Cam.tilt = null; Cam.sensor = false;
-  $("camVideo").srcObject = Cam.stream; $("cam").hidden = false; renderLevel();
+  $("camVideo").srcObject = Cam.stream; $("cam").hidden = false; initCamZoom(); renderLevel();
   window.addEventListener("deviceorientation", onOrientation);
 }
 function closeCamera() {
@@ -872,9 +904,10 @@ function closeCamera() {
 }
 function shoot() {
   const v = $("camVideo"); if (!v.videoWidth) return;
-  const k = Math.min(1, MAX_EDGE / Math.max(v.videoWidth, v.videoHeight)), c = document.createElement("canvas");
-  c.width = Math.round(v.videoWidth * k); c.height = Math.round(v.videoHeight * k); c.getContext("2d").drawImage(v, 0, 0, c.width, c.height);
-  const t = Cam.sensor ? Cam.tilt : null, cap = { source: "CAMERA_WITH_LEVEL", pitch_deg: t ? Math.round(t.pitch * 10) / 10 : null, roll_deg: t && t.roll != null ? Math.round(t.roll * 10) / 10 : null, level: t ? isLevel(t) : null, tolerance_deg: LEVEL_TOL_DEG };
+  const dz = Cam.hw ? 1 : Cam.zoom, sw = v.videoWidth / dz, sh = v.videoHeight / dz;       // digitale zoom: alleen het midden
+  const k = Math.min(1, MAX_EDGE / Math.max(sw, sh)), c = document.createElement("canvas");
+  c.width = Math.round(sw * k); c.height = Math.round(sh * k); c.getContext("2d").drawImage(v, (v.videoWidth - sw) / 2, (v.videoHeight - sh) / 2, sw, sh, 0, 0, c.width, c.height);
+  const t = Cam.sensor ? Cam.tilt : null, cap = { source: "CAMERA_WITH_LEVEL", zoom: Math.round((Cam.hw ? Cam.zoom / Number($("camZoom").min) : Cam.zoom) * 10) / 10, zoom_kind: Cam.hw ? "LENS" : "DIGITAL", pitch_deg: t ? Math.round(t.pitch * 10) / 10 : null, roll_deg: t && t.roll != null ? Math.round(t.roll * 10) / 10 : null, level: t ? isLevel(t) : null, tolerance_deg: LEVEL_TOL_DEG };
   closeCamera(); setPhoto(c, "camera-" + new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-"), cap);
   if (cap.level === false) setMsg("photoMsg", `Deze foto is niet recht genomen (${cap.pitch_deg > 0 ? "omhoog" : "omlaag"} ${fmt(Math.abs(cap.pitch_deg), 0)}°${cap.roll_deg != null ? ", scheef " + fmt(Math.abs(cap.roll_deg), 0) + "°" : ""}). Maten kunnen daardoor afwijken; maak hem liever opnieuw of gebruik bij stap 3 een grote rechthoek.`, "warn");
   else if (cap.level) setMsg("photoMsg", "Foto recht genomen.", "ok");
@@ -903,41 +936,64 @@ function hitElement(p) {
   return best;
 }
 
-function eventPoint(ev) { const r = $("cv").getBoundingClientRect(), k = viewScale(); return [Math.max(0, Math.min(state.W, (ev.clientX - r.left) / k)), Math.max(0, Math.min(state.H, (ev.clientY - r.top) / k))]; }
+function eventPoint(ev) { const r = $("cv").getBoundingClientRect(), k = viewScale(), v = state.view; return [Math.max(0, Math.min(state.W, (ev.clientX - r.left) / k + v.ox)), Math.max(0, Math.min(state.H, (ev.clientY - r.top) / k + v.oy))]; }
 
 function bindCanvas() {
-  const cv = $("cv"); let down = null;
+  const cv = $("cv"), fingers = new Map(); let down = null, pinch = null;
   const near = (pts, p) => { const tol = 24 / viewScale(); return pts ? pts.findIndex((q) => Geo.dist(q, p) < tol) : -1; };
+  const local = (ev) => { const r = cv.getBoundingClientRect(); return [ev.clientX - r.left, ev.clientY - r.top]; };
+  const pinchState = () => { const [a, b] = [...fingers.values()]; return { d: Math.hypot(a[0] - b[0], a[1] - b[1]) || 1, m: [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2] }; };
   cv.addEventListener("pointerdown", (ev) => {
-    if (!state.img) return; const p = eventPoint(ev); down = { x: ev.clientX, y: ev.clientY };
-    let d = null;
+    if (!state.img) return; fingers.set(ev.pointerId, local(ev));
+    try { cv.setPointerCapture(ev.pointerId); } catch (e) { /* niet overal beschikbaar */ }
+    if (fingers.size === 2) {                                             // tweede vinger: knijpen om te zoomen, lopende handeling vervalt
+      state.drag = null; state.loupe = null; down = null; const ps = pinchState(), v = state.view, k = viewScale();
+      pinch = { d: ps.d, z: v.z, ix: ps.m[0] / k + v.ox, iy: ps.m[1] / k + v.oy }; return draw();
+    }
+    if (fingers.size > 2) return;
+    const p = eventPoint(ev); down = { x: ev.clientX, y: ev.clientY };
+    let d;
     if (state.tool) d = { kind: "place", p };                              // punt wordt gezet waar je loslaat
     else {
       const a = state.elements.find((e) => e.id === state.active), ia = a ? near(a.pts, p) : -1, ir = near(state.ref.pts, p), ic = near(state.check.pts, p);
       if (ia >= 0) d = { kind: "el", pts: a.pts, i: ia, el: a }; else if (ir >= 0) d = { kind: "ref", pts: state.ref.pts, i: ir }; else if (ic >= 0) d = { kind: "check", pts: state.check.pts, i: ic };
+      else d = { kind: "pan", x: ev.clientX, y: ev.clientY, ox: state.view.ox, oy: state.view.oy };    // naast een punt: de ingezoomde foto verschuiven
     }
-    if (d) { state.drag = d; state.loupe = p; try { cv.setPointerCapture(ev.pointerId); } catch (e) { /* niet overal beschikbaar */ } ev.preventDefault(); draw(); }
+    state.drag = d; if (d.kind !== "pan") { state.loupe = p; draw(); } ev.preventDefault();
   });
-  cv.addEventListener("pointermove", (ev) => { const d = state.drag; if (!d) return; const p = eventPoint(ev); state.loupe = p;
-    if (d.kind === "place") d.p = p; else { d.pts[d.i] = p; d.moved = true; } draw(); });
+  cv.addEventListener("pointermove", (ev) => {
+    if (!fingers.has(ev.pointerId)) return; fingers.set(ev.pointerId, local(ev));
+    if (pinch && fingers.size === 2) { const ps = pinchState(), v = state.view; v.z = Math.max(1, Math.min(MAX_ZOOM, pinch.z * ps.d / pinch.d)); const k = viewScale(); v.ox = pinch.ix - ps.m[0] / k; v.oy = pinch.iy - ps.m[1] / k; return draw(); }
+    const d = state.drag; if (!d) return;
+    if (d.kind === "pan") { const k = viewScale(); state.view.ox = d.ox - (ev.clientX - d.x) / k; state.view.oy = d.oy - (ev.clientY - d.y) / k; return draw(); }
+    const p = eventPoint(ev); state.loupe = p;
+    if (d.kind === "place") d.p = p; else { d.pts[d.i] = p; d.moved = true; } draw();
+  });
   const up = (ev) => {
+    fingers.delete(ev.pointerId);
+    if (pinch) { if (fingers.size < 2) pinch = null; down = null; return; }
     const d = state.drag; state.drag = null; state.loupe = null;
-    if (d) { down = null;
-      if (d.kind === "place") return toolPoint(d.p);
-      if (d.moved) { if (d.kind === "el") d.el.edited = true; if (d.kind === "ref") { state.ref.auto = false; if (state.ref.source) state.ref.source.placement = "USER_ADJUSTED"; } }
-      return refresh(); }
-    if (!down || !state.img) return; const tap = Math.hypot(ev.clientX - down.x, ev.clientY - down.y) < 10; down = null; if (!tap) return;
-    const h = hitElement(eventPoint(ev)); state.active = h ? (h.id === state.active ? null : h.id) : null; refresh();
+    const tap = down && Math.hypot(ev.clientX - down.x, ev.clientY - down.y) < 10; down = null;
+    if (!d || !state.img) return draw();
+    if (d.kind === "place") return toolPoint(d.p);
+    if (d.kind === "pan") { if (tap) { const h = hitElement(eventPoint(ev)); state.active = h ? (h.id === state.active ? null : h.id) : null; } return refresh(); }
+    if (d.moved) { if (d.kind === "el") d.el.edited = true; if (d.kind === "ref") { state.ref.auto = false; if (state.ref.source) state.ref.source.placement = "USER_ADJUSTED"; } }
+    refresh();
   };
   cv.addEventListener("pointerup", up);
-  cv.addEventListener("pointercancel", () => { state.drag = null; state.loupe = null; down = null; draw(); });
+  cv.addEventListener("pointercancel", (ev) => { fingers.delete(ev.pointerId); if (fingers.size < 2) pinch = null; state.drag = null; state.loupe = null; down = null; draw(); });
+  cv.addEventListener("wheel", (ev) => { if (!state.img) return; ev.preventDefault(); const c = local(ev); zoomAt(state.view.z * (ev.deltaY < 0 ? 1.25 : 0.8), c[0], c[1]); }, { passive: false });
+  const mid = () => [cv.clientWidth / 2, cv.clientHeight / 2];
+  $("zoomIn").addEventListener("click", () => zoomAt(state.view.z * 1.5, ...mid()));
+  $("zoomOut").addEventListener("click", () => zoomAt(state.view.z / 1.5, ...mid()));
+  $("zoomReset").addEventListener("click", () => zoomAt(1, 0, 0));
 }
 
 // ------------------------------------------------ alles bijwerken ----------------------------------------------------
 function refresh() {
   const has = !!state.img, busy = !!state.tool || state.active != null, any = state.elements.some((e) => e.chosen);
   $("cv").classList.toggle("busy", busy);
-  $("hint").textContent = state.tool ? state.tool.hint : state.active != null ? "Sleep de witte punten naar de echte hoeken. Tik ernaast om klaar te zijn." : has ? "Tik op een element om het aan te passen. Gele en blauwe punten kun je verslepen." : "";
+  $("hint").textContent = state.tool ? state.tool.hint : state.active != null ? "Sleep de witte punten naar de echte hoeken. Tik ernaast om klaar te zijn." : has ? "Tik op een element om het aan te passen. Knijp met twee vingers om in te zoomen." : "";
   $("detectBtn").disabled = !has || !(Host.claude ? Host.sample : $("key").value.trim()) || state.detecting;
   $("refPick").disabled = !has; $("addBtn").disabled = !has; $("checkPick").disabled = !has;
   const a = state.elements.find((e) => e.id === state.active);
@@ -998,6 +1054,12 @@ function init() {
   $("addrBtn").addEventListener("click", search); $("addr").addEventListener("keydown", (ev) => { if (ev.key === "Enter") search(); });
   $("addrPick").addEventListener("change", () => pickAddress(state.bag.docs[+$("addrPick").value]));
 
+  $("camZoom").addEventListener("input", () => setCamZoom(Number($("camZoom").value)));
+  { const view = $("camView"), f = new Map(); let start = null;                    // knijpen in het camerabeeld
+    const dist = () => { const [a, b] = [...f.values()]; return Math.hypot(a[0] - b[0], a[1] - b[1]) || 1; };
+    view.addEventListener("pointerdown", (ev) => { f.set(ev.pointerId, [ev.clientX, ev.clientY]); if (f.size === 2) start = { d: dist(), z: Cam.zoom }; });
+    view.addEventListener("pointermove", (ev) => { if (!f.has(ev.pointerId)) return; f.set(ev.pointerId, [ev.clientX, ev.clientY]); if (start && f.size === 2) setCamZoom(start.z * dist() / start.d); });
+    const end = (ev) => { f.delete(ev.pointerId); if (f.size < 2) start = null; }; view.addEventListener("pointerup", end); view.addEventListener("pointercancel", end); }
   $("camBtn").addEventListener("click", openCamera); $("camClose").addEventListener("click", closeCamera); $("camShot").addEventListener("click", shoot);
 
   $("addBtn").addEventListener("click", () => { const type = $("addType").value, kind = TYPES[type].kind;
@@ -1029,7 +1091,7 @@ function init() {
 }
 
 // Voor geautomatiseerde controle van de rekenkern (zie README).
-window.Gevelfoto = { autoRefFromBag, Geo, metricMap, quantities, parseModelResponse, buildPrompt, buildExport, state, TYPES, demoScene, footprintSides, tiltFromOrientation };
+window.Gevelfoto = { imageToClient, zoomAt, setCamZoom, autoRefFromBag, Geo, metricMap, quantities, parseModelResponse, buildPrompt, buildExport, state, TYPES, demoScene, footprintSides, tiltFromOrientation };
 init();
 </script>
 </body>
