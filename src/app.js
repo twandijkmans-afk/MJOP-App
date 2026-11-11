@@ -1350,6 +1350,10 @@
     state.photoRound = blob.photoRound && typeof blob.photoRound.planRef === 'string' && Array.isArray(blob.photoRound.proposals) ? blob.photoRound : null;
     if (state.photoRound && !Array.isArray(state.photoRound.planned)) state.photoRound.planned = [];
     if (state.photoRound && !Array.isArray(state.photoRound.rounds)) state.photoRound.rounds = [];
+    // Gevelinventaris (optioneel; oudere plannen hebben dit niet): bij het laden opnieuw tegen het contract gecontroleerd, ongeldige vervallen.
+    if (state.photoRound) state.photoRound.inventories = (Array.isArray(state.photoRound.inventories) ? state.photoRound.inventories : []).filter(function (x) {
+      return GI && x && x.ui && typeof x.ui.status === 'string' && x.ui.sources && typeof x.ui.sources === 'object' && GI.validate(x.inv).ok && x.inv.project.plan_ref === state.photoRound.planRef;
+    });
     // Plannen van vóór Quantity Foundation v1: kale hoeveelheden omzetten
     // naar het hoeveelheidsobject (handmatige afwijkingen blijven staan).
     state.elements.forEach(function (el) { ensureQuantity(el, state.building); });
@@ -2552,6 +2556,7 @@
   // Fases die de gebruiker te zien krijgt: detectie -> meting -> voorstel -> eigen bevestiging -> effectieve hoeveelheid. Een scan boekt nooit zelf.
   // ---------------------------------------------------------------------
   var PR = window.MJOPPhotoRound;
+  var GI = window.MJOPGevelInventory;   // Gevelscanner 2.0: gevelinventaris (src/gevel-inventory.js)
 
   function newPlanRef() {
     var hex = '';
@@ -2713,7 +2718,13 @@
     if (!PR.available()) return;
     prProbe();
     if (state.photoRound) PR.send('listProposals', { planRef: state.photoRound.planRef });
+    giRefresh();
   }
+  // Gevelinventaris alleen opvragen bij een app die hem kent (capabilities.features bevat 'gevelscan2'); een oudere app zou het bericht als ongeldig melden.
+  function giSupported() { var n = state.photoRoundUi.native; return !!(GI && n && Array.isArray(n.features) && n.features.indexOf(GI.FEATURE) >= 0); }
+  function giRefresh() { if (PR.available() && giSupported() && state.photoRound) PR.send('listFacadeInventory', { planRef: state.photoRound.planRef }); }
+  function giEntry(id) { return ((state.photoRound && state.photoRound.inventories) || []).filter(function (x) { return x.inv.inventory_id === id; })[0]; }
+  function giKozEl() { return (state.elements || []).filter(function (el) { return el.type === 'kozijnen' && el.koz; })[0] || null; }
   // Oudere versies van de app hebben wel de brug (voor afdrukken) maar kennen de Fotoronde niet en antwoorden nooit: pas na een antwoord op
   // getCapabilities tonen we de knoppen. Zo ontstaan er geen knoppen die niets doen als de website eerder is bijgewerkt dan de app.
   function prProbe() { if (PR.available() && !state.photoRoundUi.native) PR.send('getCapabilities', {}); }
@@ -2721,9 +2732,23 @@
   // Antwoorden van de app: contract-, versie- en projectcontrole gebeurt in PR.merge; hier alleen verwerken en bevestigen.
   function prOnMessage(msg) {
     var ui = state.photoRoundUi, pr = state.photoRound;
-    if (msg.type === 'capabilities') { ui.native = { lidar: !!msg.lidar, appVersion: String(msg.appVersion || '').slice(0, 20) }; render(); return; }
+    if (msg.type === 'capabilities') {
+      var feats = Array.isArray(msg.features) ? msg.features.filter(function (f) { return typeof f === 'string' && /^[a-z0-9_-]{1,32}$/.test(f); }).slice(0, 20) : [];
+      ui.native = { lidar: !!msg.lidar, appVersion: String(msg.appVersion || '').slice(0, 20), features: feats };
+      giRefresh(); render(); return;
+    }
     if (msg.type === 'error') { ui.fout = String(msg.message || 'De app meldde een fout.').slice(0, 200); render(); return; }
     if (!pr || msg.planRef !== pr.planRef) return;                       // niet voor dit project: negeren
+    if (msg.type === 'facade-inventory') {
+      if (!GI) return;
+      // contract-, versie- en projectcontrole in GI.merge; er wordt hier niets overgenomen als hoeveelheid
+      var gr = GI.merge(pr, Array.isArray(msg.inventories) ? msg.inventories : [], pr.planRef);
+      var gk = (Array.isArray(msg.inventories) ? msg.inventories : []).filter(function (i) { return i && typeof i.inventory_id === 'string' && giEntry(i.inventory_id); }).map(function (i) { return i.inventory_id; });
+      if (gk.length) PR.send('ackProposals', { planRef: pr.planRef, proposalIds: gk.slice(0, 200) });
+      if (gr.foreign || gr.invalid.length) ui.fout = gr.foreign ? gr.foreign + ' gevelinventaris(sen) hoorden bij een ander project en zijn niet toegepast.' : gr.invalid.length + ' ongeldige gevelinventaris(sen) genegeerd.';
+      if (gr.added.length) ui.melding = 'Nieuwe gevelinventaris uit de fotoronde. Controleer hem hieronder; er is nog niets overgenomen.';
+      render(); return;
+    }
     if (msg.type === 'round-status') { pr.rounds = (msg.rounds || []).filter(function (r) { return r && typeof r.roundId === 'string'; }).slice(0, 30); render(); return; }
     if (msg.type === 'proposals') {
       var rep = PR.merge(pr, msg.proposals || [], pr.planRef);
@@ -2792,8 +2817,66 @@
       if (simpel) html += renderPrSamenvatting(list);
       list.forEach(function (entry) { html += renderPrCard(entry); });
     }
+    if (GI && pr) GI.current(pr).slice().reverse().forEach(function (entry) { html += renderGevelInventaris(entry); });
+    if (GI && pr && GI.supersededInUse(pr).length) html += '<div class="notice" data-gi-verouderd style="margin-top:10px">Let op: bij een kozijnpost is een hoeveelheid in gebruik uit een eerdere versie van de gevelinventaris. Er is inmiddels een nieuwere inventaris; controleer de hoeveelheid bij die post.</div>';
     html += PG_CLOSE;
     return html;
+  }
+
+  // Gevelinventaris (Gevelscanner 2.0): per gevel de gescheiden hoeveelheden met herkomst en uitkomst, wat nog nodig is, en de koppeling aan
+  // de bestaande kozijnrijen. Kosten worden hier niet berekend: na overname rekent de bestaande post met zijn eigen kengetal.
+  function renderGevelInventaris(entry) {
+    var inv = entry.inv, u = entry.ui, id = inv.inventory_id, kozEl = giKozEl();
+    var html = '<section class="ov-card" data-gi-card="' + esc(id) + '" style="padding:16px;margin-top:16px">';
+    html += '<div class="label">Gevelinventaris uit de fotoronde</div>';
+    html += '<p class="hint" data-gi-status style="margin:4px 0 8px">Voorlopige uitkomst van de app. Er is niets automatisch overgenomen: de meetmethode en de herkenning zijn nog niet getoetst aan handmetingen op echte gevels.</p>';
+    function scope(titel, totals, facadeId, extra) {
+      var h = '<div class="label" style="margin-top:12px" data-gi-scope="' + esc(facadeId == null ? '*' : facadeId) + '">' + esc(titel) + '</div>' + (extra || '');
+      GI.mappingFor(totals, kozEl).forEach(function (m) {
+        var q = m.quantity, key = GI.scopeKey(facadeId, m.kind), src = u.sources[key];
+        h += '<div data-gi-q="' + esc(key) + '" style="margin:8px 0;padding-top:8px;border-top:1px solid rgba(128,128,128,.25)">';
+        h += '<div class="input-row"><div class="label">' + esc(m.label) + '</div><div><b data-gi-value>' + (q.value === null ? 'Nog niet vast te stellen' : Q.formatNumber(q.value) + ' ' + esc(Q.unitLabel(q.unit))) + '</b></div></div>';
+        if (q.value !== null) h += '<div class="hint">' + esc(GI.OUTCOME_LABELS[q.outcome]) + ' · ' + esc(GI.ORIGIN_LABELS[q.origin]) + (q.sigma != null && q.unit !== 'st' ? ' · onzekerheid ± ' + Q.formatNumber(q.sigma) + ' ' + esc(Q.unitLabel(q.unit)) + ' (rekenmodel)' : '') + '</div>';
+        if (q.value === null && q.partial !== null) h += '<div class="hint">Voor een deel bekend: ' + Q.formatNumber(q.partial) + ' ' + esc(Q.unitLabel(q.unit)) + ' — onvolledig, wordt niet als hoeveelheid aangeboden.</div>';
+        GI.describeReasons(q.missing).forEach(function (r) { h += '<div class="hint" data-gi-reason>• ' + esc(r) + '</div>'; });
+        if (m.kengetal === 'GEEN_KENGETAL') h += '<div class="hint" data-gi-geen-kengetal>' + esc(m.note || 'Geen passend kengetal in de bibliotheek.') + '</div>';
+        else if (m.usable && !GI.offerScope(inv, facadeId)) h += '<div class="hint" data-gi-alleen-gebouw>Hoort bij de post <b>' + esc(m.rowLabel) + '</b>. Die post geldt voor het hele gebouw: neem het gebouwtotaal over (onderaan), niet het aantal van één gevel.</div>';
+        else if (m.usable) {
+          h += '<div class="hint">Hoort bij de post <b>' + esc(m.rowLabel) + '</b>; de kosten volgen uit het kengetal van die post.</div>';
+          if (!src) h += '<div class="btn-row"><button type="button" class="ghost-btn" data-act="gi-add-source" data-id="' + esc(id) + '" data-key="' + esc(key) + '">Toevoegen als bron bij deze post</button></div>';
+          else if (src.status === 'SOURCE_ADDED') {
+            h += '<label class="hint" style="display:block;margin:6px 0"><input type="checkbox" data-change="gi-ack" data-id="' + esc(id) + '" data-key="' + esc(key) + '"' + (src.ack ? ' checked' : '') + ' /> Ik begrijp dat dit een voorlopige, niet-gevalideerde uitkomst is</label>';
+            h += '<div class="btn-row"><button type="button" class="primary-btn" data-act="gi-use" data-id="' + esc(id) + '" data-key="' + esc(key) + '">Gebruik als hoeveelheid</button></div>';
+            if (src.fout) h += '<div class="notice error" data-gi-fout>' + esc(src.fout) + '</div>';
+          } else h += '<div class="hint" data-gi-in-gebruik>In gebruik als hoeveelheid bij ' + esc(m.rowLabel) + '.</div>';
+        }
+        h += '</div>';
+      });
+      return h;
+    }
+    inv.facades.forEach(function (f) {
+      var c = f.coverage, extra = '<div class="hint">Volledigheid: ' + esc(GI.OUTCOME_LABELS[f.completeness]) + ' · ' + f.objects.length + ' ' + meervoud(f.objects.length, 'kozijn', 'kozijnen') + ' op ' + f.photo_ids.length + ' foto\'s' +
+        (c.determinable && c.covered_fraction != null ? ' · ' + Math.round(c.covered_fraction * 100) + '% van het vastgelegde gevelvlak gefotografeerd' : ' · dekking van de gevel onbekend') + '</div>';
+      html += scope('Gevel ' + f.facade_id + (f.orientation ? ' (' + PR.ORIENT_LABELS[f.orientation] + ')' : ''), f.totals, f.facade_id, extra);
+    });
+    if (inv.facades.length > 1) html += scope('Hele gebouw', inv.building_totals, null, '');
+    var nodig = GI.requests(inv);
+    if (nodig.length) {
+      html += '<div class="label" style="margin-top:12px">Nog nodig voor een volledige inventaris</div>';
+      nodig.slice(0, 12).forEach(function (t) { html += '<div class="hint" data-gi-nodig>• ' + esc(t) + '</div>'; });
+    }
+    html += '<p class="hint" style="margin-top:10px">Gebreken worden nog niet automatisch herkend en er is geen NEN 2767-conditiescore. Versie: ' + esc(inv.versions.pipeline) + '.</p>';
+    html += '</section>';
+    return html;
+  }
+  function giTarget(entry, key) {
+    var sk = GI.parseScopeKey(key); if (!sk) return null;
+    var kind = sk.kind, facadeId = sk.facadeId;
+    if (!GI.offerScope(entry.inv, facadeId)) return null;                 // nooit een geveltotaal op een gebouwbrede post
+    var totals = GI.scopeTotals(entry.inv, facadeId); if (!totals) return null;
+    var m = GI.mappingFor(totals, giKozEl()).filter(function (x) { return x.kind === kind; })[0];
+    if (!m || !m.usable) return null;
+    return { kind: kind, facadeId: facadeId, mapping: m, q: giKozEl().koz[m.row].quantity };
   }
 
   // Overzicht in gewone taal van wat de foto's hebben opgeleverd (alleen voor het hele gebouw; nooit gevels bij elkaar opgeteld).
@@ -5235,6 +5318,26 @@
       ui.planNaam = ''; ui.planOrient = ''; render();
     },
     'pr-plan-remove': function (d) { var pr = state.photoRound; if (pr) { pr.planned.splice(+d.i, 1); render(); } },
+    // Gevelinventaris: een hoeveelheid wordt eerst een BRON bij de bestaande kozijnrij (verandert niets), pas na uitdrukkelijke bevestiging de hoeveelheid.
+    'gi-add-source': function (d) {
+      var e = giEntry(d.id); if (!e || e.ui.status !== 'CURRENT' || e.ui.sources[d.key]) return;
+      var t = giTarget(e, d.key); if (!t) return;
+      var ev = GI.evidenceFor(e.inv, t.facadeId, t.kind, Q); if (!ev) return;
+      Q.addEvidence(t.q, ev);
+      e.ui.sources[d.key] = { evidenceId: ev.id, rowId: t.mapping.rowId, status: 'SOURCE_ADDED', ack: false, at: new Date().toISOString() };
+      render();
+    },
+    'gi-use': function (d) {
+      var e = giEntry(d.id), s = e && e.ui.sources[d.key]; if (!s || s.status !== 'SOURCE_ADDED') return;
+      var t = giTarget(e, d.key); if (!t) return;
+      s.fout = '';
+      if (!s.ack) { s.fout = 'Bevestig eerst dat je begrijpt dat dit een voorlopige uitkomst is.'; render(); return; }
+      if (t.q.manual) { s.fout = 'Bij deze post staat een door jou ingevulde waarde. Kies de bron bij de post zelf als je die wilt vervangen.'; render(); return; }
+      var r = Q.selectEvidence(t.q, s.evidenceId, undefined, { acknowledgeUncertainty: true });
+      if (!r.ok) { s.fout = 'Deze bron kan niet gekozen worden.'; render(); return; }
+      s.status = 'IN_USE'; s.at = new Date().toISOString();
+      render();
+    },
     'pr-add-source': function (d) {
       var e = prEntry(d.id); if (!e || e.ui.status !== 'PROPOSED') return;
       var val = PR.effectiveValue(e); if (val == null) return;
@@ -6084,6 +6187,7 @@
   var CHANGES = {
     'pr-plan-orient': function (t) { state.photoRoundUi.planOrient = t.value; },
     'pr-target': function (t, d) { var e = prEntry(d.id); if (e && e.ui.status === 'PROPOSED') { e.ui.targetId = t.value || null; render(); } },
+    'gi-ack': function (t, d) { var e = giEntry(d.id), s = e && e.ui.sources[d.key]; if (s) { s.ack = !!t.checked; s.fout = ''; render(); } },
     'pr-ack': function (t, d) { var e = prEntry(d.id); if (e) { e.ui.ack = !!t.checked; e.ui.useFout = ''; render(); } },
     'pr-replace': function (t, d) { var e = prEntry(d.id); if (e) { e.ui.replaceManual = !!t.checked; e.ui.useFout = ''; render(); } },
     'bijdrage': function (t) { state.bijdrage = +t.value; state.invul.bijdrage = true; render(); },

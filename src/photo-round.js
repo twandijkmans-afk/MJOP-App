@@ -171,7 +171,7 @@
   // Antwoorden van de app. Alleen bekende types; verder wordt alles door validateProposal/merge gecontroleerd.
   function receive(msg) {
     if (!isObj(msg) || msg.v !== BRIDGE_VERSION || typeof msg.type !== 'string') return false;
-    if (['proposals', 'capabilities', 'round-status', 'error'].indexOf(msg.type) < 0) return false;
+    if (['proposals', 'capabilities', 'round-status', 'error', 'facade-inventory'].indexOf(msg.type) < 0) return false;   // 'facade-inventory': Gevelscanner 2.0 (src/gevel-inventory.js)
     if (listener) listener(msg);
     return true;
   }

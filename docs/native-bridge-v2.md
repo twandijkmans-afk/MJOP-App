@@ -60,3 +60,24 @@ module, alles anders naar de bestaande ontvanger).
 - `test/native-nav.unit.spec.js` (Node): validatie, handshake, oude app, tijdslimiet, commando's, ketting naar de bestaande brug.
 - `test/native-tabs.spec.js` (Playwright): volledige sessie met een nagebootste app en nagebootst Supabase-netwerk, inclusief oude app en gewone browser.
 - `test/fixtures/native-bridge/contract_v1.json`: gedeelde voorbeeldberichten; hetzelfde bestand wordt door de Swift-tests in `mjop-learning` gebruikt.
+
+## Gevelscanner 2.0: gevelinventaris (alleen optellend)
+
+De iPhone-app kan na een fotoronde naast de bestaande voorstellen (`mjop_scan_proposal_v2`, ongewijzigd) een **gevelinventaris** leveren: contract
+`mjop_gevel_inventory_v1` (schema en uitleg in `mjop-learning`: `photo_walk/schemas/mjop_gevel_inventory_v1.schema.json`, `photo_walk/docs/gevelscanner_2.md`).
+
+| Richting | Bericht | Inhoud |
+|---|---|---|
+| App → website | `capabilities` | extra veld `features: ["gevelscan2"]` (een oudere app stuurt het veld niet) |
+| Website → app | `listFacadeInventory` | `{ planRef }`; **alleen** gestuurd als `features` `gevelscan2` bevat |
+| App → website | `facade-inventory` | `{ planRef, inventories: [ … ] }` |
+| Website → app | `ackProposals` (bestaand) | bevestigt ook de ontvangen `inventory_id`'s |
+
+Verwerking (`src/gevel-inventory.js`, haken in `src/app.js`):
+
+- Elke inventaris wordt opnieuw tegen het contract gecontroleerd; een andere `plan_ref` wordt nooit toegepast; samenvoegen is idempotent op `inventory_id`; een nieuwere revisie van dezelfde ronde vervangt de oude.
+- De inventaris staat in `photoRound.inventories` en zit dus in het planobject: opslaan loopt via de bestaande planopslag. Geen databasewijziging.
+- Er wordt **niets automatisch overgenomen**. Een hoeveelheid wordt eerst een bron bij een bestaande kozijnrij (`Q.addEvidence`) en pas na bevestiging van de onzekerheid de hoeveelheid (`Q.selectEvidence`).
+- **Kengetallen**: draaiende delen → rij *Draaiend raam*, vaste delen → *Vast glas*, deurkozijnen → *Deur*. Voor het aantal kozijnen, het kozijnoppervlak en het glasoppervlak bestaat geen passend kengetal: die worden getoond met die melding en er worden geen kosten uit afgeleid. De module bevat geen prijzen en rekent geen kosten; dat blijft de bestaande berekening.
+
+Tests: `test/gevel-inventory.unit.spec.js` (Node) en `test/gevel-inventaris.spec.js` (Playwright, nagebootste app, inclusief een app zonder `gevelscan2`). Fixture: `test/fixtures/gevel-inventory/gevel_inventory_v1_example.json` (door de app zelf gemaakt).
