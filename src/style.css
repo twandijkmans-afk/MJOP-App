@@ -1540,6 +1540,29 @@ input[type=range].ov-slider::-moz-range-thumb { width: 14px; height: 14px; borde
 .d3-tech summary { cursor: pointer; }
 .d3-tech ul { margin: 6px 0 0; padding-left: 18px; word-break: break-word; }
 
+/* Nieuw uiterlijk van de begeleide stappen (design stap 1): rustig scherm, voortgangsbalk bovenin en de hoofdknop onderin.
+   Alleen uiterlijk; de opbouw van de pagina en de tests blijven gelijk. */
+.wz-voortgang { margin: 2px 0 18px; }
+.wz-voortgang ol { gap: 4px; }
+.wz-voortgang li { flex: 1; height: 3px; border-radius: 2px; background: var(--blue-track, #DCDFF2); display: block; }
+.wz-voortgang li.klaar, .wz-voortgang li.nu { background: var(--blue); }
+.wz-voortgang .wz-n, .wz-voortgang .wz-t { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+.wz-stapnr { margin-top: 10px; }
+.wz-voortgang { display: flex; flex-direction: column; }
+.wz-voortgang .wz-stapnr { order: -1; margin: 0 0 8px; text-align: right; }
+@media (max-width: 899px) {
+  /* Tijdens de stappen geen tabbalk en geen gebouwkeuze: één taak tegelijk. */
+  .app-shell:has(.wz-voortgang) > .tab-bar,
+  .app-shell:has(.wz-voortgang) .building-switcher-mobile,
+  .app-shell:has(.wz-voortgang) > .mobile-home-btn,
+  .app-shell:has(.wz-voortgang) > .mobile-settings-btn { display: none; }
+  .app-shell:has(.wz-voortgang) .top-nav { padding-top: 14px; }
+  .app-shell:has(.wz-voortgang) .pg-head .page-title { font-size: 28px; line-height: 1.1; letter-spacing: -.025em; }
+  .app-shell:has(.wz-voortgang) .wz-voet { position: sticky; bottom: 0; gap: 6px; margin: 18px -2px 0; padding: 12px 2px calc(14px + env(safe-area-inset-bottom, 0px)); background: var(--app); border-top: 1px solid var(--border-3, #EFEEE9); z-index: 5; }
+  .app-shell:has(.wz-voortgang) .wz-voet .wz-status { font-size: 12px; line-height: 1.35; order: 3; text-align: center; }
+  .app-shell:has(.wz-voortgang) .wz-voet .ov-btn.secondary { background: none; border-color: transparent; box-shadow: none; min-height: 40px; font-size: 14.5px; font-weight: 500; color: var(--text-2); }
+}
+
 /* Native navigatie (iPhone-app MJOP Live vanaf versie 2, zie src/native-nav.js): de app toont zelf de tabbalk onderin en de knoppen voor
    Account/Home. Alleen als de app dit bevestigt krijgt <html> de klasse native-tabs; op de gewone website en in oudere appversies verandert er niets. */
 html.native-tabs .tab-bar,
