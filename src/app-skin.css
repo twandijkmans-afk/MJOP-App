@@ -1,0 +1,233 @@
+/* MJOP Live in de iPhone-app (html.native-tabs, zie src/native-nav.js).
+   De app toont zelf de tabbalk, de kop met projectnaam en paginanaam en de keuzebalk. Deze laag laat de pagina's daaronder aansluiten op
+   het ontwerp van de app: systeemletter, grijze achtergrond met witte kaarten, ronde hoeken, blauwe knoppen en donkere modus.
+   Alles is gescoped op html.native-tabs: de gewone website en oudere appversies veranderen niet. */
+
+/* Alleen op het scherm: afdrukken en PDF blijven zoals ze waren (licht, eigen opmaak). */
+@media screen {
+html.native-tabs {
+  --font: -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
+  --mono: -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
+  --sans: var(--font);
+  --heading: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
+
+  --canvas: #F2F2F7;
+  --app: #F2F2F7;
+  --card: #FFFFFF;
+  --subtle: #F7F7FA;
+  --muted-surface: #F2F2F7;
+  --shade: #F2F2F7;
+
+  --border: rgba(60, 60, 67, 0.12);
+  --border-input: rgba(60, 60, 67, 0.22);
+  --border-2: rgba(60, 60, 67, 0.12);
+  --border-3: rgba(60, 60, 67, 0.12);
+  --border-4: rgba(60, 60, 67, 0.08);
+  --border-5: rgba(60, 60, 67, 0.16);
+
+  --text-2: #3C3C43;
+  --text-3: rgba(60, 60, 67, 0.72);
+  --text-4: rgba(60, 60, 67, 0.62);
+  --text-mono: rgba(60, 60, 67, 0.6);
+  --text-dim: rgba(60, 60, 67, 0.36);
+
+  --blue-tint: #EEF0FF;
+  --blue-tint-2: #E9ECFF;
+
+  --r-chip: 8px;
+  --r-ctl: 14px;
+  --r-card: 22px;
+
+  --app-shadow: 0 1px 2px rgba(16, 18, 17, 0.04), 0 10px 30px rgba(16, 18, 17, 0.06);
+  --app-accent-soft: #E9ECFF;
+  --app-accent-on-soft: #1B2ECC;
+
+  color-scheme: light dark;
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html.native-tabs body {
+  background: var(--app);
+  font-family: var(--font);
+  font-variant-numeric: tabular-nums;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* --- Wat de app al laat zien, niet dubbel tonen --- */
+/* De projectkiezer: de app-kop toont het project en de opslagstatus; wisselen gaat via Projecten. */
+html.native-tabs .building-switcher-mobile { display: none !important; }
+/* De paginatitel van de hoofdschermen: de app-kop toont die al in grote letters. De subregel blijft staan als context.
+   Schermen met een eigen kop (de stappen van een nieuw project, een losse post) houden hun titel. */
+html.native-tabs .app-shell:not(:has(.wz-voortgang)) .ov-page > .ov > .ov-page-head h1.page-title,
+html.native-tabs .app-shell:not(:has(.wz-voortgang)) .ov-page > .ov > .pg-head h1.page-title { display: none; }
+html.native-tabs .ov-page-head .page-sub,
+html.native-tabs .ov .pg-head .page-sub { margin-top: 0; font: 400 15px/1.4 var(--font); color: var(--text-3); }
+
+/* --- Pagina --- */
+html.native-tabs .app-shell { background: var(--app); box-shadow: none; max-width: none; }
+html.native-tabs .ov { padding: 16px 16px 40px; }
+html.native-tabs .ov-page-head { gap: 14px; margin-bottom: 4px; }
+html.native-tabs .ov-page-head > div:first-child { flex: 1 1 100%; }
+
+/* --- Kaarten --- */
+html.native-tabs .ov-card,
+html.native-tabs .ov .card,
+html.native-tabs .mp-lijst .st-proj,
+html.native-tabs .entry-card {
+  background: var(--card);
+  border: 0 !important;
+  border-radius: var(--r-card);
+  box-shadow: var(--app-shadow);
+}
+html.native-tabs .ov .card .card { box-shadow: none; border-radius: 0; }
+html.native-tabs .ov-card { padding: 18px; }
+html.native-tabs .ov-routebar { overflow: hidden; }
+
+/* --- Knoppen: één accentkleur. Blauw gevuld = hoofdactie, lichtblauw = tweede actie. Geen zwarte knoppen. --- */
+html.native-tabs .ov-btn,
+html.native-tabs .primary-btn,
+html.native-tabs .ov-btn-dark {
+  min-height: 50px;
+  padding: 12px 20px;
+  border: 0;
+  border-radius: var(--r-ctl);
+  font: 600 16px/1.1 var(--font);
+  letter-spacing: -0.01em;
+  transition: transform .12s ease, opacity .12s ease;
+}
+html.native-tabs .ov-btn,
+html.native-tabs .primary-btn { background: var(--blue); color: #fff; box-shadow: 0 6px 16px rgba(47, 75, 255, 0.28); }
+html.native-tabs .ov-btn:active,
+html.native-tabs .primary-btn:active,
+html.native-tabs .ov-btn-dark:active { transform: scale(0.98); opacity: .9; }
+html.native-tabs .ov-btn-dark,
+html.native-tabs .ov-btn.secondary {
+  background: var(--app-accent-soft);
+  color: var(--app-accent-on-soft);
+  border: 0;
+  box-shadow: none;
+}
+html.native-tabs .ov-btn-dark:hover,
+html.native-tabs .ov-btn.secondary:hover { background: var(--app-accent-soft); }
+
+/* --- Labels: geen typemachineletter en geen gespatieerde hoofdletters --- */
+html.native-tabs .ov-verdict-badge,
+html.native-tabs .ov-routebar-label,
+html.native-tabs .ov-routebar-now-label,
+html.native-tabs .gb-progress-label,
+html.native-tabs .eyebrow,
+html.native-tabs .section-title {
+  font-family: var(--font);
+  letter-spacing: 0;
+}
+html.native-tabs .ov-verdict-badge { border-radius: 999px; text-transform: none; font-size: 12.5px; font-weight: 600; padding: 5px 11px; }
+html.native-tabs .ov-routebar-label,
+html.native-tabs .ov-routebar-now-label { text-transform: none; font-size: 13px; font-weight: 600; }
+html.native-tabs .ov-head { font-family: var(--heading); font-weight: 700; letter-spacing: -0.03em; }
+html.native-tabs .ov-kv b,
+html.native-tabs .gb-cell-bedrag,
+html.native-tabs .pl-post .amount,
+html.native-tabs .kv .amount,
+html.native-tabs .row .value { font-family: var(--font); font-weight: 600; letter-spacing: -0.01em; }
+
+/* --- Chips en filters --- */
+html.native-tabs .chip,
+html.native-tabs .seg-opt { border-radius: 999px; }
+html.native-tabs .gb-chip { background: var(--card); color: var(--text); border: 0; box-shadow: var(--app-shadow); min-height: 34px; padding: 7px 14px; font-size: 14px; }
+html.native-tabs .gb-chip.active { background: var(--blue); color: #fff; }
+
+/* --- Knoppenrij onderaan een kaart: knoppen even breed, niet over twee regels --- */
+html.native-tabs .btn-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; }
+html.native-tabs .btn-row > .primary-btn,
+html.native-tabs .btn-row > .ghost-btn { display: flex; align-items: center; justify-content: center; white-space: nowrap; margin: 0; }
+html.native-tabs .ghost-btn {
+  min-height: 50px; padding: 12px 18px; border: 0; border-radius: var(--r-ctl);
+  background: var(--app-accent-soft); color: var(--app-accent-on-soft); font: 600 16px/1.1 var(--font);
+}
+
+/* --- Invoer --- */
+html.native-tabs input[type=text],
+html.native-tabs input[type=email],
+html.native-tabs input[type=tel],
+html.native-tabs input[type=number],
+html.native-tabs input[type=password],
+html.native-tabs select,
+html.native-tabs textarea {
+  border-radius: 12px;
+  font-family: var(--font);
+  font-size: 16px; /* geen automatisch inzoomen op iPhone */
+}
+
+/* --- Gevelfoto binnen de app: de balk sluit aan op de app --- */
+html.native-tabs .gf-overlay { background: var(--app); }
+html.native-tabs .gf-bar { background: var(--card); border-bottom: 0.5px solid var(--border); }
+html.native-tabs .gf-terug { color: var(--blue); font: 400 17px/1 var(--font); }
+html.native-tabs .gf-titel { font: 600 17px/1 var(--font); }
+
+/* --- Donkere modus (alleen in de app; de website heeft geen donkere weergave) --- */
+@media (prefers-color-scheme: dark) {
+  html.native-tabs {
+    --canvas: #000000;
+    --app: #000000;
+    --card: #1C1C1E;
+    --subtle: #2C2C2E;
+    --muted-surface: #2C2C2E;
+    --shade: #1C1C1E;
+
+    --ink: #F5F5F7;
+    --text: #F5F5F7;
+    --text-2: rgba(235, 235, 245, 0.86);
+    --text-3: rgba(235, 235, 245, 0.62);
+    --text-4: rgba(235, 235, 245, 0.55);
+    --text-mono: rgba(235, 235, 245, 0.55);
+    --text-dim: rgba(235, 235, 245, 0.32);
+    --on-ink: #101211;
+
+    --border: rgba(84, 84, 88, 0.6);
+    --border-input: rgba(84, 84, 88, 0.8);
+    --border-2: rgba(84, 84, 88, 0.6);
+    --border-3: rgba(84, 84, 88, 0.6);
+    --border-4: rgba(84, 84, 88, 0.45);
+    --border-5: rgba(84, 84, 88, 0.7);
+
+    --blue: #4D66FF;
+    --blue-deep: #8C9BFF;
+    --blue-tint: rgba(77, 102, 255, 0.16);
+    --blue-tint-2: rgba(77, 102, 255, 0.22);
+    --blue-border: rgba(77, 102, 255, 0.35);
+    --blue-track: rgba(235, 235, 245, 0.16);
+
+    --red: #FF6B5E;
+    --red-ink: #FF8A7E;
+    --red-tint: rgba(255, 107, 94, 0.16);
+    --red-tint-2: rgba(255, 107, 94, 0.1);
+    --red-border: rgba(255, 107, 94, 0.3);
+
+    --good-bg: rgba(48, 209, 88, 0.16);
+    --good-fg: #30D158;
+    --warn-bg: rgba(255, 214, 10, 0.14);
+    --warn-fg: #FFD60A;
+    --warn2-bg: rgba(255, 159, 10, 0.16);
+    --warn2-fg: #FF9F0A;
+
+    --ink-60: rgba(235, 235, 245, 0.7);
+    --ink-50: rgba(235, 235, 245, 0.62);
+    --ink-45: rgba(235, 235, 245, 0.58);
+    --ink-42: rgba(235, 235, 245, 0.55);
+    --ink-28: rgba(235, 235, 245, 0.3);
+    --ink-14: rgba(235, 235, 245, 0.16);
+    --ink-10: rgba(235, 235, 245, 0.1);
+    --white: #1C1C1E;
+    --card-tr: rgba(28, 28, 30, 0.95);
+
+    --app-shadow: none;
+    --app-accent-soft: rgba(77, 102, 255, 0.2);
+    --app-accent-on-soft: #A9B4FF;
+  }
+  html.native-tabs body { color: var(--text); }
+  html.native-tabs .ov-btn,
+  html.native-tabs .primary-btn { box-shadow: none; }
+  html.native-tabs input, html.native-tabs select, html.native-tabs textarea { background: #2C2C2E; color: var(--text); border-color: var(--border-input); }
+}
+}
