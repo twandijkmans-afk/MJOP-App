@@ -1354,6 +1354,19 @@
     if (state.photoRound) state.photoRound.inventories = (Array.isArray(state.photoRound.inventories) ? state.photoRound.inventories : []).filter(function (x) {
       return GI && x && x.ui && typeof x.ui.status === 'string' && x.ui.sources && typeof x.ui.sources === 'object' && GI.validate(x.inv).ok && x.inv.project.plan_ref === state.photoRound.planRef;
     });
+    // Gevelfoto's (optioneel; oudere plannen hebben dit niet): bij het laden opnieuw tegen het contract gecontroleerd, ongeldige vervallen.
+    if (state.photoRound) {
+      var gfApi = window.MJOPGevelfoto, gfPr = state.photoRound;
+      gfPr.gevelfotos = (Array.isArray(gfPr.gevelfotos) ? gfPr.gevelfotos : []).filter(function (x) {
+        return gfApi && x && x.ui && typeof x.ui.status === 'string' && gfApi.validate(x.res).ok && x.res.plan_ref === gfPr.planRef;
+      });
+      var gfSrc = gfPr.gevelfotoSources && typeof gfPr.gevelfotoSources === 'object' && !Array.isArray(gfPr.gevelfotoSources) ? gfPr.gevelfotoSources : {};
+      gfPr.gevelfotoSources = {};
+      Object.keys(gfSrc).slice(0, 20).forEach(function (k) {
+        var v = gfSrc[k];
+        if (v && typeof v.evidenceId === 'string' && Array.isArray(v.resultIds) && (v.status === 'SOURCE_ADDED' || v.status === 'IN_USE')) gfPr.gevelfotoSources[k] = { evidenceId: v.evidenceId, resultIds: v.resultIds.slice(0, 60).map(String), status: v.status, ack: !!v.ack, at: String(v.at || '') };
+      });
+    }
     // Plannen van vóór Quantity Foundation v1: kale hoeveelheden omzetten
     // naar het hoeveelheidsobject (handmatige afwijkingen blijven staan).
     state.elements.forEach(function (el) { ensureQuantity(el, state.building); });
@@ -2558,6 +2571,75 @@
   var PR = window.MJOPPhotoRound;
   var GI = window.MJOPGevelInventory;   // Gevelscanner 2.0: gevelinventaris (src/gevel-inventory.js)
 
+  var GF = window.MJOPGevelfoto;        // Gevelfoto: proefpagina gevelfoto/ levert voorstellen voor de gevelposten (src/gevelfoto.js)
+
+  // Haalt resultaten van de gevelfoto-pagina op uit de browseropslag (alleen die van dit plan). Er wordt niets overgenomen als hoeveelheid.
+  function gfIngest() {
+    var pr = state.photoRound;
+    if (!GF || !pr) return false;
+    var mine;
+    try { mine = GF.takeOutbox(window.localStorage, pr.planRef); } catch (e) { return false; }
+    if (!mine.length) return false;
+    var rep = GF.merge(pr, mine, pr.planRef), ui = state.photoRoundUi;
+    ui.fout = rep.invalid.length ? rep.invalid.length + ' ' + meervoud(rep.invalid.length, 'gevelfoto is', 'gevelfoto\'s zijn') + ' geweigerd omdat de gegevens niet klopten.' : '';
+    ui.melding = rep.added.length ? rep.added.length + ' ' + meervoud(rep.added.length, 'nieuwe gevelfoto', 'nieuwe gevelfoto\'s') + ' ontvangen. Controleer het resultaat hieronder; er is nog niets overgenomen.' : '';
+    return true;
+  }
+  function gfEl(key) { return (state.elements || []).filter(function (el) { return el.id === key && el.type === 'gevel' && Q.isValid(el.quantity); })[0] || null; }
+
+  // Gevelfoto: knop naar de proefpagina, de ontvangen foto's, de som over de gevels en de koppeling aan de bestaande gevelposten.
+  // Kosten worden hier niet berekend: na overname rekent de bestaande post met zijn eigen kengetal.
+  function renderGevelfoto() {
+    if (!GF) return '';
+    var pr = state.photoRound, list = pr ? GF.current(pr) : [];
+    var html = '<section class="ov-card" data-gevelfoto style="padding:16px;margin-top:12px"><div class="label">Gevelfoto</div>';
+    html += '<p class="hint" style="margin:4px 0 10px">Maak een foto van een gevel. De pagina herkent kozijnen, metselwerk en afvoeren en rekent de hoeveelheden uit met de gevelbreedte uit de BAG. Het resultaat komt hier terug als <b>voorstel</b>. Proefversie: de herkenning is niet getoetst op echte gevels.</p>';
+    html += '<div class="btn-row"><button type="button" class="primary-btn" data-act="gf-start">Gevelfoto maken</button></div>';
+    if (!list.length) return html + '</section>';
+    var fmtQ = function (q) { return Q.formatNumber(q.value) + ' ' + esc(Q.unitLabel(q.unit)); };
+    list.forEach(function (x) {
+      var r = x.res, q = r.quantities, parts = [];
+      if (q.masonry_net_m2.value !== null) parts.push('metselwerk netto ' + fmtQ(q.masonry_net_m2));
+      if (q.window_frames_st.value) parts.push(q.window_frames_st.value + ' ' + meervoud(q.window_frames_st.value, 'raamkozijn', 'raamkozijnen'));
+      if (q.door_frames_st.value) parts.push(q.door_frames_st.value + ' ' + meervoud(q.door_frames_st.value, 'deurkozijn', 'deurkozijnen'));
+      if (q.downpipe_m1.value !== null) parts.push('hemelwaterafvoer ' + fmtQ(q.downpipe_m1));
+      if (q.gutter_m1.value !== null) parts.push('dakgoot ' + fmtQ(q.gutter_m1));
+      html += '<div data-gf-res="' + esc(r.result_id) + '" style="margin:10px 0 0;padding-top:10px;border-top:1px solid rgba(128,128,128,.25)">';
+      html += '<div class="input-row"><div class="label">' + esc(r.facade.side_facing ? 'Gevel ' + r.facade.side_facing + ' (' + Q.formatNumber(r.facade.side_length_m) + ' m breed)' : 'Gevel (zijde onbekend)') + '</div><span class="linkish" role="button" tabindex="0" data-act="gf-remove" data-id="' + esc(r.result_id) + '">verwijderen</span></div>';
+      html += '<div class="hint">' + (parts.length ? parts.join(' · ') : 'Geen hoeveelheden gekozen.') + '</div>';
+      GF.warnings(r).forEach(function (w) { html += '<div class="hint" data-gf-waarschuwing>• ' + esc(w) + '</div>'; });
+      html += '</div>';
+    });
+    var t = GF.total(pr, 'masonry_net_m2'), src = pr.gevelfotoSources || {};
+    html += '<div class="label" style="margin-top:14px">Metselwerk netto, alle gevelfoto\'s samen</div>';
+    if (t.value === null) html += '<div class="hint" data-gf-geen-metselwerk>Op de gevelfoto\'s is geen metselwerk aangevinkt; er is dus niets om bij de gevelposten voor te stellen.</div>';
+    else {
+      var c = t.coverage;
+      html += '<div class="input-row"><div class="label">' + t.facades + ' ' + meervoud(t.facades, 'gevel', 'gevels') + '</div><div><b data-gf-totaal>' + Q.formatNumber(t.value) + ' m²</b></div></div>';
+      html += '<div class="hint" data-gf-dekking>' + (c ? c.covered + ' van de ' + c.total + ' gevelzijden van het pand gefotografeerd.' + (c.covered < c.total ? ' De posten hieronder gelden voor het hele gebouw: zolang niet alle gevels erop staan is deze som te laag.' : '')
+        : 'Onbekend welk deel van het gebouw is gefotografeerd. De posten hieronder gelden voor het hele gebouw.') + '</div>';
+      if (t.without) html += '<div class="hint">' + t.without + ' ' + meervoud(t.without, 'gevelfoto telt', 'gevelfoto\'s tellen') + ' niet mee: daar is geen metselwerk aangevinkt.</div>';
+      var evId = GF.evidenceId('masonry_net_m2', t.resultIds), posten = GF.TARGETS.masonry_net_m2.map(gfEl).filter(Boolean);
+      if (!posten.length) html += '<div class="hint" data-gf-geen-post>De posten voor metselwerk en voegwerk staan niet in dit plan; er is dus geen kengetal om mee te rekenen.</div>';
+      posten.forEach(function (el) {
+        var s = src[el.id], actueel = s && s.evidenceId === evId, nu = qv(el);
+        html += '<div data-gf-post="' + esc(el.id) + '" style="margin:8px 0;padding-top:8px;border-top:1px solid rgba(128,128,128,.25)">';
+        html += '<div class="input-row"><div class="label">' + esc(el.naam) + '</div><div class="hint">nu ' + (nu == null ? 'geen hoeveelheid' : Q.formatNumber(nu) + ' m²') + '</div></div>';
+        if (s && !actueel) html += '<div class="hint" data-gf-verouderd>' + (s.status === 'IN_USE' ? 'Bij deze post is een eerdere som van gevelfoto\'s in gebruik.' : 'Er is eerder een som als bron toegevoegd.') + ' Sindsdien zijn de gevelfoto\'s veranderd.</div>';
+        if (!actueel) html += '<div class="btn-row"><button type="button" class="ghost-btn" data-act="gf-add-source" data-el="' + esc(el.id) + '">Toevoegen als bron bij deze post</button></div>';
+        else if (s.status === 'SOURCE_ADDED') {
+          html += '<label class="hint" style="display:block;margin:6px 0"><input type="checkbox" data-change="gf-ack" data-el="' + esc(el.id) + '"' + (s.ack ? ' checked' : '') + ' /> Ik begrijp dat dit een voorlopige, niet-gevalideerde uitkomst is' + (c && c.covered >= c.total ? '' : ' en dat niet alle gevels zijn gefotografeerd') + '</label>';
+          html += '<div class="btn-row"><button type="button" class="primary-btn" data-act="gf-use" data-el="' + esc(el.id) + '">Gebruik als hoeveelheid</button></div>';
+          if (s.fout) html += '<div class="notice error" data-gf-fout>' + esc(s.fout) + '</div>';
+        } else html += '<div class="hint" data-gf-in-gebruik>In gebruik als hoeveelheid; de kosten volgen uit het kengetal van deze post.</div>';
+        html += '</div>';
+      });
+    }
+    var ref = ['window_frames_st', 'door_frames_st', 'frame_area_m2', 'downpipe_m1', 'gutter_m1'].map(function (k) { return GF.total(pr, k); }).filter(function (x) { return x.value !== null; });
+    if (ref.length) html += '<p class="hint" data-gf-referentie style="margin-top:10px">Ter referentie, nog niet aan een post gekoppeld: ' + ref.map(function (x) { return esc(x.label.toLowerCase()) + ' ' + Q.formatNumber(x.value) + ' ' + esc(Q.unitLabel(x.unit)); }).join(' · ') + '.</p>';
+    return html + '</section>';
+  }
+
   function newPlanRef() {
     var hex = '';
     try { var a = new Uint8Array(12); (window.crypto || window.msCrypto).getRandomValues(a); a.forEach(function (x) { hex += ('0' + x.toString(16)).slice(-2); }); }
@@ -2799,6 +2881,7 @@
       html += '</select><button type="button" class="ghost-btn" data-act="pr-plan-add">Toevoegen</button></div>';
     }
     html += '</section>';
+    html += renderGevelfoto();
 
     if (pr && pr.rounds && pr.rounds.length) {
       html += '<section class="ov-card" style="padding:16px;margin-top:12px" data-fotoronde-rondes><div class="label">' + (simpel ? 'Eerdere foto\'s op dit toestel' : 'Rondes op dit toestel') + '</div>';
@@ -5318,6 +5401,36 @@
       ui.planNaam = ''; ui.planOrient = ''; render();
     },
     'pr-plan-remove': function (d) { var pr = state.photoRound; if (pr) { pr.planned.splice(+d.i, 1); render(); } },
+    // Gevelfoto: naar de proefpagina met de projectreferentie; het resultaat komt via de browseropslag terug (gfIngest).
+    'gf-start': function () {
+      if (!GF) return;
+      var pr = ensurePhotoRound(), b = state.building || {};
+      var ok = false;
+      try { ok = GF.writeRequest(window.localStorage, pr.planRef, b.isVoorbeeld ? null : (b.adres || null), /^\d{16}$/.test(String(b.identificatie || '')) ? String(b.identificatie) : null, window.location.href.split('#')[0]); } catch (e) { ok = false; }
+      if (!ok) { state.photoRoundUi.fout = 'De browseropslag is niet beschikbaar (privénavigatie?); de gevelfoto kan dan niet aan dit plan gekoppeld worden.'; render(); return; }
+      render();                                       // schrijft de werksessie weg, zodat het plan er bij terugkeer nog staat
+      window.location.href = 'gevelfoto/index.html';
+    },
+    'gf-remove': function (d) { var pr = state.photoRound; if (GF && pr && GF.remove(pr, d.id)) render(); },
+    // Een som van gevelfoto's wordt eerst een BRON bij de gevelpost (verandert niets), pas na uitdrukkelijke bevestiging de hoeveelheid.
+    'gf-add-source': function (d) {
+      var pr = state.photoRound, el = gfEl(d.el); if (!GF || !pr || !el || GF.TARGETS.masonry_net_m2.indexOf(el.id) < 0) return;
+      var ev = GF.evidenceFor(pr, 'masonry_net_m2', Q); if (!ev) return;
+      Q.addEvidence(el.quantity, ev);
+      pr.gevelfotoSources = pr.gevelfotoSources || {};
+      pr.gevelfotoSources[el.id] = { evidenceId: ev.id, resultIds: ev.source_ref.result_ids.slice(), status: 'SOURCE_ADDED', ack: false, at: new Date().toISOString() };
+      render();
+    },
+    'gf-use': function (d) {
+      var pr = state.photoRound, el = gfEl(d.el), s = pr && pr.gevelfotoSources && pr.gevelfotoSources[d.el]; if (!el || !s || s.status !== 'SOURCE_ADDED') return;
+      s.fout = '';
+      if (!s.ack) { s.fout = 'Bevestig eerst dat je begrijpt dat dit een voorlopige uitkomst is.'; render(); return; }
+      if (el.quantity.manual) { s.fout = 'Bij deze post staat een door jou ingevulde waarde. Kies de bron bij de post zelf als je die wilt vervangen.'; render(); return; }
+      var r = Q.selectEvidence(el.quantity, s.evidenceId, undefined, { acknowledgeUncertainty: true });
+      if (!r.ok) { s.fout = r.error === 'andere_eenheid' ? 'Andere eenheid dan deze post.' : 'Deze bron kan niet gekozen worden.'; render(); return; }
+      s.status = 'IN_USE'; s.at = new Date().toISOString();
+      render();
+    },
     // Gevelinventaris: een hoeveelheid wordt eerst een BRON bij de bestaande kozijnrij (verandert niets), pas na uitdrukkelijke bevestiging de hoeveelheid.
     'gi-add-source': function (d) {
       var e = giEntry(d.id); if (!e || e.ui.status !== 'CURRENT' || e.ui.sources[d.key]) return;
@@ -6187,6 +6300,7 @@
   var CHANGES = {
     'pr-plan-orient': function (t) { state.photoRoundUi.planOrient = t.value; },
     'pr-target': function (t, d) { var e = prEntry(d.id); if (e && e.ui.status === 'PROPOSED') { e.ui.targetId = t.value || null; render(); } },
+    'gf-ack': function (t, d) { var pr = state.photoRound, s = pr && pr.gevelfotoSources && pr.gevelfotoSources[d.el]; if (s) { s.ack = !!t.checked; s.fout = ''; render(); } },
     'gi-ack': function (t, d) { var e = giEntry(d.id), s = e && e.ui.sources[d.key]; if (s) { s.ack = !!t.checked; s.fout = ''; render(); } },
     'pr-ack': function (t, d) { var e = prEntry(d.id); if (e) { e.ui.ack = !!t.checked; e.ui.useFout = ''; render(); } },
     'pr-replace': function (t, d) { var e = prEntry(d.id); if (e) { e.ui.replaceManual = !!t.checked; e.ui.useFout = ''; render(); } },
@@ -6495,6 +6609,9 @@
       prProbe();
       document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') prRefresh(); });
     }
+    // Gevelfoto: resultaten van de proefpagina ophalen, bij het laden en bij terugkeren via de terugknop (pagina uit de browsercache).
+    gfIngest();
+    window.addEventListener('pageshow', function (ev) { if (ev.persisted && gfIngest()) render(); });
     render();
   });
 })();

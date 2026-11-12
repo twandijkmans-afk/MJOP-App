@@ -300,6 +300,8 @@ node test/auth.spec.js                   # inloglink met de echte Supabase-SDK; 
 node test/quantity-missingness.spec.js    # MISSING != 0: ontbrekend 3D BAG-veld -> niet beschikbaar, kosten onbekend (geen € 0)
 node test/reservefonds.spec.js
 node test/gevelfoto.spec.js              # los prototype gevelfoto/ (AI- en BAG-diensten nagebootst)
+node test/gevelfoto.unit.spec.js         # contract mjop_gevelfoto_v1: validatie, som over gevels, bron voor de gevelposten
+node test/gevelfoto-koppeling.spec.js    # gevelfoto -> MJOP heen en terug: voorstel, bron, bevestigen, behoud na herladen
 ```
 
 `auth.spec.js` laadt de Supabase-SDK standaard van de CDN. Zonder internettoegang: zet
@@ -342,3 +344,12 @@ offerte.
 - Bron en uitleg: repository `mjop-learning`, map `gevelfoto_prototype/`. Wijzig daar en kopieer het bestand hierheen.
 - Herkennen stuurt de foto vanuit de browser naar de Anthropic API met een sleutel die de gebruiker zelf invult. Die sleutel staat nergens in deze repository. Kiest de gebruiker "onthouden", dan staat hij in de browseropslag van dit domein, dezelfde opslag als die van de MJOP-app; gebruik daarom een sleutel met een laag bestedingslimiet.
 - Maat via het adres gebruikt de openbare diensten van PDOK (BAG) en 3D BAG.
+
+### Koppeling met het MJOP (`src/gevelfoto.js`)
+
+In de Fotoronde staat een blok **Gevelfoto**. De knop geeft de projectreferentie van het plan mee en opent `gevelfoto/`; daar stuurt "Naar Mijn MJOP sturen" het resultaat terug (contract `mjop_gevelfoto_v1`: alleen getallen en herkomst, geen foto). De uitwisseling loopt via de browseropslag van dit domein en wordt bij ontvangst streng gecontroleerd.
+
+- Een gevelfoto is een **voorstel**. De som van het netto metselwerk over alle gevelfoto's kan als bron worden toegevoegd bij de posten *Gevelreiniging en metselwerkherstel* en *Voegwerk buitengevel*, en wordt pas na bevestiging van de onzekerheid de hoeveelheid. Een door de gebruiker ingevulde waarde wordt nooit overschreven.
+- Die posten gelden voor het hele gebouw, een foto voor één gevel. Bij de som staat hoeveel gevelzijden gefotografeerd zijn; ontbrekende gevels worden niet geschat.
+- Kozijnen, hemelwaterafvoer en dakgoot worden alleen ter referentie getoond: de bestaande posten rekenen daar met een andere eenheid.
+- Geen prijzen in deze module en geen wijziging aan de database: de gevelfoto's zitten in het planobject (`photoRound.gevelfotos`).
