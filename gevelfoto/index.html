@@ -1008,7 +1008,7 @@ function shoot() {
   if (cap.level === false) setMsg("photoMsg", `Deze foto is niet recht genomen (${cap.pitch_deg > 0 ? "omhoog" : "omlaag"} ${fmt(Math.abs(cap.pitch_deg), 0)}°${cap.roll_deg != null ? ", scheef " + fmt(Math.abs(cap.roll_deg), 0) + "°" : ""}). Maten kunnen daardoor afwijken; maak hem liever opnieuw of gebruik bij stap 3 een grote rechthoek.`, "warn");
   else if (cap.level) setMsg("photoMsg", "Foto recht genomen.", "ok");
   refresh();
-  if (wasWide) { const prev = $("photoMsg").textContent; setMsg("photoMsg", (prev ? prev + " " : "") + "Foto met de groothoeklens: de randen zijn meer vertekend, dus de maten zijn minder nauwkeurig. Controleer de punten extra goed.", "warn"); }
+  if (wasWide) { const prev = $("photoMsg").textContent; setMsg("photoMsg", (prev ? prev + " " : "") + "Foto met de groothoeklens: de randen zijn meer vertekend, dus de maten zijn minder nauwkeurig. Meet bij 'Controlemaat' iets op wat je zelf kent, bijvoorbeeld een deurhoogte, dan zie je de afwijking. Controleer de punten extra goed.", "warn"); $("checkBox").open = true; }
 }
 
 // ------------------------------------------------ gereedschap en aanwijzen -------------------------------------------

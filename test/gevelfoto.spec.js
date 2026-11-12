@@ -114,7 +114,7 @@ async function main() {
   check('13c. groothoek: knop zegt "Groothoek 0,5×", daarna 0,5× en een waarschuwing over vertekening', /Groothoek 0,5×/.test(w0) && w1[0] === '0,5×' && /vertekend/.test(w1[1]), JSON.stringify([w0, w1]));
   await page.click('#camShot');
   var w2 = await page.evaluate(function () { var s = window.Gevelfoto.state; return [s.capture && s.capture.zoom, document.getElementById('photoMsg').textContent]; });
-  check('13d. foto met groothoek: zoom 0,5× in de export en een melding dat de maten minder nauwkeurig zijn', w2[0] === 0.5 && /groothoeklens/.test(w2[1]) && /minder nauwkeurig/.test(w2[1]), JSON.stringify(w2));
+  check('13d. foto met groothoek: zoom 0,5× in de export, een melding dat de maten minder nauwkeurig zijn en de controlemaat staat open', w2[0] === 0.5 && /groothoeklens/.test(w2[1]) && /minder nauwkeurig/.test(w2[1]) && /Controlemaat/.test(w2[1]) && await page.evaluate(function () { return document.getElementById('checkBox').open; }), JSON.stringify(w2));
 
   var keys = await page.evaluate(function () { var k = []; for (var i = 0; i < localStorage.length; i++) k.push(localStorage.key(i)); return k; });
   check('10. zonder "onthouden" staat de sleutel niet in de browseropslag; alleen het laatst gezochte adres wordt bewaard', keys.join() === 'gevelfoto_adres', keys.join());
