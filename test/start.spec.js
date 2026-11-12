@@ -91,7 +91,7 @@ async function main() {
     return { overflow: document.documentElement.scrollWidth > window.innerWidth, minBtn: Math.min.apply(null, btns), tabs: Array.prototype.slice.call(document.querySelectorAll('.tab-item')).map(function (e) { return e.textContent.trim(); }) };
   });
   check('2. 375px: geen horizontaal scrollen, knoppen minstens 44px hoog', !geo.overflow && geo.minBtn >= 44, JSON.stringify(geo));
-  check('2. eenvoudige weergave: geen Fotoronde-tab, wel Start', geo.tabs.indexOf('Fotoronde') < 0 && geo.tabs.indexOf('Start') >= 0, geo.tabs.join(','));
+  check('2. eenvoudige weergave: geen Gevelfoto-tab, wel Start', geo.tabs.indexOf('Gevelfoto') < 0 && geo.tabs.indexOf('Start') >= 0, geo.tabs.join(','));
   check('2. extra kolom "invul" gevraagd (alleen klein veld, geen hele blob)', a.st.plansUrls.some(function (u) { return /invul/.test(u) && !/select=[^&]*[,=]state(&|,|$)/.test(decodeURIComponent(u).replace('state->invul', '')); }), a.st.plansUrls[0]);
   await shot(page, 'start-375');
 
@@ -107,8 +107,8 @@ async function main() {
   await shot(page, 'start-kies-gebouw');
   await click(page, '[data-act=open-plan][data-id=p1][data-na=fotoronde]'); await page.waitForTimeout(500);
   var act = await page.evaluate(function () { var e = document.querySelector('.tab-item.active'); return e ? e.textContent.trim() : ''; });
-  check('4. na kiezen: Fotoronde van dat gebouw open', act === 'Inspectie', act);
-  check('4. gebouw is geladen (geen lege staat)', /Gebouw inspecteren/.test(await text(page)));
+  check('4. na kiezen: Gevelfoto van dat gebouw open', act === 'Gevelfoto', act);
+  check('4. gebouw is geladen (geen lege staat)', /Gevelfoto/.test(await text(page)) && !!(await page.$('[data-gevelfoto] [data-act=gf-start]')));
 
   // 5. Verder met mijn gebouw -> Overzicht van het gekozen gebouw
   await fresh(page);
@@ -118,7 +118,7 @@ async function main() {
   await click(page, '[data-act=set-tab][data-tab=start]');
   t = await text(page);
   check('5. terug naar Start: geopend gebouw staat bovenaan', /Mijn panden/.test(t) && t.indexOf('Maldenhof 3') > -1);
-  check('5. gebouw met een open plan: "Gebouw inspecteren" gaat direct naar de Fotoronde', await (async function () { await click(page, '[data-act=start-inspecteer]'); return (await page.evaluate(function () { return document.querySelector('.tab-item.active').textContent; })) === 'Inspectie'; })());
+  check('5. gebouw met een open plan: "Gebouw inspecteren" gaat direct naar de Gevelfoto', await (async function () { await click(page, '[data-act=start-inspecteer]'); return (await page.evaluate(function () { return document.querySelector('.tab-item.active').textContent; })) === 'Gevelfoto'; })());
 
   // 6. uitgebreide weergave: alle tabs
   await click(page, '[data-act=set-tab][data-tab=instellingen]');
@@ -126,7 +126,7 @@ async function main() {
   var tabs2 = await page.evaluate(function () { return Array.prototype.slice.call(document.querySelectorAll('.tab-item')).map(function (e) { return e.textContent.trim(); }); });
   var s = await page.evaluate(function () { return localStorage.getItem('mjop-instellingen'); });
   check('6. instelling bewaard in localStorage', /eenvoudig/.test(s || ''), s);
-  check('6. eenvoudige weergave uit: Fotoronde-tab zichtbaar', tabs2.indexOf('Fotoronde') >= 0, tabs2.join(','));
+  check('6. eenvoudige weergave uit: Gevelfoto-tab zichtbaar', tabs2.indexOf('Gevelfoto') >= 0, tabs2.join(','));
   check('6. geen JavaScript-fouten', a.st.errors.length === 0, a.st.errors.join('; '));
   await ctx.close();
 

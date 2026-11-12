@@ -131,9 +131,9 @@ async function main() {
   // 5. inspecteren (browser: geen app)
   await click(page, '[data-act=wizard-volgende]');
   t = await text(page);
-  check('5. stap 3: uitleg wat te fotograferen, optioneel, overslaan mogelijk', /Gebouw inspecteren/.test(t) && /Zorg dat het hele kozijn in beeld staat\./.test(t) && /Overslaan en verder/.test(t), t.slice(0, 300));
+  check('5. stap 3: uitleg wat te fotograferen, optioneel, overslaan mogelijk', /Gebouw inspecteren/.test(t) && /Sta zo recht mogelijk voor de gevel/.test(t) && /Overslaan en verder/.test(t), t.slice(0, 300));
   check('5. stap 3: ook een gevelfoto maken (werkt ook op de website)', !!(await page.$('[data-wz-gevelfoto] [data-act=gf-start]')));
-  check('5. buiten de app: eerlijke melding dat Fotoronde in de iPhone-app werkt', /Fotoronde werkt in de MJOP Live-app/.test(t));
+  check('5. de oude camera-scanner is weg: geen "Fotoronde starten" en geen verwijzing naar de LiDAR-app', !/Fotoronde starten/.test(t) && !/Fotoronde werkt in de MJOP Live-app/.test(t));
   await shot(page, 'wizard-3-inspecteren');
   await click(page, '[data-act=wizard-volgende-overslaan]');
 
