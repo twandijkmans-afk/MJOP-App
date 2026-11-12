@@ -58,8 +58,9 @@
   .msg.ok { background: var(--ok-bg); color: var(--ok-ink); }
   .msg:empty { display: none; }
   #canvasWrap { position: relative; }
-  #zoomBar { position: absolute; right: 6px; bottom: 6px; display: flex; gap: 4px; }
-  #zoomBar button { width: 38px; height: 38px; padding: 0; border-radius: 50%; background: #000a; color: #fff; border-color: #fff8; font-weight: 700; }
+  #stageFoot { display: flex; gap: 8px; align-items: center; margin-top: 6px; } #stageFoot #hint { flex: 1; min-width: 0; margin: 0; }
+  #zoomBar { display: flex; gap: 4px; flex: none; }
+  #zoomBar button { width: 36px; height: 36px; padding: 0; border-radius: 50%; font-weight: 700; }
   #camView { overflow: hidden; touch-action: none; }
   #camZoomRow { display: flex; gap: 10px; align-items: center; padding: 8px 14px 0; background: #111; font-size: .9rem; }
   #camZoomRow input { flex: 1; min-width: 0; } #camZoomVal { min-width: 3.2em; text-align: right; font-variant-numeric: tabular-nums; }
@@ -105,14 +106,14 @@
   <h1>Gevelfoto naar hoeveelheden <span class="tag">prototype, niet gevalideerd</span></h1>
   <p>Foto van een gevel → herkende elementen → hoeveelheden → kiezen wat je in het MJOP wilt. Alles is een voorstel dat je zelf controleert.</p>
 </header>
+<div id="linkBar" hidden style="max-width:1280px;margin:0 auto;padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px))"><div class="msg ok"><span id="linkText"></span> <a id="linkBack" href="#">Terug zonder versturen</a></div></div>
 <main>
   <div id="stage">
     <div id="canvasWrap">
       <div id="empty">Kies eerst een foto, of probeer de voorbeeldgevel.</div>
       <canvas id="cv" hidden></canvas>
-      <div id="zoomBar" hidden><button id="zoomOut" aria-label="Uitzoomen">−</button><button id="zoomReset" aria-label="Hele foto tonen">1×</button><button id="zoomIn" aria-label="Inzoomen">+</button></div>
     </div>
-    <p id="hint" class="muted"></p>
+    <div id="stageFoot"><p id="hint" class="muted"></p><div id="zoomBar" hidden><button id="zoomOut" aria-label="Uitzoomen">−</button><button id="zoomReset" aria-label="Hele foto tonen">1×</button><button id="zoomIn" aria-label="Inzoomen">+</button></div></div>
   </div>
 
   <div id="panel">
@@ -211,6 +212,7 @@
       <h2>5. Naar het MJOP</h2>
       <div id="totals"></div>
       <div class="row">
+        <button id="sendBtn" class="primary" hidden disabled>Naar Mijn MJOP sturen</button>
         <button id="copyBtn" disabled>Kopieer als tekst</button>
         <button id="csvBtn" disabled>Download CSV</button>
         <button id="jsonBtn" disabled>Download JSON</button>
@@ -689,6 +691,60 @@ async function download(name, text, mime) {
   const a = el("a", { href: URL.createObjectURL(new Blob([text], { type: mime })), download: name }); document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
 }
 
+// ------------------------------------------------ koppeling met Mijn MJOP --------------------------------------------
+// Start de MJOP-app deze pagina, dan staat er in de browseropslag van dit domein een verzoek met de projectreferentie. "Naar Mijn MJOP sturen"
+// zet het resultaat (contract mjop_gevelfoto_v1: alleen getallen en herkomst, geen foto) in dezelfde opslag en gaat terug. De app controleert het
+// daar opnieuw en neemt niets automatisch over. Zie src/gevelfoto.js in de MJOP-App-repository.
+const MJOP_REQUEST_KEY = "mjop-gevelfoto-request", MJOP_OUTBOX_KEY = "mjop-gevelfoto-outbox";
+function readMjopRequest() {
+  if (Host.claude) return null;
+  try {
+    const r = JSON.parse(localStorage.getItem(MJOP_REQUEST_KEY) || "null");
+    if (!r || typeof r.planRef !== "string" || !/^[A-Za-z0-9_-]{8,80}$/.test(r.planRef) || typeof r.returnUrl !== "string") return null;
+    if (!(Date.now() - Date.parse(r.at) < 24 * 3600 * 1000)) return null;
+    const back = new URL(r.returnUrl, location.href); if (back.origin !== location.origin) return null;          // alleen terug naar dit domein
+    return { planRef: r.planRef, address: typeof r.address === "string" ? r.address.slice(0, 200) : null, bagPandId: /^\d{16}$/.test(String(r.bagPandId || "")) ? String(r.bagPandId) : null, returnUrl: back.href };
+  } catch (e) { return null; }
+}
+const Link = readMjopRequest();
+
+function buildMjopResult() {
+  const toM = metricMap(state.ref), ref = state.ref, src = ref.source || null, chosen = state.elements.filter((e) => e.chosen);
+  const qs = chosen.map((e) => [e, quantities(e, toM, state.elements)]);
+  const sum = (types, f, unit) => { const xs = qs.filter(([e]) => types.includes(e.type)); return { value: xs.length ? round2(xs.reduce((a, [, q]) => a + f(q), 0)) : null, unit, elements: xs.length }; };
+  const count = (type) => { const n = chosen.filter((e) => e.type === type).length; return { value: n || null, unit: "st", elements: n }; };
+  const id = Array.from(crypto.getRandomValues(new Uint8Array(8)), (x) => ("0" + x.toString(16)).slice(-2)).join("");
+  const chk = checkResult(), cap = state.capture, pand = (state.bag.pand && /^\d{16}$/.test(state.bag.pand.id) ? state.bag.pand.id : null) || Link.bagPandId;
+  return {
+    contract: "mjop_gevelfoto_v1", result_id: "gf-" + id, created_at: new Date().toISOString(), plan_ref: Link.planRef,
+    building: { address: state.bag.address || Link.address || null, bag_pand_id: pand },
+    facade: { side_facing: src ? src.side_facing : null, side_length_m: src ? src.side_length_m : null, side_index: src && src.bag_pand_id === pand ? src.side_index : null, sides_total: src && src.bag_pand_id === pand ? src.sides_total : null },
+    scale: { method: ref.mode === "line" ? "REFERENCE_LINE" : "REFERENCE_RECTANGLE", source: src ? "BAG_FOOTPRINT_SIDE" : "USER_INPUT",
+             placement: src ? (["AUTO_WALL_WIDTH", "USER_ADJUSTED", "USER_POINTS"].includes(src.placement) ? src.placement : "USER_POINTS") : null,
+             perspective_corrected: ref.mode === "rect" && rectInfo(ref, Geo.orderQuad(ref.pts)).perspective, check_deviation_pct: chk ? chk.deviation_pct : null },
+    recognition: { provider: state.recognition ? "anthropic" : "none", model: state.recognition ? (state.recognition.served_model || state.recognition.requested_model || null) : null },
+    capture: cap ? { level: cap.level, pitch_deg: cap.pitch_deg, roll_deg: cap.roll_deg } : null,
+    quantities: {
+      masonry_net_m2: sum(["metselwerk"], (q) => q.net_area_m2, "m2"), masonry_gross_m2: sum(["metselwerk"], (q) => q.gross_area_m2, "m2"),
+      frame_area_m2: sum(["kozijn_raam", "kozijn_deur"], (q) => q.area_m2, "m2"), window_frames_st: count("kozijn_raam"), door_frames_st: count("kozijn_deur"),
+      downpipe_m1: sum(["hwa"], (q) => q.length_m, "m1"), gutter_m1: sum(["dakgoot"], (q) => q.length_m, "m1"),
+    },
+    status: "PROPOSED", validated: false, booking_allowed: false,
+  };
+}
+
+function sendToMjop() {
+  if (!Link) return;
+  if (state.elements.some((e) => e.source === "demo")) return setMsg("exportMsg", "De voorbeeldgevel is geen echte gevel en kan niet naar je MJOP. Kies eerst je eigen foto.", "warn");
+  if (!metricMap(state.ref)) return setMsg("exportMsg", "Stel eerst bij stap 3 een maat in; zonder maat zijn er geen hoeveelheden om te sturen.", "warn");
+  try {
+    let box = []; try { box = JSON.parse(localStorage.getItem(MJOP_OUTBOX_KEY) || "[]"); } catch (e) { box = []; }
+    if (!Array.isArray(box)) box = [];
+    box.push(buildMjopResult()); localStorage.setItem(MJOP_OUTBOX_KEY, JSON.stringify(box.slice(-20)));
+  } catch (e) { return setMsg("exportMsg", "Versturen is niet gelukt: de browseropslag is niet beschikbaar. Gebruik 'Kopieer als tekst'.", "err"); }
+  location.href = Link.returnUrl;
+}
+
 // ------------------------------------------------ referentiemaat -----------------------------------------------------
 function readRef() {
   const r = state.ref; r.length = parseNum($("refLen").value); r.w = parseNum($("refW").value); r.h = parseNum($("refH").value);
@@ -792,7 +848,8 @@ function renderBag() {
 
 function bagSource(placement) {
   const b = state.bag, sd = b.sides[b.side];
-  return { type: "BAG_FOOTPRINT_SIDE", bag_pand_id: b.pand.id, address: b.address, side_length_m: round2(sd.length), side_facing: sd.facing, retrieved_at: b.retrievedAt, placement };
+  const real = b.sides.map((x, i) => i).filter((i) => b.sides[i].length >= 1), at = real.indexOf(b.side);
+  return { type: "BAG_FOOTPRINT_SIDE", bag_pand_id: b.pand.id, address: b.address, side_length_m: round2(sd.length), side_facing: sd.facing, side_index: at >= 0 ? at : null, sides_total: real.length >= 3 ? real.length : null, retrieved_at: b.retrievedAt, placement };
 }
 
 // Zet de maat zonder aanwijzen: de breedte van het grootste herkende gevelvlak wordt gelijkgesteld aan de gekozen BAG-zijde.
@@ -1000,7 +1057,7 @@ function refresh() {
   $("refFromSel").disabled = !(a && TYPES[a.type].kind === "quad");
   $("polyDone").hidden = !(state.tool && state.tool.open); $("cancelTool").hidden = !state.tool;
   $("allOn").disabled = $("allOff").disabled = !state.elements.length;
-  ["copyBtn", "csvBtn", "jsonBtn"].forEach((id) => { $(id).disabled = !any; });
+  ["copyBtn", "csvBtn", "jsonBtn", "sendBtn"].forEach((id) => { $(id).disabled = !any; });
   if (state.ref.auto && state.bag.side != null && !(state.tool && state.tool.isRef)) autoRefFromBag();
   readRef(); renderRef(); renderCheck(); renderBag(); renderList(); renderTotals(); draw();
 }
@@ -1051,6 +1108,12 @@ function init() {
       const sel = $("addrPick"); sel.replaceChildren(...docs.map((d, i) => el("option", { value: i, text: d.name }))); $("addrPickRow").hidden = docs.length < 2;
       await pickAddress(docs[0]);
     } catch (e) { setMsg("bagMsg", e.message, "err"); } };
+  if (Link) {
+    $("linkBar").hidden = false; $("sendBtn").hidden = false; $("linkBack").href = Link.returnUrl;
+    $("linkText").textContent = "Gekoppeld aan je MJOP" + (Link.address ? ": " + Link.address + "." : ".") + " Stuur het resultaat bij stap 5 terug als voorstel.";
+    $("sendBtn").addEventListener("click", sendToMjop);
+    if (Link.address) { $("addr").value = Link.address; setTimeout(search, 0); }
+  }
   $("addrBtn").addEventListener("click", search); $("addr").addEventListener("keydown", (ev) => { if (ev.key === "Enter") search(); });
   $("addrPick").addEventListener("change", () => pickAddress(state.bag.docs[+$("addrPick").value]));
 
@@ -1083,7 +1146,7 @@ function init() {
     Host.claude.use("sample").then((x) => { Host.sample = x; if (!x) setMsg("detectMsg", "Herkennen met Claude is in deze weergave niet beschikbaar. Je kunt elementen zelf intekenen bij stap 4.", "warn"); refresh(); });
     Host.claude.use("downloads").then((x) => { Host.downloads = x; if (!x) { $("csvBtn").hidden = true; $("jsonBtn").hidden = true; } });
   }
-  try { const a = localStorage.getItem("gevelfoto_adres"); if (a) $("addr").value = a; } catch (e) { /* opslag niet beschikbaar */ }
+  try { const a = localStorage.getItem("gevelfoto_adres"); if (a && !(Link && Link.address)) $("addr").value = a; } catch (e) { /* opslag niet beschikbaar */ }
   bindCanvas(); window.addEventListener("resize", draw);
   // Beginstand: de voorbeeldgevel, zodat meteen te zien is wat de pagina doet.
   const d = demoScene(); setPhoto(d.canvas, "voorbeeldgevel"); addElements(d.elements, "demo");
@@ -1091,7 +1154,7 @@ function init() {
 }
 
 // Voor geautomatiseerde controle van de rekenkern (zie README).
-window.Gevelfoto = { imageToClient, zoomAt, setCamZoom, autoRefFromBag, Geo, metricMap, quantities, parseModelResponse, buildPrompt, buildExport, state, TYPES, demoScene, footprintSides, tiltFromOrientation };
+window.Gevelfoto = { buildMjopResult, imageToClient, zoomAt, setCamZoom, autoRefFromBag, Geo, metricMap, quantities, parseModelResponse, buildPrompt, buildExport, state, TYPES, demoScene, footprintSides, tiltFromOrientation };
 init();
 </script>
 </body>
