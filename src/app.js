@@ -2714,7 +2714,17 @@
       pendingProposals: proposed,
       planRef: pr && typeof pr.planRef === 'string' ? pr.planRef : null,
       nextStep: hasB && plan ? String(volgendeStapTekst(plan)).slice(0, 200) : null,
+      details: hasB ? NativeNav.buildingDetails(state.building, nativeDetailsExtra()) : null,
     };
+  }
+  // Wat het native projectdetailscherm extra laat zien: aantal posten, geraamd totaal over de planperiode en aantal gevelfoto's.
+  function nativeDetailsExtra() {
+    var m = null;
+    try { m = overzichtModel(); } catch (e) { m = null; }
+    var gf = 0;
+    try { gf = GF && state.photoRound ? GF.current(state.photoRound).length : 0; } catch (e) { gf = 0; }
+    var n = Array.isArray(state.elements) ? state.elements.length : null;
+    return { posten: n, totaal: n ? (m && m.totaal) : null, van: CURRENT_YEAR, tot: m ? m.eind : null, gevelfotos: gf };
   }
   function nativeListProjects() {
     if (!sb || !state.session) return Promise.resolve({ loggedIn: false, projects: [] });
