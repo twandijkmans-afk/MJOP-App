@@ -46,7 +46,8 @@ Dezelfde envelop als altijd: `{ v:1, action, requestId, payload }`.
 
 - `webReady` — zie handshake.
 - `webReply` — antwoord op een commando: `{ command, ok:true, data }` of `{ command, ok:false, error:{ code, message } }`, met het requestId van het commando. Foutcodes: `INVALID_COMMAND`, `NOT_LOGGED_IN`, `UNSAVED_CHANGES`, `OPEN_FAILED`, `LOAD_FAILED`, `NO_PROJECT`, `NO_ELEMENT`, `NO_BRIDGE`, `TIMEOUT`, `FAILED`.
-- `webState` — `{ loggedIn, subscribed, planId, hasBuilding, example, label, tab, screen, dirty, saveStatus, pendingProposals, planRef, nextStep }`.
+- `webState` — `{ loggedIn, subscribed, planId, hasBuilding, example, label, tab, screen, dirty, saveStatus, pendingProposals, planRef, nextStep }`, details }`.
+  `details` (optioneel, voor het native projectdetailscherm; een oudere app negeert het) hoort bij het GEOPENDE project en is `null` zonder gebouw en voor het voorbeeldgebouw: `{ bouwjaar, units, dakM2, dakGeschat, gevelM2, gevelGeschat, posten, geraamdTotaal, periodeVan, periodeTot, gevelfotos }`. Onbekend is `null`, nooit 0 (ook een totaal van 0 euro is onbekend); `dakGeschat`/`gevelGeschat` betekent: afgeleid uit de BAG-geometrie, geen 3D BAG-waarde. Alleen lezen; kosten komen uit dezelfde berekening als het Overzicht.
   `saveStatus`: `NOT_LOGGED_IN`, `NOT_SAVED` (geen abonnement: wijzigingen worden niet opgeslagen), `PENDING`, `SAVED`, `ERROR`. Alleen lezen; er wordt niets aan abonnementen of betalingen gewijzigd.
 
 ## Bestaande brug
