@@ -2587,6 +2587,36 @@
   }
   function gfEl(key) { return (state.elements || []).filter(function (el) { return el.id === key && el.type === 'gevel' && Q.isValid(el.quantity); })[0] || null; }
 
+  // De gevelscanner draait binnen de app: een scherm over de hele pagina met een terugknop, de scanner zelf (gevelfoto/, dit domein)
+  // erin. Het resultaat gaat via dezelfde veilige uitwisseling als voorheen (browseropslag, streng gecontroleerd); het bericht
+  // 'mjop-gevelfoto-klaar' zegt alleen dat er iets klaarstaat en bevat zelf geen gegevens.
+  function gfOverlayClose(ophalen) {
+    var o = document.getElementById('gf-overlay');
+    if (o && o.parentNode) o.parentNode.removeChild(o);
+    if (ophalen) { gfIngest(); render(); }
+  }
+  function gfOverlayOpen() {
+    gfOverlayClose(false);
+    var box = document.createElement('div');
+    box.id = 'gf-overlay'; box.className = 'gf-overlay'; box.setAttribute('role', 'dialog'); box.setAttribute('aria-label', 'Gevelfoto');
+    box.innerHTML = '<div class="gf-bar"><button type="button" class="gf-terug" data-gf-terug>‹ Terug</button><span class="gf-titel">Gevelfoto</span></div>';
+    var fr = document.createElement('iframe');
+    fr.className = 'gf-frame'; fr.title = 'Gevelfoto'; fr.src = 'gevelfoto/index.html?ingebed=1';
+    fr.setAttribute('allow', 'camera; accelerometer; gyroscope; magnetometer; fullscreen');
+    box.appendChild(fr);
+    document.body.appendChild(box);
+    box.querySelector('[data-gf-terug]').addEventListener('click', function () { gfOverlayClose(true); });
+  }
+  window.addEventListener('message', function (ev) {
+    var o = document.getElementById('gf-overlay'), fr = o && o.querySelector('iframe');
+    if (!fr || ev.origin !== window.location.origin || ev.source !== fr.contentWindow || !ev.data || ev.data.type !== 'mjop-gevelfoto-klaar') return;
+    gfOverlayClose(false);
+    var nieuw = gfIngest();
+    // In de begeleide stappen: na een nieuwe gevelfoto door naar "Voorstel bevestigen".
+    if (nieuw && state.wizard && state.wizard.stap === 3 && state.tab === 'wizard') state.wizard.stap = 4;
+    render();
+  });
+
   // Gevelfoto: knop naar de proefpagina, de ontvangen foto's, de som over de gevels en de koppeling aan de bestaande gevelposten.
   // Kosten worden hier niet berekend: na overname rekent de bestaande post met zijn eigen kengetal.
   function renderGevelfoto() {
@@ -5454,7 +5484,7 @@ function wizStap(w) {
       try { ok = GF.writeRequest(window.localStorage, pr.planRef, b.isVoorbeeld ? null : (b.adres || null), /^\d{16}$/.test(String(b.identificatie || '')) ? String(b.identificatie) : null, window.location.href.split('#')[0]); } catch (e) { ok = false; }
       if (!ok) { state.photoRoundUi.fout = 'De browseropslag is niet beschikbaar (privénavigatie?); de gevelfoto kan dan niet aan dit plan gekoppeld worden.'; render(); return; }
       render();                                       // schrijft de werksessie weg, zodat het plan er bij terugkeer nog staat
-      window.location.href = 'gevelfoto/index.html';
+      gfOverlayOpen();                                // de scanner opent binnen de app; je verlaat de app niet
     },
     'gf-remove': function (d) { var pr = state.photoRound; if (GF && pr && GF.remove(pr, d.id)) render(); },
     // Een som van gevelfoto's wordt eerst een BRON bij de gevelpost (verandert niets), pas na uitdrukkelijke bevestiging de hoeveelheid.

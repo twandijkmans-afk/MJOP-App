@@ -30,37 +30,44 @@ async function main() {
   var postNu = function (id) { return text(page, '[data-gf-post="' + id + '"] .input-row .hint'); };
 
   await click(page, '[data-act=gf-start]');
-  await page.waitForURL(/gevelfoto\/index\.html/); await page.waitForTimeout(400);
+  await page.waitForSelector('#gf-overlay iframe'); await page.waitForTimeout(600);
+  var f = page.frames().filter(function (x) { return /gevelfoto\/index\.html/.test(x.url()); })[0];
+  await f.waitForSelector('#sendBtn');
   var req = JSON.parse(await stored(page, GF.REQUEST_KEY));
-  check('2. naar de proefpagina met de projectreferentie; voor het voorbeeldgebouw geen adres', req && /^plan-[0-9a-f]{24}$/.test(req.planRef) && req.address === null && /index\.html/.test(req.returnUrl), JSON.stringify(req));
-  check('3. de proefpagina meldt de koppeling en toont "Naar Mijn MJOP sturen"', await page.isVisible('#linkBar') && await page.isVisible('#sendBtn'));
+  check('2. de scanner opent binnen de app (geen nieuwe pagina) met de projectreferentie; voor het voorbeeldgebouw geen adres', req && /^plan-[0-9a-f]{24}$/.test(req.planRef) && req.address === null && /index\.html/.test(req.returnUrl) && !/gevelfoto\//.test(page.url()), JSON.stringify(req) + ' ' + page.url());
+  check('3. de scanner draait ingebed: eigen kop weg, "Naar Mijn MJOP sturen" zichtbaar; de app toont de terugknop', !(await f.isVisible('header')) && await f.isVisible('#sendBtn') && await page.isVisible('[data-gf-terug]'));
 
-  await page.click('#sendBtn');
-  check('4. de voorbeeldgevel kan niet naar het MJOP', /voorbeeldgevel/.test(await page.textContent('#exportMsg')) && /gevelfoto\/index\.html/.test(page.url()) && (await stored(page, GF.OUTBOX_KEY)) === null);
+  await f.click('#sendBtn');
+  check('4. de voorbeeldgevel kan niet naar het MJOP', /voorbeeldgevel/.test(await f.textContent('#exportMsg')) && !!(await page.$('#gf-overlay')) && (await stored(page, GF.OUTBOX_KEY)) === null);
 
   // eigen foto (hier een getekend vlak), met de hand intekenen
-  var png = await page.evaluate(function () {
+  var png = await f.evaluate(function () {
     var c = document.createElement('canvas'); c.width = 1600; c.height = 1100; var g = c.getContext('2d');
     g.fillStyle = '#9ab'; g.fillRect(0, 0, 1600, 1100); g.fillStyle = '#a53'; g.fillRect(100, 150, 1400, 850);
     return c.toDataURL('image/png').split(',')[1];
   });
-  await page.setInputFiles('#file', { name: 'gevel.png', mimeType: 'image/png', buffer: Buffer.from(png, 'base64') });
-  await page.waitForFunction(function () { return window.Gevelfoto.state.photoName === 'gevel.png'; });
-  var tap = async function (x, y) { await page.waitForTimeout(700); var c = await page.evaluate(function (p) { return window.Gevelfoto.imageToClient(p); }, [x, y]); await page.mouse.click(c[0], c[1]); };
-  await page.selectOption('#addType', 'metselwerk'); await page.click('#addBtn');
-  await tap(100, 150); await tap(1500, 150); await tap(1500, 1000); await tap(100, 1000); await page.click('#polyDone');
-  await page.selectOption('#addType', 'kozijn_raam'); await page.click('#addBtn'); await tap(250, 250); await tap(430, 390);
-  await page.click('#sendBtn');
-  check('5. zonder maat wordt er niets verstuurd', /maat/.test(await page.textContent('#exportMsg')) && /gevelfoto\/index\.html/.test(page.url()));
-  await page.click('#manualRef > summary'); await page.click('#refPick'); await tap(100, 1000); await tap(1500, 1000); await page.fill('#refLen', '14');
-  var result = await page.evaluate(function () { return window.Gevelfoto.buildMjopResult(); });
+  await f.setInputFiles('#file', { name: 'gevel.png', mimeType: 'image/png', buffer: Buffer.from(png, 'base64') });
+  await f.waitForFunction(function () { return window.Gevelfoto.state.photoName === 'gevel.png'; });
+  var tap = async function (x, y) {
+    await page.waitForTimeout(700);
+    var c = await f.evaluate(function (p) { return window.Gevelfoto.imageToClient(p); }, [x, y]);
+    var o = await page.evaluate(function () { var r = document.querySelector('#gf-overlay iframe').getBoundingClientRect(); return [r.left, r.top]; });
+    await page.mouse.click(c[0] + o[0], c[1] + o[1]);
+  };
+  await f.selectOption('#addType', 'metselwerk'); await f.click('#addBtn');
+  await tap(100, 150); await tap(1500, 150); await tap(1500, 1000); await tap(100, 1000); await f.click('#polyDone');
+  await f.selectOption('#addType', 'kozijn_raam'); await f.click('#addBtn'); await tap(250, 250); await tap(430, 390);
+  await f.click('#sendBtn');
+  check('5. zonder maat wordt er niets verstuurd', /maat/.test(await f.textContent('#exportMsg')) && !!(await page.$('#gf-overlay')));
+  await f.click('#manualRef > summary'); await f.click('#refPick'); await tap(100, 1000); await tap(1500, 1000); await f.fill('#refLen', '14');
+  var result = await f.evaluate(function () { return window.Gevelfoto.buildMjopResult(); });
   var v = GF.validate(result);
   check('6. het resultaat voldoet aan het contract: 119 m2 bruto, 116,48 m2 netto, 1 raamkozijn, onbekend blijft null, geen foto',
     v.ok && result.quantities.masonry_gross_m2.value === 119 && Math.abs(result.quantities.masonry_net_m2.value - 116.48) < 0.02 && result.quantities.window_frames_st.value === 1 &&
     result.quantities.downpipe_m1.value === null && result.scale.source === 'USER_INPUT' && JSON.stringify(result).length < 3000, v.errors.join('; ') + ' ' + JSON.stringify(result.quantities));
 
-  await page.click('#sendBtn');
-  await page.waitForURL(function (u) { return !/gevelfoto\//.test(String(u)); }); await page.waitForSelector('[data-gf-res]');
+  await f.click('#sendBtn');
+  await page.waitForSelector('#gf-overlay', { state: 'detached' }); await page.waitForSelector('[data-gf-res]');
   var card = await text(page, '[data-gevelfoto]');
   check('7. terug in het MJOP staat de gevelfoto als voorstel, met de waarschuwingen', /metselwerk netto 116,48 m²/.test(card) && /1 raamkozijn/.test(card) && /maat zelf opgegeven/.test(card) && /Onbekend welk deel van het gebouw/.test(card), card);
   check('8. de opslag is leeg na het ophalen en de melding zegt dat niets is overgenomen', (await stored(page, GF.OUTBOX_KEY)) === null && /er is nog niets overgenomen/.test(await text(page)));

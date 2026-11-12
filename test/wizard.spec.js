@@ -197,6 +197,44 @@ async function main() {
   check('8. geen JavaScript-fouten', c.st.errors.length === 0, c.st.errors.join('; '));
   await ctx3.close();
 
+  // 9. gevelscanner binnen de stappen: opent in de app, terugknop sluit, een resultaat brengt je bij stap 4
+  var GFM = require('../src/gevelfoto.js');
+  var blob5 = JSON.parse(JSON.stringify(blob));
+  blob5.wizard = { v: 2, stap: 3, vragen: {}, toegevoegd: [], fotoronde: null, klaar: false };
+  delete blob5.photoRound;
+  var ctx4 = await browser.newContext(small);
+  var d = await newPage(ctx4, { loggedIn: true, blob: blob5, plans: [{ id: 'p1', label: 'Kastanjelaan 12', adres: 'Kastanjelaan 12', updated_at: new Date().toISOString(), invul: { fonds: false, bijdrage: false }, wizard: blob5.wizard }] });
+  await d.page.goto(BASE + 'index.html'); await d.page.waitForTimeout(900);
+  await click(d.page, '[data-act=open-plan][data-id=p1][data-na=wizard]'); await d.page.waitForTimeout(500);
+  await click(d.page, '[data-act=gf-start]');
+  await d.page.waitForSelector('#gf-overlay iframe'); await d.page.waitForTimeout(600);
+  check('9. "Gevelfoto maken" opent de scanner binnen de app (zelfde pagina, terugknop)', !!(await d.page.$('[data-gf-terug]')) && !/gevelfoto\//.test(d.page.url()), d.page.url());
+  await click(d.page, '[data-gf-terug]');
+  check('9. de terugknop sluit de scanner en laat je op stap 3', !(await d.page.$('#gf-overlay')) && /Stap 3 van 6/i.test(await text(d.page)));
+  await click(d.page, '[data-act=gf-start]');
+  await d.page.waitForSelector('#gf-overlay iframe'); await d.page.waitForTimeout(600);
+  var req = JSON.parse(await d.page.evaluate(function (k) { return localStorage.getItem(k); }, GFM.REQUEST_KEY));
+  var gfres = { contract: 'mjop_gevelfoto_v1', result_id: 'gf-0000000000000002', created_at: new Date().toISOString(), plan_ref: req.planRef,
+    building: { address: null, bag_pand_id: null }, facade: { side_facing: null, side_length_m: null, side_index: null, sides_total: null },
+    scale: { method: 'REFERENCE_LINE', source: 'USER_INPUT', placement: null, perspective_corrected: false, check_deviation_pct: null },
+    recognition: { provider: 'none', model: null }, capture: null,
+    quantities: { masonry_net_m2: { value: 100, unit: 'm2', elements: 1 }, masonry_gross_m2: { value: 119, unit: 'm2', elements: 1 }, frame_area_m2: { value: null, unit: 'm2', elements: 0 },
+      window_frames_st: { value: null, unit: 'st', elements: 0 }, door_frames_st: { value: null, unit: 'st', elements: 0 }, downpipe_m1: { value: null, unit: 'm1', elements: 0 }, gutter_m1: { value: null, unit: 'm1', elements: 0 } },
+    status: 'PROPOSED', validated: false, booking_allowed: false };
+  check('9. (voorbereiding) het testresultaat voldoet aan het contract', GFM.validate(gfres).ok, GFM.validate(gfres).errors.join('; '));
+  await d.page.evaluate(function (a) { localStorage.setItem(a.k, JSON.stringify([a.r])); }, { k: GFM.OUTBOX_KEY, r: gfres });
+  var fr9 = d.page.frames().filter(function (x) { return /gevelfoto\/index\.html/.test(x.url()); })[0];
+  await fr9.evaluate(function () { window.parent.postMessage({ type: 'mjop-gevelfoto-klaar' }, location.origin); });
+  await d.page.waitForSelector('#gf-overlay', { state: 'detached' }); await d.page.waitForTimeout(400);
+  t = await text(d.page);
+  check('9. na het sturen van een gevelfoto: stap 4 met de gevelfoto als voorstel, nog niets overgenomen', /Stap 4 van 6/i.test(t) && /1 gevelfoto met hoeveelheden/.test(t) && /Er is nog niets overgenomen/.test(t), t.slice(0, 300));
+  check('9. een bericht van buiten de scanner doet niets', await (async function () {
+    await d.page.evaluate(function () { window.postMessage({ type: 'mjop-gevelfoto-klaar' }, '*'); });
+    await d.page.waitForTimeout(200); return /Stap 4 van 6/i.test(await text(d.page));
+  })());
+  check('9. geen JavaScript-fouten', d.st.errors.length === 0, d.st.errors.join('; '));
+  await ctx4.close();
+
   await browser.close();
   var failed = checks.filter(function (c) { return !c[1]; });
   checks.forEach(function (c) { console.log((c[1] ? 'OK   - ' : 'FAIL - ') + c[0] + (c[1] ? '' : ' [' + c[2] + ']')); });

@@ -9,27 +9,31 @@
 <meta name="robots" content="noindex">
 <style>
   :root {
-    --bg: #f5f4f0; --panel: #ffffff; --ink: #1c1b19; --muted: #6b6860; --line: #dcd9d1;
-    --accent: #1f5fbf; --accent-ink: #ffffff; --warn-bg: #fff4d6; --warn-ink: #6b4a00; --err-bg: #fde4e1; --err-ink: #8a1c12;
-    --ok-bg: #e2f3e6; --ok-ink: #17592b;
+    --bg: #FCFCFB; --panel: #ffffff; --ink: #101211; --muted: #5C5E5A; --line: #E2E1DC;
+    --accent: #2F4BFF; --accent-ink: #ffffff; --warn-bg: #fff4d6; --warn-ink: #6b4a00; --err-bg: #FDEEEC; --err-ink: #9E2B22;
+    --ok-bg: #EEF6F1; --ok-ink: #2F6B4D;
+    --sans: system-ui, -apple-system, "Segoe UI", sans-serif;
   }
   @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
-      --bg: #161614; --panel: #201f1d; --ink: #edebe6; --muted: #a09c93; --line: #383632;
-      --accent: #6ea4f5; --accent-ink: #0c1626; --warn-bg: #3d3212; --warn-ink: #f3d78a; --err-bg: #47201c; --err-ink: #f6b5ad;
+      --bg: #101211; --panel: #161917; --ink: #FCFCFB; --muted: #B4B8B5; --line: #2C302E;
+      --accent: #7E8FFF; --accent-ink: #0c1020; --warn-bg: #3d3212; --warn-ink: #f3d78a; --err-bg: #47201c; --err-ink: #f6b5ad;
       --ok-bg: #1b3a24; --ok-ink: #a6e0b5; color-scheme: dark; } }
   :root[data-theme="dark"] {
-      --bg: #161614; --panel: #201f1d; --ink: #edebe6; --muted: #a09c93; --line: #383632;
-      --accent: #6ea4f5; --accent-ink: #0c1626; --warn-bg: #3d3212; --warn-ink: #f3d78a; --err-bg: #47201c; --err-ink: #f6b5ad;
+      --bg: #101211; --panel: #161917; --ink: #FCFCFB; --muted: #B4B8B5; --line: #2C302E;
+      --accent: #7E8FFF; --accent-ink: #0c1020; --warn-bg: #3d3212; --warn-ink: #f3d78a; --err-bg: #47201c; --err-ink: #f6b5ad;
       --ok-bg: #1b3a24; --ok-ink: #a6e0b5; color-scheme: dark; }
   * { box-sizing: border-box; }
   [hidden] { display: none !important; }
-  body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.45 var(--sans); }
+  /* Ingebed in de MJOP-app (?ingebed=1): de app zelf toont de kop en de terugknop. */
+  html.ingebed header, html.ingebed #linkBar { display: none !important; }
+  html.ingebed main { padding-block-start: 4px; }
   header { padding-block: 14px 6px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); max-width: 1280px; margin: 0 auto; }
   h1 { font-size: 1.25rem; margin: 0 0 4px; }
   header p { margin: 0; color: var(--muted); font-size: .9rem; }
   main { display: grid; gap: 14px; padding-block: 10px 40px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); max-width: 1280px; margin: 0 auto; grid-template-columns: minmax(0, 1fr); }
   @media (min-width: 980px) { main { grid-template-columns: minmax(0, 1.5fr) minmax(340px, 1fr); align-items: start; } }
-  section, #stage { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px; min-width: 0; }
+  section, #stage { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 16px; min-width: 0; }
   /* De foto blijft in beeld terwijl je door de stappen scrolt; de band erboven dekt wat eronderdoor schuift. */
   #stage { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 6px); z-index: 5; box-shadow: 0 6px 14px -8px #0007; }
   body::before { content: ""; position: fixed; inset: 0 0 auto; height: calc(env(safe-area-inset-top, 0px) + 6px); z-index: 10; background: var(--bg); }
@@ -44,11 +48,11 @@
   p { margin: 6px 0; }
   .muted { color: var(--muted); font-size: .88rem; }
   .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 8px 0; }
-  button, .filebtn { font: inherit; padding: 9px 14px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); cursor: pointer; }
+  button, .filebtn { font: inherit; padding: 10px 16px; min-height: 44px; border-radius: 12px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); cursor: pointer; }
   button.primary, .filebtn { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 600; }
   button:disabled { opacity: .45; cursor: not-allowed; }
-  button.small { padding: 5px 10px; font-size: .88rem; }
-  input[type=text], input[type=password], select { font: inherit; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); min-width: 0; }
+  button.small { padding: 6px 12px; min-height: 36px; font-size: .88rem; }
+  input[type=text], input[type=password], select { font: inherit; padding: 10px 12px; min-height: 44px; border-radius: 12px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); min-width: 0; }
   input.num { width: 7em; }
   label { font-size: .92rem; }
   .filebtn input { display: none; }
@@ -63,6 +67,7 @@
   #zoomBar button { width: 36px; height: 36px; padding: 0; border-radius: 50%; font-weight: 700; }
   #camView { overflow: hidden; touch-action: none; }
   #camZoomRow { display: flex; gap: 10px; align-items: center; padding: 8px 14px 0; background: #111; font-size: .9rem; }
+  #camWide { padding: 6px 12px; min-height: 36px; border-radius: 18px; background: #2a2a2a; color: #fff; border-color: #555; font-size: .85rem; white-space: nowrap; }
   #camZoomRow input { flex: 1; min-width: 0; } #camZoomVal { min-width: 3.2em; text-align: right; font-variant-numeric: tabular-nums; }
   canvas { display: block; margin: 0 auto; border-radius: 6px; background: #8884; touch-action: none; }
   canvas.busy { cursor: crosshair; }
@@ -229,7 +234,7 @@
 <div id="cam" hidden>
   <div id="camView"><video id="camVideo" playsinline autoplay muted></video><div id="level" class="off"><div id="levelDot"></div></div></div>
   <p id="camText"></p>
-  <div id="camZoomRow"><span>Zoom</span><input id="camZoom" type="range" min="1" max="4" step="0.1" value="1" aria-label="Zoom"><span id="camZoomVal">1,0×</span></div>
+  <div id="camZoomRow"><span>Zoom</span><input id="camZoom" type="range" min="1" max="4" step="0.1" value="1" aria-label="Zoom"><span id="camZoomVal">1,0×</span><button id="camWide" type="button" hidden></button></div>
   <div id="camBar"><button id="camClose">Sluiten</button><button id="camShot" class="primary">Foto maken</button></div>
 </div>
 
@@ -696,6 +701,8 @@ async function download(name, text, mime) {
 // zet het resultaat (contract mjop_gevelfoto_v1: alleen getallen en herkomst, geen foto) in dezelfde opslag en gaat terug. De app controleert het
 // daar opnieuw en neemt niets automatisch over. Zie src/gevelfoto.js in de MJOP-App-repository.
 const MJOP_REQUEST_KEY = "mjop-gevelfoto-request", MJOP_OUTBOX_KEY = "mjop-gevelfoto-outbox";
+const EMBED = (() => { try { return new URLSearchParams(location.search).get("ingebed") === "1" && window.parent !== window; } catch (e) { return false; } })();
+if (EMBED) document.documentElement.classList.add("ingebed");
 function readMjopRequest() {
   if (Host.claude) return null;
   try {
@@ -742,6 +749,7 @@ function sendToMjop() {
     if (!Array.isArray(box)) box = [];
     box.push(buildMjopResult()); localStorage.setItem(MJOP_OUTBOX_KEY, JSON.stringify(box.slice(-20)));
   } catch (e) { return setMsg("exportMsg", "Versturen is niet gelukt: de browseropslag is niet beschikbaar. Gebruik 'Kopieer als tekst'.", "err"); }
+  if (EMBED) { try { window.parent.postMessage({ type: "mjop-gevelfoto-klaar" }, location.origin); return; } catch (e) { /* val terug op navigeren */ } }
   location.href = Link.returnUrl;
 }
 
@@ -914,11 +922,13 @@ function tiltFromOrientation(beta, gamma) {
   return { pitch, roll: ang - Math.round(ang / 90) * 90 };
 }
 
-const Cam = { stream: null, tilt: null, sensor: false, zoom: 1, hw: null };
+const Cam = { stream: null, tilt: null, sensor: false, zoom: 1, hw: null, base: 1, wideId: null, wide: false, mainId: null };
+// Weergegeven zoomfactor: 1× is de gewone lens, 0,5× de groothoeklens. Biedt de telefoon zelf een bereik onder 1 aan, dan is dat getal de factor.
+function camFactor(z) { const lo = Number($("camZoom").min); return (Cam.hw ? (lo < 1 ? z : z / lo) : z) * Cam.base; }
 // Zoom in de camera: via de lens als de telefoon dat aan de browser aanbiedt, anders digitaal (het midden van het beeld wordt uitgesneden).
 function setCamZoom(z) {
   const el = $("camZoom"), lo = Number(el.min), hi = Number(el.max); z = Math.max(lo, Math.min(hi, z)); Cam.zoom = z; el.value = z;
-  $("camZoomVal").textContent = fmt(Cam.hw ? z / lo : z, 1) + "×";
+  $("camZoomVal").textContent = fmt(camFactor(z), 1) + "×";
   if (Cam.hw) { Cam.hw.applyConstraints({ advanced: [{ zoom: z }] }).catch(() => { /* lens weigert: beeld blijft zoals het is */ }); $("camVideo").style.transform = ""; }
   else $("camVideo").style.transform = z > 1 ? `scale(${z})` : "";
 }
@@ -929,6 +939,33 @@ function initCamZoom() {
   Cam.hw = z ? track : null;
   el.min = z ? z.min : 1; el.max = z ? Math.min(z.max, z.min * 10) : 4; el.step = z && z.step ? z.step : 0.1;
   setCamZoom(Number(el.min));
+}
+// Veel telefoons bieden de groothoeklens in de browser als aparte camera aan. Zonder zo'n lens (en zonder zoombereik onder 1) komt er geen knop.
+async function findWideLens() {
+  Cam.wideId = null;
+  const btn = $("camWide"); btn.hidden = true;
+  try {
+    const track = Cam.stream && Cam.stream.getVideoTracks()[0], cur = track && track.getSettings ? track.getSettings().deviceId : null;
+    if (Cam.hw && Number($("camZoom").min) < 1) return;                      // de telefoon laat zelf al onder 1× zoomen
+    const devs = (await navigator.mediaDevices.enumerateDevices()).filter((d) => d.kind === "videoinput");
+    const back = devs.filter((d) => !/front|voor|user|selfie/i.test(d.label || ""));
+    const wide = back.find((d) => /ultra|0[.,]5|groothoek|wide(?!.*dual)/i.test(d.label || "") && d.deviceId !== cur) || null;
+    if (!wide) return;
+    Cam.wideId = wide.deviceId; Cam.mainId = cur || null; btn.hidden = false; setWideLabel();
+  } catch (e) { /* geen lijst met camera's: er komt geen knop */ }
+}
+function setWideLabel() { $("camWide").textContent = Cam.wide ? "Normaal 1×" : "Groothoek 0,5×"; }
+async function switchLens() {
+  if (!Cam.wideId && !Cam.wide) return;
+  const goWide = !Cam.wide, id = goWide ? Cam.wideId : Cam.mainId;
+  const video = id ? { deviceId: { exact: id }, width: { ideal: 3840 }, height: { ideal: 2160 } } : { facingMode: { ideal: "environment" }, width: { ideal: 3840 }, height: { ideal: 2160 } };
+  let next; try { next = await navigator.mediaDevices.getUserMedia({ audio: false, video }); }
+  catch (e) { $("camText").textContent = "De groothoeklens kon niet worden geopend. Doe een stap achteruit om er meer op te krijgen."; return; }
+  if (Cam.stream) Cam.stream.getTracks().forEach((t) => t.stop());
+  Cam.stream = next; $("camVideo").srcObject = next; Cam.wide = goWide; Cam.base = goWide ? 0.5 : 1;
+  initCamZoom(); setWideLabel();
+  $("camText").textContent = goWide ? "Groothoek: meer op de foto, maar de randen zijn meer vertekend. Maten worden minder nauwkeurig. Gebruik dit alleen als je er niet anders op krijgt." : "";
+  if (!goWide) renderLevel();
 }
 function onOrientation(ev) { const t = tiltFromOrientation(ev.beta, ev.gamma); if (t) { Cam.tilt = t; Cam.sensor = true; renderLevel(); } }
 function isLevel(t) { return !!t && t.roll != null && Math.abs(t.pitch) <= LEVEL_TOL_DEG && Math.abs(t.roll) <= LEVEL_TOL_DEG; }
@@ -952,7 +989,7 @@ async function openCamera() {
   try { Cam.stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: { ideal: "environment" }, width: { ideal: 3840 }, height: { ideal: 2160 } } }); }
   catch (e) { return setMsg("photoMsg", "De camera kon niet worden geopend (geen toestemming of geen camera). Gebruik 'Foto maken of kiezen'.", "err"); }
   Cam.tilt = null; Cam.sensor = false;
-  $("camVideo").srcObject = Cam.stream; $("cam").hidden = false; initCamZoom(); renderLevel();
+  Cam.base = 1; Cam.wide = false; $("camVideo").srcObject = Cam.stream; $("cam").hidden = false; initCamZoom(); renderLevel(); findWideLens();
   window.addEventListener("deviceorientation", onOrientation);
 }
 function closeCamera() {
@@ -964,11 +1001,14 @@ function shoot() {
   const dz = Cam.hw ? 1 : Cam.zoom, sw = v.videoWidth / dz, sh = v.videoHeight / dz;       // digitale zoom: alleen het midden
   const k = Math.min(1, MAX_EDGE / Math.max(sw, sh)), c = document.createElement("canvas");
   c.width = Math.round(sw * k); c.height = Math.round(sh * k); c.getContext("2d").drawImage(v, (v.videoWidth - sw) / 2, (v.videoHeight - sh) / 2, sw, sh, 0, 0, c.width, c.height);
-  const t = Cam.sensor ? Cam.tilt : null, cap = { source: "CAMERA_WITH_LEVEL", zoom: Math.round((Cam.hw ? Cam.zoom / Number($("camZoom").min) : Cam.zoom) * 10) / 10, zoom_kind: Cam.hw ? "LENS" : "DIGITAL", pitch_deg: t ? Math.round(t.pitch * 10) / 10 : null, roll_deg: t && t.roll != null ? Math.round(t.roll * 10) / 10 : null, level: t ? isLevel(t) : null, tolerance_deg: LEVEL_TOL_DEG };
-  closeCamera(); setPhoto(c, "camera-" + new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-"), cap);
+  const t = Cam.sensor ? Cam.tilt : null, cap = { source: "CAMERA_WITH_LEVEL", zoom: Math.round(camFactor(Cam.zoom) * 10) / 10, zoom_kind: Cam.hw ? "LENS" : "DIGITAL", pitch_deg: t ? Math.round(t.pitch * 10) / 10 : null, roll_deg: t && t.roll != null ? Math.round(t.roll * 10) / 10 : null, level: t ? isLevel(t) : null, tolerance_deg: LEVEL_TOL_DEG };
+  const wasWide = Cam.wide;
+  closeCamera();
+  setPhoto(c, "camera-" + new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-"), cap);
   if (cap.level === false) setMsg("photoMsg", `Deze foto is niet recht genomen (${cap.pitch_deg > 0 ? "omhoog" : "omlaag"} ${fmt(Math.abs(cap.pitch_deg), 0)}°${cap.roll_deg != null ? ", scheef " + fmt(Math.abs(cap.roll_deg), 0) + "°" : ""}). Maten kunnen daardoor afwijken; maak hem liever opnieuw of gebruik bij stap 3 een grote rechthoek.`, "warn");
   else if (cap.level) setMsg("photoMsg", "Foto recht genomen.", "ok");
   refresh();
+  if (wasWide) { const prev = $("photoMsg").textContent; setMsg("photoMsg", (prev ? prev + " " : "") + "Foto met de groothoeklens: de randen zijn meer vertekend, dus de maten zijn minder nauwkeurig. Meet bij 'Controlemaat' iets op wat je zelf kent, bijvoorbeeld een deurhoogte, dan zie je de afwijking. Controleer de punten extra goed.", "warn"); $("checkBox").open = true; }
 }
 
 // ------------------------------------------------ gereedschap en aanwijzen -------------------------------------------
@@ -1123,7 +1163,7 @@ function init() {
     view.addEventListener("pointerdown", (ev) => { f.set(ev.pointerId, [ev.clientX, ev.clientY]); if (f.size === 2) start = { d: dist(), z: Cam.zoom }; });
     view.addEventListener("pointermove", (ev) => { if (!f.has(ev.pointerId)) return; f.set(ev.pointerId, [ev.clientX, ev.clientY]); if (start && f.size === 2) setCamZoom(start.z * dist() / start.d); });
     const end = (ev) => { f.delete(ev.pointerId); if (f.size < 2) start = null; }; view.addEventListener("pointerup", end); view.addEventListener("pointercancel", end); }
-  $("camBtn").addEventListener("click", openCamera); $("camClose").addEventListener("click", closeCamera); $("camShot").addEventListener("click", shoot);
+  $("camBtn").addEventListener("click", openCamera); $("camClose").addEventListener("click", closeCamera); $("camWide").addEventListener("click", switchLens); $("camShot").addEventListener("click", shoot);
 
   $("addBtn").addEventListener("click", () => { const type = $("addType").value, kind = TYPES[type].kind;
     const finish = (pts) => { if (kind === "quad") pts = Geo.boxToQuad(pts[0], pts[1]); if (kind !== "line" && Geo.area(pts) < 16) return; addElements([{ type, pts }], "hand"); state.active = state.elements[state.elements.length - 1].id; };
