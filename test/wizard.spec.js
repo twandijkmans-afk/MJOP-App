@@ -118,7 +118,7 @@ async function main() {
   check('3. antwoorden blijven staan na terug/vooruit', pressed.indexOf('lift:ja') > -1 && pressed.indexOf('ventilatie:onbekend') > -1, pressed.join(','));
   await click(page, '[data-act=wizard-stop]');
   t = await text(page);
-  check('3. "Opslaan en later verdergaan" -> Start met hervatten-tekst', /Wat wil je doen\?/.test(t) && /Ga verder met de begeleide stappen \(stap 2 van 4/i.test(t), t.slice(0, 250));
+  check('3. "Opslaan en later verdergaan" -> Start met hervatten-tekst', /Mijn panden/.test(t) && /Ga verder met de begeleide stappen \(stap 2 van 4/i.test(t), t.slice(0, 250));
   await click(page, '[data-act=set-tab][data-tab=wizard]').catch(function () {});
   await click(page, '.st-proj-knop');
   t = await text(page);

@@ -3584,8 +3584,9 @@
   function renderStart() {
     var projecten = startProjecten();
     var html = pgOpen(true);
-    html += '<div class="pg-head st-kop"><h1 class="page-title">Wat wil je doen?</h1>';
-    html += '<div class="page-sub">Kies waar je mee verder wilt. Alles wat je invult wordt bewaard.</div></div>';
+    var nPanden = projecten.length;
+    html += '<div class="pg-head st-kop"><h1 class="page-title">Mijn panden</h1>';
+    html += '<div class="page-sub">' + (!state.session ? 'Log in om je opgeslagen panden te zien.' : (nPanden ? nPanden + ' ' + meervoud(nPanden, 'meerjarenonderhoudsplan', 'meerjarenonderhoudsplannen') : 'Je meerjarenonderhoudsplannen staan hier.')) + '</div></div>';
     if (state.plansUi.fout) html += '<div class="section"><div class="notice error">' + esc(state.plansUi.fout) + '</div></div>';
 
     // Keuze-weergave voor "Gebouw inspecteren" zonder geopend gebouw.
@@ -3597,26 +3598,24 @@
       return html + PG_CLOSE;
     }
 
-    // 1. Verder met mijn gebouw
-    html += '<section class="ov-card st-card" aria-labelledby="st-h-verder"><h2 class="ov-h2" id="st-h-verder">Verder met mijn gebouw</h2>';
-    if (!state.session) {
-      html += '<p class="ov-hint">Log in om je opgeslagen gebouwen te zien en verder te gaan waar je gebleven was.</p>';
-      html += '<button type="button" class="ov-btn st-groot" data-act="goto-login">Inloggen</button>';
-      if (state.building) html += '<button type="button" class="ov-btn secondary st-groot" data-act="set-tab" data-tab="home">Verder met ' + esc(state.building.adres) + '</button>';
-    } else if (state.plansUi.bezig && !state.plansLoaded) {
-      html += '<p class="ov-hint">Je gebouwen worden geladen…</p>';
-    } else if (!projecten.length) {
-      html += '<p class="ov-hint">Je hebt nog geen gebouw. Begin met een nieuw MJOP.</p>';
-    } else {
-      projecten.slice(0, 2).forEach(function (pr) { html += startProjectRij(pr, null, 'Verder'); });
-      if (projecten.length > 2) html += '<p class="ov-more"><span class="linkish" data-act="goto-mijngebouwen" role="button" tabindex="0">Alle ' + projecten.length + ' gebouwen bekijken</span></p>';
-    }
-    html += '</section>';
+    // Pand toevoegen: de hoofdactie van deze pagina.
+    html += '<button type="button" class="ov-btn st-groot mp-nieuw" data-act="wizard-start">+ Pand toevoegen</button>';
 
-    // 2. Nieuw MJOP maken
-    html += '<section class="ov-card st-card" aria-labelledby="st-h-nieuw"><h2 class="ov-h2" id="st-h-nieuw">Nieuw MJOP maken</h2>';
-    html += '<p class="ov-hint">Zoek het adres van het gebouw. De gegevens uit de BAG vullen we alvast voor je in.</p>';
-    html += '<button type="button" class="ov-btn st-groot" data-act="wizard-start">Nieuw MJOP starten</button></section>';
+    // Mijn panden: één kaart per pand met laatste activiteit en volgende stap.
+    if (!state.session) {
+      html += '<section class="ov-card st-card" aria-label="Inloggen"><p class="ov-hint">Log in om je opgeslagen gebouwen te zien en verder te gaan waar je gebleven was.</p>';
+      html += '<button type="button" class="ov-btn secondary st-groot" data-act="goto-login">Inloggen</button>';
+      if (state.building) html += '<button type="button" class="ov-btn secondary st-groot" data-act="set-tab" data-tab="home">Verder met ' + esc(state.building.adres) + '</button>';
+      html += '</section>';
+    } else if (state.plansUi.bezig && !state.plansLoaded) {
+      html += '<section class="ov-card st-card"><p class="ov-hint">Je gebouwen worden geladen…</p></section>';
+    } else if (!projecten.length) {
+      html += '<section class="ov-card st-card"><p class="ov-hint">Je hebt nog geen gebouw. Begin met een nieuw MJOP.</p></section>';
+    } else {
+      html += '<div class="mp-lijst">';
+      projecten.forEach(function (pr) { html += startProjectRij(pr, null, 'Verder'); });
+      html += '</div>';
+    }
 
     // 3. Gebouw inspecteren
     html += '<section class="ov-card st-card" aria-labelledby="st-h-insp"><h2 class="ov-h2" id="st-h-insp">Gebouw inspecteren</h2>';
