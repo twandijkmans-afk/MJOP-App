@@ -1346,7 +1346,7 @@
     state.bijvullen = blob.bijvullen || {};
     // Plannen van vóór Building Element Inventory UI v1 hebben geen inventaris: dan geldt het legacy gedrag.
     state.inventory = blob.inventory && blob.inventory.bundle_version === INV.BUNDLE_VERSION ? blob.inventory : null;
-    state.wizard = blob.wizard && typeof blob.wizard === 'object' && blob.wizard.stap >= 1 && blob.wizard.stap <= 4 ? blob.wizard : null;
+    state.wizard = normWizard(blob.wizard);
     state.photoRound = blob.photoRound && typeof blob.photoRound.planRef === 'string' && Array.isArray(blob.photoRound.proposals) ? blob.photoRound : null;
     if (state.photoRound && !Array.isArray(state.photoRound.planned)) state.photoRound.planned = [];
     if (state.photoRound && !Array.isArray(state.photoRound.rounds)) state.photoRound.rounds = [];
@@ -2329,7 +2329,7 @@
     var s = state.onboarding;
     var html = '<div class="entry-screen">';
     if (state.wizard) {
-      html += '<div class="wz-onb"><span class="linkish" role="button" tabindex="0" data-act="wizard-stop">‹ Start</span><span class="wz-onb-stap">Stap 1 van 4 · Gebouw kiezen</span></div>';
+      html += '<div class="wz-onb"><span class="linkish" role="button" tabindex="0" data-act="wizard-stop">‹ Start</span></div>' + wizardKopHtml({ stap: 1 }, 'wz-voortgang-adres');
     }
 
     // Zonder dit belandt een terugkerende ingelogde gebruiker bij elke
@@ -3544,10 +3544,24 @@
   }
 
   var VOLGENDE_STAP = ['Vul het saldo van de reservekas in', 'Vul de maandelijkse bijdrage in', 'Beoordeel het onderhoud', 'Bekijk je voorstel'];
-  function wizardOpen(w) { return !!(w && typeof w === 'object' && !w.klaar && w.stap >= 1 && w.stap <= 4); }
+  // De begeleide stappen zijn 6 stappen (versie 2). Plannen die met de oude 4 stappen zijn bewaard rekenen we om:
+// gebouw kiezen -> 2, gebouw controleren -> 2 (zelfde scherm), inspecteren -> 3, onderhoudsplan -> 5.
+function wizStap(w) {
+    if (!w || typeof w !== 'object') return 0;
+    var n = Number(w.stap);
+    if (w.v === 2) return n >= 1 && n <= 6 ? n : 0;
+    return n >= 1 && n <= 4 ? [2, 2, 3, 5][n - 1] : 0;
+  }
+  function normWizard(w) {
+    var n = wizStap(w);
+    if (!n) return null;
+    if (w.v !== 2) { w.v = 2; w.stap = n; }
+    return w;
+  }
+  function wizardOpen(w) { return !!(w && typeof w === 'object' && !w.klaar && wizStap(w) >= 1); }
   function volgendeStapTekst(p) {
     var w = p.id === state.currentPlanId && state.building ? state.wizard : p.wizard;
-    if (wizardOpen(w)) return 'Ga verder met de begeleide stappen (stap ' + w.stap + ' van 4: ' + WIZARD_STAPPEN[w.stap - 1].toLowerCase() + ')';
+    if (wizardOpen(w)) return 'Ga verder met de begeleide stappen (stap ' + wizStap(w) + ' van 6: ' + WIZARD_STAPPEN[wizStap(w) - 1].toLowerCase() + ')';
     if (p.id === state.currentPlanId && state.building) return VOLGENDE_STAP[stappenModel().eersteOpen] || VOLGENDE_STAP[3];
     var iv = p.invul;
     if (iv && typeof iv === 'object') {
@@ -3634,7 +3648,7 @@
   // gebruiker de stappen gestart heeft; elke stap kan terug, stoppen en later
   // hervat worden.
   // ---------------------------------------------------------------------
-  var WIZARD_STAPPEN = ['Gebouw kiezen', 'Gebouw controleren', 'Inspecteren', 'Onderhoudsplan'];
+  var WIZARD_STAPPEN = ['Adres', 'Gebouw goedkeuren', 'Inspectie', 'Voorstel bevestigen', 'Plan opstellen', 'Rapport'];
   var WIZARD_VRAGEN = [
     { key: 'lift', vraag: 'Heeft het gebouw een lift?' },
     { key: 'cv-installatie', vraag: 'Is er een collectieve cv-ketel voor het hele gebouw?' },
@@ -3644,7 +3658,7 @@
     { key: 'bestrating', vraag: 'Onderhoudt de VvE bestrating of een terrein rond het gebouw?' },
   ];
 
-  function newWizard() { return { stap: 1, vragen: {}, toegevoegd: [], fotoronde: null, klaar: false }; }
+  function newWizard() { return { v: 2, stap: 2, vragen: {}, toegevoegd: [], fotoronde: null, klaar: false }; }
 
   function opslaanStatusTekst() {
     if (state.plansUi.fout) return { tekst: 'Opslaan mislukt. Probeer het opnieuw.', slecht: true };
@@ -3793,13 +3807,21 @@
       (extra ? '<div class="ov-hint d3-extra" data-feit-aanname>' + esc(extra) + '</div>' : '') + '</div><span class="wz-chip wz-' + soort + '">' + FEIT_LABEL[soort] + '</span></div>';
   }
 
-  function wizardKopHtml(w) {
-    var html = '<nav class="wz-voortgang" aria-label="Voortgang"><ol>';
+  function wizardKopHtml(w, cls) {
+    var html = '<nav class="' + (cls || 'wz-voortgang') + '" aria-label="Voortgang"><ol>';
     WIZARD_STAPPEN.forEach(function (naam, i) {
       var n = i + 1, cls = n < w.stap ? 'klaar' : (n === w.stap ? 'nu' : '');
       html += '<li class="' + cls + '"' + (n === w.stap ? ' aria-current="step"' : '') + '><span class="wz-n">' + (n < w.stap ? CHOICE_ICONS.check : n) + '</span><span class="wz-t">' + esc(naam) + '</span></li>';
     });
-    return html + '</ol><div class="wz-stapnr">Stap ' + w.stap + ' van 4</div></nav>';
+    return html + '</ol><div class="wz-stapnr">Stap ' + w.stap + ' van 6</div></nav>';
+  }
+
+  // Zijn er voorstellen uit de Fotoronde of een gevelfoto? Zo niet, dan wordt stap 4 overgeslagen.
+  function wizHeeftVoorstellen() {
+    var pr = state.photoRound;
+    if (!pr) return false;
+    if ((pr.proposals || []).length > 0) return true;
+    try { return !!(GF && GF.current(pr).length > 0); } catch (e) { return false; }
   }
 
   function wizardVoetHtml(w, volgendeTekst, volgendeAct) {
@@ -3816,9 +3838,9 @@
     if (!w) { state.tab = 'start'; return renderStart(); }
     var b = state.building;
     var html = pgOpen(true);
-    html += '<div class="top-nav"><div class="back-link" role="button" tabindex="0" data-act="' + (w.stap > 1 ? 'wizard-vorige' : 'wizard-stop') + '">‹ ' + (w.stap > 1 ? 'Vorige stap' : 'Start') + '</div></div>';
+    html += '<div class="top-nav"><div class="back-link" role="button" tabindex="0" data-act="' + (w.stap > 2 ? 'wizard-vorige' : 'wizard-stop') + '">‹ ' + (w.stap > 2 ? 'Vorige stap' : 'Start') + '</div></div>';
     html += wizardKopHtml(w);
-    if (w.stap === 1) {
+    if (w.stap === 2) {
       html += '<div class="pg-head"><h1 class="page-title">Is dit je gebouw?</h1><p class="page-sub">Dit hebben we in de openbare bronnen gevonden. Controleer of het klopt.</p></div>';
       var vb = !!b.isVoorbeeld;
       html += '<section class="ov-card st-card">';
@@ -3830,10 +3852,7 @@
       html += feitRij('Gevel', b.gevelM2 ? Math.round(b.gevelM2) + ' m²' : '—', b.gevelM2 ? (vb ? 'voorbeeld' : (gevelAfl ? 'bagafl' : 'd3bag')) : 'onbekend', gevelAfl ? GEVEL_AANNAME : '');
       html += '</section>';
       if (!vb) html += d3BlokHtml(b);
-      html += '<div class="wz-voet"><button type="button" class="ov-btn st-groot" data-act="wizard-volgende">Ja, dit is mijn gebouw</button>';
-      html += '<button type="button" class="ov-btn secondary st-groot" data-act="wijzig-adres">Ander adres zoeken</button></div>';
-    } else if (w.stap === 2) {
-      html += '<div class="pg-head"><h1 class="page-title">Controleer je gebouw</h1><p class="page-sub">Beantwoord een paar vragen. “Weet ik niet” is een prima antwoord; dan blijft het onbekend en rekenen we er niet mee.</p></div>';
+      html += '<div class="pg-head wz-vragenkop"><h2 class="page-title wz-h2">Een paar vragen</h2><p class="page-sub">Beantwoord een paar vragen. “Weet ik niet” is een prima antwoord; dan blijft het onbekend en rekenen we er niet mee.</p></div>';
       html += '<section class="ov-card st-card"><h2 class="ov-h2">Aantal appartementen</h2>';
       html += '<label class="wz-units" for="wiz-units"><input id="wiz-units" data-bind="building-units" type="number" min="1" inputmode="numeric" value="' + b.units + '" class="inline-num" /> <span>' + meervoud(b.units, 'appartement', 'appartementen') + '</span></label>';
       html += '<p class="ov-hint">Uit de BAG. Pas het aan als dat niet klopt; de hoeveelheden rekenen mee.</p></section>';
@@ -3854,7 +3873,8 @@
       html += '<details class="wz-details"><summary>Dit onderhoud stellen we voor (' + state.elements.length + ' ' + meervoud(state.elements.length, 'onderdeel', 'onderdelen') + ')</summary><ul>';
       state.elements.forEach(function (el) { html += '<li>' + esc(el.naam) + '</li>'; });
       html += '</ul><p class="ov-hint">Voorgesteld op basis van de gegevens van je gebouw. Het is een schatting, geen inspectie.</p></details>';
-      html += wizardVoetHtml(w, 'Volgende: inspecteren', 'wizard-volgende');
+      html += '<div class="wz-voet"><button type="button" class="ov-btn st-groot" data-act="wizard-volgende">Ja, dit is mijn gebouw</button>';
+      html += '<button type="button" class="ov-btn secondary st-groot" data-act="wijzig-adres">Ander adres zoeken</button></div>';
     } else if (w.stap === 3) {
       var nVoorstel = state.photoRound ? (state.photoRound.proposals || []).length : 0;
       html += '<div class="pg-head"><h1 class="page-title">Gebouw inspecteren</h1><p class="page-sub">Optioneel: met foto’s van de gevel telt de app de mogelijke kozijnen. Je kunt dit overslaan en later doen.</p></div>';
@@ -3864,7 +3884,24 @@
       if (prAppReady()) html += '<button type="button" class="ov-btn st-groot" data-act="wizard-fotoronde">Fotoronde starten</button>';
       else html += '<p class="ov-hint">De Fotoronde werkt in de MJOP Live-app op je iPhone. Open daar dit gebouw om foto’s te maken.</p>';
       html += '</section>';
-      html += wizardVoetHtml(w, w.fotoronde === 'overgeslagen' || !prAppReady() ? 'Overslaan en verder' : 'Verder naar het onderhoudsplan', 'wizard-volgende-overslaan');
+      if (GF) html += '<section class="ov-card st-card" data-wz-gevelfoto><h2 class="ov-h2">Gevelfoto</h2><p class="ov-hint">Eén foto per gevel. Je tikt de gevelzijde aan en de oppervlakte van het metselwerk komt vanzelf. Het resultaat is een voorstel; er wordt niets automatisch overgenomen.</p><button type="button" class="ov-btn st-groot" data-act="gf-start">Gevelfoto maken</button></section>';
+      html += wizardVoetHtml(w, wizHeeftVoorstellen() || w.fotoronde === 'gedaan' ? 'Verder' : 'Overslaan en verder', 'wizard-volgende-overslaan');
+    } else if (w.stap === 4) {
+      var nFr = state.photoRound ? (state.photoRound.proposals || []).length : 0;
+      var nGf = 0; try { nGf = GF && state.photoRound ? GF.current(state.photoRound).length : 0; } catch (e) { nGf = 0; }
+      html += '<div class="pg-head"><h1 class="page-title">Dit hebben we gevonden</h1><p class="page-sub">Dit zijn voorstellen. Er is nog niets overgenomen. Alleen wat jij bevestigt komt in je plan.</p></div>';
+      html += '<section class="ov-card st-card" data-wz-voorstellen><ul class="wz-lijst">';
+      if (nGf) html += '<li>' + nGf + ' ' + meervoud(nGf, 'gevelfoto', 'gevelfoto’s') + ' met hoeveelheden</li>';
+      if (nFr) html += '<li>' + nFr + ' ' + meervoud(nFr, 'voorstel', 'voorstellen') + ' uit de Fotoronde</li>';
+      html += '</ul><button type="button" class="ov-btn st-groot" data-act="wizard-naar-voorstellen">Voorstellen bekijken en bevestigen</button>';
+      html += '<p class="ov-hint">Je bevestigt ze in de Fotoronde. Daarna ga je via Mijn panden verder met je plan.</p></section>';
+      html += wizardVoetHtml(w, 'Verder naar het plan', 'wizard-volgende');
+    } else if (w.stap === 6) {
+      var sm6 = stappenModel(), m6 = overzichtModel();
+      html += '<div class="pg-head"><h1 class="page-title">Je rapport is klaar</h1><p class="page-sub">Bekijk het rapport voor de vergadering van de VvE.</p></div>';
+      html += '<section class="ov-card st-card"><div class="wz-kosten"><span>Onderhoud ' + CURRENT_YEAR + ' – ' + m6.eind + '</span><b>' + eur(m6.totaal) + '</b></div><p class="ov-hint">Schatting op basis van standaardbedragen, geen offerte.</p></section>';
+      if (sm6.resterend > 0) html += '<section class="ov-card st-card"><p class="ov-hint">Er staat nog iets open in je plan. Je kunt het rapport nu bekijken en je plan later verbeteren.</p><button type="button" class="ov-btn secondary st-groot" data-act="wizard-naar-overzicht">Naar het overzicht</button></section>';
+      html += wizardVoetHtml(w, 'Bekijk rapport', 'wizard-naar-rapport');
     } else {
       var m = overzichtModel(), sm = stappenModel();
       var onbekend = WIZARD_VRAGEN.filter(function (q) { return w.vragen[q.key] === 'onbekend'; });
@@ -3882,8 +3919,7 @@
       if (onbekend.length) html += rij(false, 'Nog onbekend: ' + onbekend.map(function (q) { return esc(libraryEntry(q.key).naam.toLowerCase()); }).join(', '));
       html += rij(w.fotoronde !== 'overgeslagen' && state.photoRound && (state.photoRound.proposals || []).length > 0, state.photoRound && (state.photoRound.proposals || []).length ? 'Fotoronde: ' + state.photoRound.proposals.length + ' voorstel(len) om te controleren' : 'Fotoronde nog niet gedaan (optioneel)');
       html += '</ul></section>';
-      var volgende = sm.resterend === 0 ? ['Bekijk je voorstel', 'wizard-naar-rapport'] : ['Naar het overzicht', 'wizard-naar-overzicht'];
-      html += wizardVoetHtml(w, volgende[0], volgende[1]);
+      html += wizardVoetHtml(w, 'Rapport opstellen', 'wizard-volgende');
     }
     return html + PG_CLOSE;
   }
@@ -5673,7 +5709,7 @@
         state.currentPlanId = null; state.lastSavedSnapshot = null;
         applyBuilding(building);
         // Begeleide stappen: het gevonden gebouw wordt eerst bevestigd ("Is dit je gebouw?").
-        if (state.wizard) { state.wizard.stap = 1; state.tab = 'wizard'; }
+        if (state.wizard) { state.wizard.stap = 2; state.tab = 'wizard'; }
         render();
         d3NieuwGebouw = state.building;                    // alleen dit gebouw krijgt de 3D-waarden in het plan
         start3dbag(state.building, false);                 // de wizard wacht hier niet op
@@ -5998,9 +6034,10 @@
       state.wizard = newWizard();
       render();
     },
-    'wizard-volgende': function () { if (state.wizard) { state.wizard.stap = Math.min(4, state.wizard.stap + 1); render(); window.scrollTo(0, 0); } },
+    'wizard-volgende': function () { if (state.wizard) { var n = Math.min(6, state.wizard.stap + 1); if (n === 4 && !wizHeeftVoorstellen()) n = 5; state.wizard.stap = n; render(); window.scrollTo(0, 0); } },
     'wizard-volgende-overslaan': function () { if (state.wizard) { if (state.wizard.fotoronde !== 'gedaan') state.wizard.fotoronde = 'overgeslagen'; ACTIONS['wizard-volgende'](); } },
-    'wizard-vorige': function () { if (state.wizard) { state.wizard.stap = Math.max(1, state.wizard.stap - 1); render(); window.scrollTo(0, 0); } },
+    'wizard-vorige': function () { if (state.wizard) { var n = Math.max(2, state.wizard.stap - 1); if (n === 4 && !wizHeeftVoorstellen()) n = 3; state.wizard.stap = n; render(); window.scrollTo(0, 0); } },
+    'wizard-naar-voorstellen': function () { state.tab = 'fotoronde'; render(); window.scrollTo(0, 0); },
     'wizard-stop': function () { state.screen = 'app'; state.tab = 'start'; state.buildingSwitcherOpen = false; render(); },
     'wizard-fotoronde': function () { if (state.wizard) state.wizard.fotoronde = 'gedaan'; prStart('round', null); state.tab = 'fotoronde'; render(); },
     'wizard-naar-overzicht': function () { state.tab = 'home'; render(); },

@@ -101,12 +101,12 @@ async function main() {
   await r.page.waitForSelector('[data-d3-status=OK]', { timeout: 8000 });
   t = await text(r.page);
   check('A. daarna verdwijnt het laadscherm automatisch', !LOADER.test(t), t.slice(0, 120));
-  check('A. automatisch naar "Is dit je gebouw?" met adres en gegevens (zonder extra tik)', /Is dit je gebouw\?/.test(t) && /Teststraat 1/.test(t) && /Stap 1 van 4/i.test(t) && /Uit de BAG/i.test(t));
+  check('A. automatisch naar "Is dit je gebouw?" met adres en gegevens (zonder extra tik)', /Is dit je gebouw\?/.test(t) && /Teststraat 1/.test(t) && /Stap 2 van 6/i.test(t) && /Uit de BAG/i.test(t));
   check('A. geen melding "geen 3D BAG" als de 3D BAG wel antwoordde', !(await r.page.$('[data-wz-geen-3d]')));
   var st = await r.page.evaluate(function () { return JSON.parse(sessionStorage.getItem('mjop-worksessie')); });
-  check('A. werkstand: scherm app, tab wizard, stap 1, gebouw staat in het plan', st.screen === 'app' && st.tab === 'wizard' && st.plan.wizard && st.plan.wizard.stap === 1 && /Teststraat 1/.test(st.plan.building.adres), JSON.stringify([st.screen, st.tab]));
+  check('A. werkstand: scherm app, tab wizard, stap 2, gebouw staat in het plan', st.screen === 'app' && st.tab === 'wizard' && st.plan.wizard && st.plan.wizard.stap === 2 && /Teststraat 1/.test(st.plan.building.adres), JSON.stringify([st.screen, st.tab]));
   await click(r.page, '[data-act=wizard-volgende]');
-  check('A. bevestigen gaat door naar stap 2', /Controleer je gebouw/.test(await text(r.page)));
+  check('A. bevestigen gaat door naar stap 3', /Stap 3 van 6/i.test(await text(r.page)));
   check('A. geen JavaScript-fouten', r.a.st.errors.length === 0, r.a.st.errors.join('; '));
   await r.ctx.close();
 
@@ -159,7 +159,7 @@ async function main() {
   var badges = await r.page.evaluate(function () { return Array.prototype.slice.call(document.querySelectorAll('[data-st-soort]')).map(function (e) { return e.dataset.stSoort + ':' + e.textContent.trim(); }); });
   check('F. Start toont het nieuwe gebouw apart: "Nieuw, nog niet opgeslagen" naast "Opgeslagen project"', badges.length === 2 && badges.some(function (b) { return /^nieuw:Nieuw, nog niet opgeslagen/.test(b); }) && badges.some(function (b) { return /^opgeslagen:Opgeslagen project/.test(b); }), JSON.stringify(badges));
   t = await text(r.page);
-  check('F. het nieuwe gebouw biedt het hervatten van de stappen, het opgeslagen project niet', /Ga verder met de begeleide stappen \(stap 1 van 4/i.test(t));
+  check('F. het nieuwe gebouw biedt het hervatten van de stappen, het opgeslagen project niet', /Ga verder met de begeleide stappen \(stap 2 van 6/i.test(t));
   await r.ctx.close();
 
   // G. render-terugval: faalt het bijwerken van de DOM, dan wordt het nieuwe scherm toch getoond
@@ -169,7 +169,7 @@ async function main() {
   await g.page.goto(BASE + 'index.html'); await g.page.waitForTimeout(800);
   await g.page.evaluate(function () { var orig = window.MJOPDomPatch.patch; var n = 0; window.MJOPDomPatch.patch = function (a, b) { if (n++ === 0) throw new Error('patch kapot'); return orig(a, b); }; });
   await click(g.page, '[data-act=wizard-start]');
-  check('G. patch faalt eenmalig: het nieuwe scherm (adreszoeker) staat er toch', !!(await g.page.$('#addr-search')) && /Stap 1 van 4/i.test(await text(g.page)));
+  check('G. patch faalt eenmalig: het nieuwe scherm (adreszoeker) staat er toch', !!(await g.page.$('#addr-search')) && /Stap 1 van 6/i.test(await text(g.page)));
   await ctx.close();
 
   await browser.close();

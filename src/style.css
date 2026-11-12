@@ -1550,6 +1550,13 @@ input[type=range].ov-slider::-moz-range-thumb { width: 14px; height: 14px; borde
 .wz-stapnr { margin-top: 10px; }
 .wz-voortgang { display: flex; flex-direction: column; }
 .wz-voortgang .wz-stapnr { order: -1; margin: 0 0 8px; text-align: right; }
+.wz-voortgang-adres { margin: 2px 0 18px; }
+.wz-voortgang-adres ol { gap: 4px; }
+.wz-voortgang-adres li { flex: 1; height: 3px; border-radius: 2px; background: var(--blue-track, #DCDFF2); display: block; }
+.wz-voortgang-adres li.klaar, .wz-voortgang-adres li.nu { background: var(--blue); }
+.wz-voortgang-adres .wz-n, .wz-voortgang-adres .wz-t { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+.wz-voortgang-adres { display: flex; flex-direction: column; }
+.wz-voortgang-adres .wz-stapnr { order: -1; margin: 0 0 8px; text-align: right; }
 @media (max-width: 899px) {
   /* Tijdens de stappen geen tabbalk en geen gebouwkeuze: één taak tegelijk. */
   .app-shell:has(.wz-voortgang) > .tab-bar,
@@ -1577,3 +1584,6 @@ input[type=range].ov-slider::-moz-range-thumb { width: 14px; height: 14px; borde
 html.native-tabs .tab-bar,
 html.native-tabs .mobile-settings-btn,
 html.native-tabs .mobile-home-btn { display: none !important; }
+.wz-vragenkop { margin-top: 22px; }
+.wz-h2 { font-size: 21px; line-height: 1.2; }
+.app-shell:has(.wz-voortgang) .pg-head .page-title.wz-h2 { font-size: 21px; line-height: 1.2; letter-spacing: -.015em; }
