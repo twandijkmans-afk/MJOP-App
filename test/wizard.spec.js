@@ -76,7 +76,7 @@ async function main() {
   // 1. start -> adres kiezen
   await click(page, '[data-act=wizard-start]');
   var t = await text(page);
-  check('1. wizard start op het adresscherm met "Stap 1 van 4"', /Stap 1 van 4/i.test(t) && /Gebouw kiezen/i.test(t), t.slice(0, 120));
+  check('1. wizard start op het adresscherm met "Stap 1 van 6"', /Stap 1 van 6/i.test(t), t.slice(0, 120));
   await page.fill('#addr-search', 'Teststraat 1');
   await page.dispatchEvent('#addr-search', 'input');
   await page.waitForSelector('.suggest-row', { timeout: 5000 });
@@ -84,13 +84,12 @@ async function main() {
   await page.waitForSelector('.wz-voortgang', { timeout: 8000 });
   t = await text(page);
   check('1. gebouw gevonden: "Is dit je gebouw?" met adres en bron-labels', /Is dit je gebouw\?/.test(t) && /Teststraat 1/.test(t) && /Uit de BAG/i.test(t) && /BAG-afleiding|3DBAG-modelwaarde/.test(t), t.slice(0, 300));
-  check('1. voortgang: stap 1 van 4', /Stap 1 van 4/i.test(t));
+  check('1. voortgang: stap 2 van 6', /Stap 2 van 6/i.test(t));
   await shot(page, 'wizard-1-gebouw');
 
-  // 2. gebouw controleren
-  await click(page, '[data-act=wizard-volgende]');
+  // 2. de vragen staan op hetzelfde scherm als het goedkeuren van het gebouw
   t = await text(page);
-  check('2. stap 2: vragen in gewone taal', /Controleer je gebouw/.test(t) && /Heeft het gebouw een lift\?/.test(t) && /Weet ik niet/.test(t));
+  check('2. stap 2: vragen in gewone taal, onder de gevonden gegevens', /Een paar vragen/.test(t) && t.indexOf('Is dit je gebouw?') < t.indexOf('Een paar vragen') && /Heeft het gebouw een lift\?/.test(t) && /Weet ik niet/.test(t));
   var n0 = await page.evaluate(function () { return document.querySelectorAll('.wz-details li').length; });
   await click(page, '[data-act=wizard-vraag][data-key=lift][data-antwoord=ja]');
   var n1 = await page.evaluate(function () { return document.querySelectorAll('.wz-details li').length; });
@@ -111,41 +110,49 @@ async function main() {
   check('2. 375px: geen horizontaal scrollen; keuzeknoppen ≥44px', !geo.overflow && geo.minOpt >= 44, JSON.stringify(geo));
 
   // 3. terug, stoppen en hervatten
-  await click(page, '[data-act=wizard-vorige]');
-  check('3. terug naar stap 1 zonder gegevensverlies', /Is dit je gebouw\?/.test(await text(page)) && /Teststraat 1/.test(await text(page)));
   await click(page, '[data-act=wizard-volgende]');
+  check('3. na "Ja, dit is mijn gebouw" volgt stap 3 (inspectie)', /Stap 3 van 6/i.test(await text(page)));
+  await click(page, '[data-act=wizard-vorige]');
+  check('3. terug naar stap 2 zonder gegevensverlies', /Is dit je gebouw\?/.test(await text(page)) && /Teststraat 1/.test(await text(page)));
   var pressed = await page.evaluate(function () { return Array.prototype.slice.call(document.querySelectorAll('.wz-opt[aria-pressed=true]')).map(function (b) { return b.dataset.key + ':' + b.dataset.antwoord; }); });
   check('3. antwoorden blijven staan na terug/vooruit', pressed.indexOf('lift:ja') > -1 && pressed.indexOf('ventilatie:onbekend') > -1, pressed.join(','));
   await click(page, '[data-act=wizard-stop]');
   t = await text(page);
-  check('3. "Opslaan en later verdergaan" -> Start met hervatten-tekst', /Mijn panden/.test(t) && /Ga verder met de begeleide stappen \(stap 2 van 4/i.test(t), t.slice(0, 250));
+  check('3. "Opslaan en later verdergaan" -> Start met hervatten-tekst', /Mijn panden/.test(t) && /Ga verder met de begeleide stappen \(stap 2 van 6/i.test(t), t.slice(0, 250));
   await click(page, '[data-act=set-tab][data-tab=wizard]').catch(function () {});
   await click(page, '.st-proj-knop');
   t = await text(page);
-  check('3. "Verder" hervat op dezelfde stap met dezelfde antwoorden', /Controleer je gebouw/.test(t));
+  check('3. "Verder" hervat op dezelfde stap met dezelfde antwoorden', /Een paar vragen/.test(t));
 
   // 4. herladen: stand blijft
   await page.reload(); await page.waitForTimeout(900);
-  check('4. na herladen: nog op stap 2', /Controleer je gebouw/.test(await text(page)));
+  check('4. na herladen: nog op stap 2', /Een paar vragen/.test(await text(page)) && /Stap 2 van 6/i.test(await text(page)));
 
   // 5. inspecteren (browser: geen app)
   await click(page, '[data-act=wizard-volgende]');
   t = await text(page);
   check('5. stap 3: uitleg wat te fotograferen, optioneel, overslaan mogelijk', /Gebouw inspecteren/.test(t) && /Zorg dat het hele kozijn in beeld staat\./.test(t) && /Overslaan en verder/.test(t), t.slice(0, 300));
+  check('5. stap 3: ook een gevelfoto maken (werkt ook op de website)', !!(await page.$('[data-wz-gevelfoto] [data-act=gf-start]')));
   check('5. buiten de app: eerlijke melding dat Fotoronde in de iPhone-app werkt', /Fotoronde werkt in de MJOP Live-app/.test(t));
   await shot(page, 'wizard-3-inspecteren');
   await click(page, '[data-act=wizard-volgende-overslaan]');
 
   // 6. onderhoudsplan
   t = await text(page);
-  check('6. stap 4: onderhoudsplan met kosten en checklist', /Je onderhoudsplan/.test(t) && /€/.test(t) && /Saldo van de reservekas nog niet ingevuld/.test(t) && /Nog onbekend: mechanisch ventilatiesysteem|Nog onbekend: mechanische ventilatie/i.test(t), t.slice(0, 500));
+  check('6. zonder voorstellen wordt stap 4 overgeslagen: direct het plan', /Stap 5 van 6/i.test(t) && !/Dit hebben we gevonden/.test(t));
+  check('6. stap 5: onderhoudsplan met kosten en checklist', /Je onderhoudsplan/.test(t) && /€/.test(t) && /Saldo van de reservekas nog niet ingevuld/.test(t) && /Nog onbekend: mechanisch ventilatiesysteem|Nog onbekend: mechanische ventilatie/i.test(t), t.slice(0, 500));
   check('6. ontbrekende hoeveelheid/saldo wordt niet als 0 getoond', !/Saldo van de reservekas ingevuld/.test(t));
-  check('6. duidelijke volgende actie', /Naar het overzicht/.test(t));
+  check('6. duidelijke volgende actie', /Rapport opstellen/.test(t));
   await shot(page, 'wizard-4-plan');
   var alles = '';
   await click(page, '[data-act=wizard-vorige]'); alles += await text(page);
+  check('6. terug vanaf het plan slaat stap 4 ook over', /Stap 3 van 6/i.test(alles));
   check('6. geen technische termen in de stappen', !TECH.test(t + alles));
   await click(page, '[data-act=wizard-volgende-overslaan]');
+  await click(page, '[data-act=wizard-volgende]');
+  t = await text(page);
+  check('6. stap 6: rapport met kosten en "Bekijk rapport"', /Stap 6 van 6/i.test(t) && /Je rapport is klaar/.test(t) && /€/.test(t) && /Bekijk rapport/.test(t) && !TECH.test(t), t.slice(0, 200));
+  await shot(page, 'wizard-6-rapport');
   await click(page, '[data-act=wizard-naar-overzicht]');
   var act = await page.evaluate(function () { return document.querySelector('.tab-item.active').textContent.trim(); });
   check('6. "Naar het overzicht" opent het Overzicht (bestaande berekeningen)', act === 'Overzicht', act);
@@ -158,16 +165,37 @@ async function main() {
   await click(seed.page, '[data-act=skip-onboarding]'); await seed.page.waitForTimeout(300);
   var blob = await seed.page.evaluate(function () { return JSON.parse(sessionStorage.getItem('mjop-worksessie')).plan; });
   await seed.page.context().close();
-  blob.wizard = { stap: 3, vragen: {}, toegevoegd: [], fotoronde: null, klaar: false };
+  blob.wizard = { stap: 3, vragen: {}, toegevoegd: [], fotoronde: null, klaar: false };   // oud formaat (4 stappen): inspecteren
+  var wOud4 = { stap: 4, vragen: {}, toegevoegd: [], fotoronde: null, klaar: false };      // oud formaat: onderhoudsplan
   var ctx2 = await browser.newContext(small);
-  var b = await newPage(ctx2, { loggedIn: true, blob: blob, plans: [{ id: 'p1', label: 'Kastanjelaan 12', adres: 'Kastanjelaan 12', updated_at: new Date().toISOString(), invul: { fonds: false, bijdrage: false }, wizard: blob.wizard }] });
+  var b = await newPage(ctx2, { loggedIn: true, blob: blob, plans: [{ id: 'p1', label: 'Kastanjelaan 12', adres: 'Kastanjelaan 12', updated_at: new Date().toISOString(), invul: { fonds: false, bijdrage: false }, wizard: blob.wizard }, { id: 'p2', label: 'Maldenhof 3', adres: 'Maldenhof 3', updated_at: new Date().toISOString(), invul: { fonds: false, bijdrage: false }, wizard: wOud4 }] });
   await b.page.goto(BASE + 'index.html'); await b.page.waitForTimeout(900);
   t = await text(b.page);
-  check('7. Start toont "stap 3 van 4" voor een onafgemaakt plan', /stap 3 van 4: inspecteren/i.test(t), t.slice(0, 300));
+  check('7. Start rekent een oud plan om: inspecteren is nu stap 3 van 6', /stap 3 van 6: inspectie/i.test(t), t.slice(0, 300));
+  check('7. oud "onderhoudsplan" (stap 4 van 4) is nu stap 5 van 6', /stap 5 van 6: plan opstellen/i.test(t), t.slice(0, 300));
   await click(b.page, '[data-act=open-plan][data-id=p1][data-na=wizard]'); await b.page.waitForTimeout(500);
-  check('7. "Verder" opent direct stap 3', /Gebouw inspecteren/.test(await text(b.page)) && /Stap 3 van 4/i.test(await text(b.page)));
+  check('7. "Verder" opent direct stap 3', /Gebouw inspecteren/.test(await text(b.page)) && /Stap 3 van 6/i.test(await text(b.page)));
   // een afgerond plan zonder wizard blijft gewoon naar het Overzicht gaan
   await ctx2.close();
+
+  // 8. stap 4 (voorstel bevestigen) verschijnt alleen als er voorstellen zijn
+  var blob4 = JSON.parse(JSON.stringify(blob));
+  blob4.wizard = { v: 2, stap: 3, vragen: {}, toegevoegd: [], fotoronde: null, klaar: false };
+  blob4.photoRound = { planRef: 'plan-0123456789abcdef01234567', proposals: [{}], planned: [] };
+  var ctx3 = await browser.newContext(small);
+  var c = await newPage(ctx3, { loggedIn: true, blob: blob4, plans: [{ id: 'p1', label: 'Kastanjelaan 12', adres: 'Kastanjelaan 12', updated_at: new Date().toISOString(), invul: { fonds: false, bijdrage: false }, wizard: blob4.wizard }] });
+  await c.page.goto(BASE + 'index.html'); await c.page.waitForTimeout(900);
+  await click(c.page, '[data-act=open-plan][data-id=p1][data-na=wizard]'); await c.page.waitForTimeout(500);
+  await click(c.page, '[data-act=wizard-volgende-overslaan]');
+  t = await text(c.page);
+  check('8. met een voorstel: stap 4 "Dit hebben we gevonden", niets overgenomen', /Stap 4 van 6/i.test(t) && /Dit hebben we gevonden/.test(t) && /1 voorstel uit de Fotoronde/.test(t) && /Er is nog niets overgenomen/.test(t), t.slice(0, 300));
+  check('8. stap 4 heeft een knop naar de bestaande bevestiging', !!(await c.page.$('[data-act=wizard-naar-voorstellen]')));
+  await click(c.page, '[data-act=wizard-volgende]');
+  check('8. "Verder naar het plan" opent stap 5', /Stap 5 van 6/i.test(await text(c.page)));
+  await click(c.page, '[data-act=wizard-vorige]');
+  check('8. terug vanaf het plan opent stap 4 (er zijn voorstellen)', /Stap 4 van 6/i.test(await text(c.page)));
+  check('8. geen JavaScript-fouten', c.st.errors.length === 0, c.st.errors.join('; '));
+  await ctx3.close();
 
   await browser.close();
   var failed = checks.filter(function (c) { return !c[1]; });
