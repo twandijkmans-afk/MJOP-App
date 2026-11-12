@@ -258,6 +258,28 @@ test('install zonder vorige ontvanger crasht niet', function () {
   assert.strictEqual(win.MJOPNativeBridge.receive({ v: 1, type: 'proposals' }), false);
 });
 
+// Gebouwgegevens voor het native projectdetailscherm: onbekend blijft null (nooit 0), het voorbeeldgebouw heeft geen details.
+test('buildingDetails: echte waarden, afgerond, met bron (3D BAG of afleiding)', function () {
+  var d = NN.buildingDetails({ bouwjaar: 1972, units: 12, dakM2: 312.6, gevelM2: 1099.7, d3: { dak: 312.6 } },
+    { posten: 10, totaal: 55148.4, van: 2026, tot: 2035, gevelfotos: 2 });
+  assert.deepStrictEqual(d, { bouwjaar: 1972, units: 12, dakM2: 313, dakGeschat: false, gevelM2: 1100, gevelGeschat: true,
+    posten: 10, geraamdTotaal: 55148, periodeVan: 2026, periodeTot: 2035, gevelfotos: 2 });
+});
+test('buildingDetails: ontbrekende waarden zijn null, nooit 0', function () {
+  var d = NN.buildingDetails({ bouwjaar: null, units: 0, dakM2: 0, gevelM2: undefined }, { posten: 0, totaal: 0 });
+  assert.strictEqual(d.bouwjaar, null); assert.strictEqual(d.units, null); assert.strictEqual(d.dakM2, null); assert.strictEqual(d.gevelM2, null);
+  assert.strictEqual(d.dakGeschat, false); assert.strictEqual(d.gevelGeschat, false);
+  assert.strictEqual(d.geraamdTotaal, null, 'een totaal van 0 is onbekend, niet 0 euro');
+  assert.strictEqual(d.posten, 0); assert.strictEqual(d.periodeVan, null); assert.strictEqual(d.gevelfotos, 0);
+});
+test('buildingDetails: geen gebouw of het voorbeeldgebouw geeft null; rommel wordt genegeerd', function () {
+  assert.strictEqual(NN.buildingDetails(null, {}), null);
+  assert.strictEqual(NN.buildingDetails({ isVoorbeeld: true, bouwjaar: 1978 }, {}), null);
+  assert.strictEqual(NN.buildingDetails('x', {}), null);
+  var d = NN.buildingDetails({ bouwjaar: '1972', units: NaN, dakM2: Infinity, gevelM2: -5 }, { posten: 2.5, gevelfotos: -1, totaal: '9' });
+  assert.deepStrictEqual([d.bouwjaar, d.units, d.dakM2, d.gevelM2, d.posten, d.gevelfotos, d.geraamdTotaal], [null, null, null, null, null, 0, null]);
+});
+
 Promise.all(pending).then(function () {
   console.log(fouten ? '\n' + fouten + ' test(s) mislukt.' : '\nAlle controles geslaagd.');
   process.exit(fouten ? 1 : 0);

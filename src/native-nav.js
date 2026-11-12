@@ -84,6 +84,25 @@
     return { ok: true, cmd: c };
   }
 
+  // Gegevens van het geopende gebouw voor het native projectdetailscherm van de app. Alleen lezen. Onbekend blijft null (nooit 0);
+  // het voorbeeldgebouw heeft geen details. Dak en gevel zonder 3D BAG-waarde zijn een afleiding uit de BAG-geometrie: dat wordt meegegeven.
+  function buildingDetails(b, extra) {
+    if (!isObj(b) || b.isVoorbeeld) return null;
+    extra = isObj(extra) ? extra : {};
+    function pos(v) { return typeof v === 'number' && isFinite(v) && v > 0 ? v : null; }
+    function whole(v) { var p = pos(v); return p === null ? null : Math.round(p); }
+    function count(v) { return typeof v === 'number' && isFinite(v) && v >= 0 && Math.floor(v) === v ? v : null; }
+    var d3 = isObj(b.d3) ? b.d3 : {};
+    var dak = whole(b.dakM2), gevel = whole(b.gevelM2);
+    return {
+      bouwjaar: whole(b.bouwjaar), units: whole(b.units),
+      dakM2: dak, dakGeschat: dak !== null && d3.dak == null,
+      gevelM2: gevel, gevelGeschat: gevel !== null && d3.gevel == null,
+      posten: count(extra.posten), geraamdTotaal: whole(extra.totaal), periodeVan: whole(extra.van), periodeTot: whole(extra.tot),
+      gevelfotos: count(extra.gevelfotos) === null ? 0 : count(extra.gevelfotos),
+    };
+  }
+
   function errorOf(e) {
     if (isObj(e) && typeof e.code === 'string') return { code: e.code.slice(0, 40), message: String(e.message || '').slice(0, 200) };
     return { code: 'FAILED', message: String((e && e.message) || e || 'Mislukt').slice(0, 200) };
@@ -218,7 +237,7 @@
 
   var api = {
     BRIDGE_VERSION: BRIDGE_VERSION, MIN_APP_LEVEL: MIN_APP_LEVEL, FEATURES: FEATURES, TABS: TABS, SUBS: SUBS, COMMANDS: COMMANDS, MAX_PROJECTS: MAX_PROJECTS,
-    appLevel: appLevel, validateCommand: validateCommand, create: create, install: install,
+    appLevel: appLevel, validateCommand: validateCommand, buildingDetails: buildingDetails, create: create, install: install,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.MJOPNativeNav = api;

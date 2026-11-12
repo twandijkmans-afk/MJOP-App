@@ -125,6 +125,7 @@ async function main() {
   var s1 = await ask(page, { command: 'getStatus' });
   check('B2. getStatus: huidig project, label en volgende stap', s1 && s1.ok && s1.data.planId === P1 && !!s1.data.label && typeof s1.data.nextStep === 'string', JSON.stringify(s1));
 
+  check('B2b. het voorbeeldgebouw heeft geen details voor het native projectscherm (niets verzonnen)', s1.data.details === null, JSON.stringify(s1.data.details));
   var navTabs = ['planning', 'gebouw', 'rapport', 'home'];
   for (var i = 0; i < navTabs.length; i++) {
     r = await ask(page, { command: 'navigate', tab: navTabs[i] });
@@ -250,6 +251,21 @@ async function main() {
   await nn.page.waitForTimeout(6500);
   check('I2. na de tijdslimiet komt de tabbalk van de website terug (nooit een app zonder navigatie)', !(await hidden(nn.page, '.tab-bar')));
   await ctxN.close();
+
+  // Gebouwgegevens voor het native projectdetailscherm: een echt (geen voorbeeld-)gebouw met bekende en onbekende waarden
+  var blobD = JSON.parse(JSON.stringify(blob));
+  blobD.building = Object.assign({}, blobD.building, { isVoorbeeld: false, bouwjaar: 1972, units: 12, dakM2: 313.4, gevelM2: null });
+  delete blobD.building.d3;
+  var ctxD = await browser.newContext(Object.assign({ userAgent: APP2 }, small));
+  var dd = await newPage(ctxD, { loggedIn: true, plans: plans, blob: blobD });
+  await dd.page.goto(BASE + 'index.html'); await dd.page.waitForTimeout(900);
+  var rD = await ask(dd.page, { command: 'openProject', id: P1, tab: 'home' });
+  var det = rD && rD.ok ? rD.data.details : null;
+  check('J1. details van een echt gebouw: bouwjaar, appartementen en dak als gehele getallen', det && det.bouwjaar === 1972 && det.units === 12 && det.dakM2 === 313, JSON.stringify(rD));
+  check('J2. onbekend blijft null (geveloppervlak), niet 0; dak zonder 3D BAG is een afleiding', det && det.gevelM2 === null && det.gevelGeschat === false && det.dakGeschat === true, JSON.stringify(det));
+  check('J3. aantal posten, geraamd totaal en periode zijn getallen; gevelfoto\'s 0 zonder foto\'s', det && typeof det.posten === 'number' && det.posten > 0 && typeof det.geraamdTotaal === 'number' && det.geraamdTotaal > 0 && det.periodeVan <= det.periodeTot && det.gevelfotos === 0, JSON.stringify(det));
+  check('J4. geen JavaScript-fouten', dd.st.errors.length === 0, dd.st.errors.join('; '));
+  await ctxD.close();
 
   await browser.close();
   var failed = checks.filter(function (c) { return !c[1]; });

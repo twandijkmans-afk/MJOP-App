@@ -15,7 +15,26 @@
 <link rel="stylesheet" href="src/style.css">
 </head>
 <body>
+<!-- Opstartscherm: logo met korte animatie die overgaat in de app. Staat in de pagina zelf, zodat het direct zichtbaar is en op elke versie van de app werkt. -->
+<div id="splash" aria-hidden="true"><div class="splash-in"><div class="splash-mark">M</div><div class="splash-word">MJOP Live</div></div></div>
 <div id="root"></div>
+<script>
+  // Eén keer per sessie (niet bij elk scherm), niet tijdens geautomatiseerde tests (tenzij ?splash=1), en zonder animatie bij "minder beweging".
+  (function () {
+    var s = document.getElementById('splash');
+    if (!s) return;
+    var weg = function () { if (s.parentNode) s.parentNode.removeChild(s); };
+    var forceer = false, skip = false;
+    try { forceer = /[?&]splash=1(&|$)/.test(location.search); } catch (e) {}
+    try { skip = !forceer && (navigator.webdriver || sessionStorage.getItem('mjop-splash') === '1'); } catch (e) {}
+    if (skip) { weg(); return; }
+    try { sessionStorage.setItem('mjop-splash', '1'); } catch (e) {}
+    var kort = false; try { kort = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) {}
+    if (kort) s.className = 'splash-kort';
+    setTimeout(function () { s.className += ' splash-weg'; }, kort ? 500 : 1500);
+    setTimeout(weg, kort ? 800 : 2000);
+  })();
+</script>
 <!-- Client-side parsers for "upload een bestaand MJOP" (xlsx/csv + pdf tekstextractie).
      Op jsdelivr i.p.v. cdnjs en met Subresource Integrity: jsdelivr's npm-CDN
      serveert de bestanden ongewijzigd zoals gepubliceerd op npm, dus de hash
