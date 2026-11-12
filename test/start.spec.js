@@ -82,8 +82,8 @@ async function main() {
   var page = a.page;
   await page.goto(BASE + 'index.html'); await page.waitForTimeout(900);
   var t = await text(page);
-  check('2. na inloggen: Start "Wat wil je doen?"', /Wat wil je doen\?/.test(t), t.slice(0, 100));
-  check('2. drie hoofdacties', /Verder met mijn gebouw/.test(t) && /Nieuw MJOP maken/.test(t) && /Gebouw inspecteren/.test(t));
+  check('2. na inloggen: Start "Mijn panden"', /Mijn panden/.test(t), t.slice(0, 100));
+  check('2. hoofdacties: pand toevoegen, panden en inspecteren', /Pand toevoegen/.test(t) && /2 meerjarenonderhoudsplannen/.test(t) && /Gebouw inspecteren/.test(t));
   check('2. per gebouw: laatste activiteit en volgende stap', /Laatst bewerkt 2 dagen geleden/.test(t) && /Volgende stap\s*Vul het saldo van de reservekas in/i.test(t) && /Laatst bewerkt vandaag/.test(t) && /Controleer het onderhoud/.test(t), t.slice(0, 600));
   check('2. geen technische termen op Start', !/PROPOSED|PHOTO_WALK_SCAN|LiDAR|schema|bridge/i.test(t));
   var geo = await page.evaluate(function () {
@@ -97,7 +97,7 @@ async function main() {
 
   // 3. Nieuw MJOP maken -> adreszoeker
   await click(page, '[data-act=wizard-start]');
-  check('3. "Nieuw MJOP maken" opent de adreszoeker', await page.evaluate(function () { return !!document.querySelector('#addr-search, [data-bind=addr-q]'); }));
+  check('3. "Pand toevoegen" opent de adreszoeker', await page.evaluate(function () { return !!document.querySelector('#addr-search, [data-bind=addr-q]'); }));
 
   // 4. Gebouw inspecteren zonder geopend gebouw: eerst kiezen
   await fresh(page);
@@ -117,7 +117,7 @@ async function main() {
   // terug naar Start via tab, gebouw blijft staan en verschijnt bovenaan
   await click(page, '[data-act=set-tab][data-tab=start]');
   t = await text(page);
-  check('5. terug naar Start: geopend gebouw staat bovenaan', /Wat wil je doen\?/.test(t) && t.indexOf('Maldenhof 3') > -1);
+  check('5. terug naar Start: geopend gebouw staat bovenaan', /Mijn panden/.test(t) && t.indexOf('Maldenhof 3') > -1);
   check('5. gebouw met een open plan: "Gebouw inspecteren" gaat direct naar de Fotoronde', await (async function () { await click(page, '[data-act=start-inspecteer]'); return (await page.evaluate(function () { return document.querySelector('.tab-item.active').textContent; })) === 'Inspectie'; })());
 
   // 6. uitgebreide weergave: alle tabs
@@ -143,7 +143,7 @@ async function main() {
   var c = await newPage(ctx3, { loggedIn: true, plans: [] });
   await c.page.goto(BASE + 'index.html'); await c.page.waitForTimeout(900);
   t = await text(c.page);
-  check('8. nog geen gebouwen: uitleg + Nieuw MJOP maken', /Je hebt nog geen gebouw/.test(t));
+  check('8. nog geen gebouwen: uitleg + Pand toevoegen', /Je hebt nog geen gebouw/.test(t));
   await shot(c.page, 'start-leeg-375');
   await ctx3.close();
 

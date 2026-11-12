@@ -1563,6 +1563,15 @@ input[type=range].ov-slider::-moz-range-thumb { width: 14px; height: 14px; borde
   .app-shell:has(.wz-voortgang) .wz-voet .ov-btn.secondary { background: none; border-color: transparent; box-shadow: none; min-height: 40px; font-size: 14.5px; font-weight: 500; color: var(--text-2); }
 }
 
+/* Mijn panden (design stap 2): de Start-pagina als lijst met één kaart per pand. */
+.mp-nieuw { margin: 4px 0 16px; }
+.mp-lijst { display: flex; flex-direction: column; gap: 12px; margin-bottom: 14px; }
+.mp-lijst .st-proj { background: var(--card); border: 1px solid var(--border); border-radius: var(--r-card); padding: 16px 18px; gap: 12px; }
+.mp-lijst .st-proj:first-of-type { border-top: 1px solid var(--border); }
+.mp-lijst .st-proj-adres { font-size: 19px; letter-spacing: -.015em; }
+.mp-lijst .st-proj-volgende { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border-3, #EFEEE9); }
+.mp-lijst .st-proj-knop { align-self: stretch; background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+
 /* Native navigatie (iPhone-app MJOP Live vanaf versie 2, zie src/native-nav.js): de app toont zelf de tabbalk onderin en de knoppen voor
    Account/Home. Alleen als de app dit bevestigt krijgt <html> de klasse native-tabs; op de gewone website en in oudere appversies verandert er niets. */
 html.native-tabs .tab-bar,
