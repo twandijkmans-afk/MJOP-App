@@ -9,27 +9,31 @@
 <meta name="robots" content="noindex">
 <style>
   :root {
-    --bg: #f5f4f0; --panel: #ffffff; --ink: #1c1b19; --muted: #6b6860; --line: #dcd9d1;
-    --accent: #1f5fbf; --accent-ink: #ffffff; --warn-bg: #fff4d6; --warn-ink: #6b4a00; --err-bg: #fde4e1; --err-ink: #8a1c12;
-    --ok-bg: #e2f3e6; --ok-ink: #17592b;
+    --bg: #FCFCFB; --panel: #ffffff; --ink: #101211; --muted: #5C5E5A; --line: #E2E1DC;
+    --accent: #2F4BFF; --accent-ink: #ffffff; --warn-bg: #fff4d6; --warn-ink: #6b4a00; --err-bg: #FDEEEC; --err-ink: #9E2B22;
+    --ok-bg: #EEF6F1; --ok-ink: #2F6B4D;
+    --sans: system-ui, -apple-system, "Segoe UI", sans-serif;
   }
   @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
-      --bg: #161614; --panel: #201f1d; --ink: #edebe6; --muted: #a09c93; --line: #383632;
-      --accent: #6ea4f5; --accent-ink: #0c1626; --warn-bg: #3d3212; --warn-ink: #f3d78a; --err-bg: #47201c; --err-ink: #f6b5ad;
+      --bg: #101211; --panel: #161917; --ink: #FCFCFB; --muted: #B4B8B5; --line: #2C302E;
+      --accent: #7E8FFF; --accent-ink: #0c1020; --warn-bg: #3d3212; --warn-ink: #f3d78a; --err-bg: #47201c; --err-ink: #f6b5ad;
       --ok-bg: #1b3a24; --ok-ink: #a6e0b5; color-scheme: dark; } }
   :root[data-theme="dark"] {
-      --bg: #161614; --panel: #201f1d; --ink: #edebe6; --muted: #a09c93; --line: #383632;
-      --accent: #6ea4f5; --accent-ink: #0c1626; --warn-bg: #3d3212; --warn-ink: #f3d78a; --err-bg: #47201c; --err-ink: #f6b5ad;
+      --bg: #101211; --panel: #161917; --ink: #FCFCFB; --muted: #B4B8B5; --line: #2C302E;
+      --accent: #7E8FFF; --accent-ink: #0c1020; --warn-bg: #3d3212; --warn-ink: #f3d78a; --err-bg: #47201c; --err-ink: #f6b5ad;
       --ok-bg: #1b3a24; --ok-ink: #a6e0b5; color-scheme: dark; }
   * { box-sizing: border-box; }
   [hidden] { display: none !important; }
-  body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.45 var(--sans); }
+  /* Ingebed in de MJOP-app (?ingebed=1): de app zelf toont de kop en de terugknop. */
+  html.ingebed header, html.ingebed #linkBar { display: none !important; }
+  html.ingebed main { padding-block-start: 4px; }
   header { padding-block: 14px 6px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); max-width: 1280px; margin: 0 auto; }
   h1 { font-size: 1.25rem; margin: 0 0 4px; }
   header p { margin: 0; color: var(--muted); font-size: .9rem; }
   main { display: grid; gap: 14px; padding-block: 10px 40px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); max-width: 1280px; margin: 0 auto; grid-template-columns: minmax(0, 1fr); }
   @media (min-width: 980px) { main { grid-template-columns: minmax(0, 1.5fr) minmax(340px, 1fr); align-items: start; } }
-  section, #stage { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px; min-width: 0; }
+  section, #stage { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 16px; min-width: 0; }
   /* De foto blijft in beeld terwijl je door de stappen scrolt; de band erboven dekt wat eronderdoor schuift. */
   #stage { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 6px); z-index: 5; box-shadow: 0 6px 14px -8px #0007; }
   body::before { content: ""; position: fixed; inset: 0 0 auto; height: calc(env(safe-area-inset-top, 0px) + 6px); z-index: 10; background: var(--bg); }
@@ -44,11 +48,11 @@
   p { margin: 6px 0; }
   .muted { color: var(--muted); font-size: .88rem; }
   .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 8px 0; }
-  button, .filebtn { font: inherit; padding: 9px 14px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); cursor: pointer; }
+  button, .filebtn { font: inherit; padding: 10px 16px; min-height: 44px; border-radius: 12px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); cursor: pointer; }
   button.primary, .filebtn { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 600; }
   button:disabled { opacity: .45; cursor: not-allowed; }
-  button.small { padding: 5px 10px; font-size: .88rem; }
-  input[type=text], input[type=password], select { font: inherit; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); min-width: 0; }
+  button.small { padding: 6px 12px; min-height: 36px; font-size: .88rem; }
+  input[type=text], input[type=password], select { font: inherit; padding: 10px 12px; min-height: 44px; border-radius: 12px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); min-width: 0; }
   input.num { width: 7em; }
   label { font-size: .92rem; }
   .filebtn input { display: none; }
@@ -696,6 +700,8 @@ async function download(name, text, mime) {
 // zet het resultaat (contract mjop_gevelfoto_v1: alleen getallen en herkomst, geen foto) in dezelfde opslag en gaat terug. De app controleert het
 // daar opnieuw en neemt niets automatisch over. Zie src/gevelfoto.js in de MJOP-App-repository.
 const MJOP_REQUEST_KEY = "mjop-gevelfoto-request", MJOP_OUTBOX_KEY = "mjop-gevelfoto-outbox";
+const EMBED = (() => { try { return new URLSearchParams(location.search).get("ingebed") === "1" && window.parent !== window; } catch (e) { return false; } })();
+if (EMBED) document.documentElement.classList.add("ingebed");
 function readMjopRequest() {
   if (Host.claude) return null;
   try {
@@ -742,6 +748,7 @@ function sendToMjop() {
     if (!Array.isArray(box)) box = [];
     box.push(buildMjopResult()); localStorage.setItem(MJOP_OUTBOX_KEY, JSON.stringify(box.slice(-20)));
   } catch (e) { return setMsg("exportMsg", "Versturen is niet gelukt: de browseropslag is niet beschikbaar. Gebruik 'Kopieer als tekst'.", "err"); }
+  if (EMBED) { try { window.parent.postMessage({ type: "mjop-gevelfoto-klaar" }, location.origin); return; } catch (e) { /* val terug op navigeren */ } }
   location.href = Link.returnUrl;
 }
 

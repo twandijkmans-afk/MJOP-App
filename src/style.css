@@ -1587,3 +1587,11 @@ html.native-tabs .mobile-home-btn { display: none !important; }
 .wz-vragenkop { margin-top: 22px; }
 .wz-h2 { font-size: 21px; line-height: 1.2; }
 .app-shell:has(.wz-voortgang) .pg-head .page-title.wz-h2 { font-size: 21px; line-height: 1.2; letter-spacing: -.015em; }
+
+/* Gevelscanner binnen de app: een scherm over de hele pagina met terugknop (zie gfOverlayOpen in app.js). */
+.gf-overlay { position: fixed; inset: 0; z-index: 1000; display: flex; flex-direction: column; background: var(--app); padding-top: env(safe-area-inset-top, 0px); }
+.gf-bar { flex: none; display: flex; align-items: center; gap: 12px; padding: 4px 14px; border-bottom: 1px solid var(--border); background: var(--app); }
+.gf-terug { min-height: 44px; padding: 0 6px; border: 0; background: none; color: var(--blue-deep); font: 600 15px/1 var(--font); cursor: pointer; }
+.gf-terug:focus-visible { outline: 2px solid var(--blue-deep); outline-offset: 2px; }
+.gf-titel { font: 600 16px/1 var(--font); color: var(--ink); }
+.gf-frame { flex: 1; width: 100%; min-height: 0; border: 0; background: var(--app); }
