@@ -95,6 +95,27 @@ async function main() {
   var shot = await page.evaluate(function () { var s = window.Gevelfoto.state; return [s.W, s.capture && s.capture.zoom, s.capture && s.capture.zoom_kind]; });
   check('13. camera met zoom 2x: de foto is het uitgesneden midden en de zoom staat in de export', Math.abs(shot[0] - Math.min(2000, vw / 2)) <= 1 && shot[1] === 2 && shot[2] === 'DIGITAL', JSON.stringify([vw, shot]));
 
+  // camera met groothoeklens: de telefoon biedt een tweede camera aan (hier nagebootst); zonder zo'n camera komt er geen knop
+  check('13b. zonder groothoeklens geen knop "Groothoek 0,5×"', await (async function () {
+    await page.click('#camBtn'); await page.waitForFunction(function () { return document.querySelector('#camVideo').videoWidth > 0; });
+    var hidden = await page.evaluate(function () { return document.getElementById('camWide').hidden; });
+    await page.click('#camClose'); return hidden;
+  })());
+  await page.evaluate(function () {
+    var md = navigator.mediaDevices, eo = md.enumerateDevices.bind(md), go = md.getUserMedia.bind(md);
+    md.enumerateDevices = async function () { var l = await eo(); return l.concat([{ kind: 'videoinput', label: 'Back Ultra Wide Camera', deviceId: 'wide1' }]); };
+    md.getUserMedia = function (c) { var v = c && c.video; if (v && v.deviceId && v.deviceId.exact === 'wide1') c = { audio: false, video: true }; return go(c); };
+  });
+  await page.click('#camBtn'); await page.waitForFunction(function () { return document.querySelector('#camVideo').videoWidth > 0 && !document.getElementById('camWide').hidden; });
+  var w0 = await page.textContent('#camWide');
+  await page.click('#camWide');
+  await page.waitForFunction(function () { return document.querySelector('#camVideo').videoWidth > 0 && /Normaal/.test(document.getElementById('camWide').textContent); });
+  var w1 = await page.evaluate(function () { return [document.getElementById('camZoomVal').textContent, document.getElementById('camText').textContent]; });
+  check('13c. groothoek: knop zegt "Groothoek 0,5×", daarna 0,5× en een waarschuwing over vertekening', /Groothoek 0,5×/.test(w0) && w1[0] === '0,5×' && /vertekend/.test(w1[1]), JSON.stringify([w0, w1]));
+  await page.click('#camShot');
+  var w2 = await page.evaluate(function () { var s = window.Gevelfoto.state; return [s.capture && s.capture.zoom, document.getElementById('photoMsg').textContent]; });
+  check('13d. foto met groothoek: zoom 0,5× in de export en een melding dat de maten minder nauwkeurig zijn', w2[0] === 0.5 && /groothoeklens/.test(w2[1]) && /minder nauwkeurig/.test(w2[1]), JSON.stringify(w2));
+
   var keys = await page.evaluate(function () { var k = []; for (var i = 0; i < localStorage.length; i++) k.push(localStorage.key(i)); return k; });
   check('10. zonder "onthouden" staat de sleutel niet in de browseropslag; alleen het laatst gezochte adres wordt bewaard', keys.join() === 'gevelfoto_adres', keys.join());
   check('11. geen scriptfouten, geen verzoeken naar andere hosts, geen zijwaarts scrollen', !errors.length && !outside.length && await page.evaluate(function () { return document.documentElement.scrollWidth <= innerWidth; }), errors.concat(outside).join(' | '));
