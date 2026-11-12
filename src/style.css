@@ -1587,3 +1587,15 @@ html.native-tabs .mobile-home-btn { display: none !important; }
 .wz-vragenkop { margin-top: 22px; }
 .wz-h2 { font-size: 21px; line-height: 1.2; }
 .app-shell:has(.wz-voortgang) .pg-head .page-title.wz-h2 { font-size: 21px; line-height: 1.2; letter-spacing: -.015em; }
+
+/* Opstartscherm (zie index.html): het logo verschijnt, de naam schuift erachter omhoog, daarna gaat het scherm zacht over in de app. */
+#splash { position: fixed; inset: 0; z-index: 2000; display: flex; align-items: center; justify-content: center; background: var(--app, #FCFCFB); pointer-events: none; opacity: 1; transition: opacity .45s ease; }
+#splash.splash-weg { opacity: 0; }
+.splash-in { display: flex; flex-direction: column; align-items: center; gap: 18px; }
+.splash-mark { width: 84px; height: 84px; border-radius: 22px; background: var(--blue, #2F4BFF); color: #fff; display: flex; align-items: center; justify-content: center; font: 700 44px/1 var(--heading, system-ui); animation: splash-mark .7s cubic-bezier(.2,.9,.3,1.25) both; }
+.splash-word { font: 600 22px/1 var(--heading, system-ui); letter-spacing: -.02em; color: var(--ink, #101211); animation: splash-word .6s .35s ease-out both; }
+@keyframes splash-mark { from { opacity: 0; transform: scale(.6); } to { opacity: 1; transform: scale(1); } }
+@keyframes splash-word { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+#splash.splash-kort .splash-mark, #splash.splash-kort .splash-word { animation: none; }
+@media (prefers-color-scheme: dark) { #splash { background: #101211; } .splash-word { color: #FCFCFB; } }
+@media print { #splash { display: none; } }
