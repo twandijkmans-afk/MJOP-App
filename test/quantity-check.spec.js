@@ -30,6 +30,14 @@ async function rows(page) {
 }
 async function tick(page, sel) { await page.evaluate(function (s) { var c = document.querySelector(s); c.checked = true; c.dispatchEvent(new Event('change', { bubbles: true })); }, sel); await page.waitForTimeout(120); }
 
+// De camera-scanner is weg; de projectreferentie (planRef) komt nu van de gevelfoto-knop: die maakt het fotorondeobject aan en zet het verzoek klaar.
+async function planRefViaGevelfoto(page) {
+  await click(page, '[data-act=gf-start]'); await page.waitForTimeout(300);
+  var ref = await page.evaluate(function () { try { return JSON.parse(localStorage.getItem('mjop-gevelfoto-request')).planRef; } catch (e) { return null; } });
+  await click(page, '[data-gf-terug]'); await page.waitForTimeout(200);
+  return ref;
+}
+
 async function openWithResults(browser) {
   var ctx = await browser.newContext({ viewport: { width: 375, height: 667 }, deviceScaleFactor: 2, userAgent: APP_UA, isMobile: true, hasTouch: true });
   var page = await ctx.newPage(); page.__errors = [];
@@ -40,8 +48,7 @@ async function openWithResults(browser) {
   await click(page, '[data-act=skip-onboarding]');
   await click(page, '[data-act=set-tab][data-tab=start]');
   await click(page, '[data-act=start-inspecteer]');
-  await click(page, '[data-act=photo-round-start]');
-  var planRef = (await page.evaluate(function () { return window.__posted; })).filter(function (m) { return m.action === 'startPhotoRound'; })[0].payload.planRef;
+  var planRef = await planRefViaGevelfoto(page);
   return { page: page, planRef: planRef };
 }
 

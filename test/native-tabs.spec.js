@@ -153,20 +153,19 @@ async function main() {
     r = await ask(page, { command: 'openProject', id: P1, force: true });
   }
 
-  // metingen starten via de BESTAANDE Fotoronde-brug
+  // de camera-scanner is weg: startMeasurement geeft een duidelijke fout en start niets
+  var voor = (await posted(page)).length;
   r = await ask(page, { command: 'startMeasurement', mode: 'round', planId: P1, force: true });
-  var p1 = await posted(page);
-  var sr = p1.filter(function (p) { return p.action === 'startPhotoRound'; }).pop();
-  check('C1. startMeasurement round: stuurt de bestaande bridge-actie startPhotoRound met de projectcontext', r && r.ok && sr && sr.payload.mode === 'round' && sr.payload.mjopPlanId === P1 && /^plan-[0-9a-f]{24}$/.test(sr.payload.planRef), JSON.stringify(r) + JSON.stringify(sr));
-  check('C1. de planRef komt van de website (niet van de app) en staat in het antwoord', r && r.data.planRef === sr.payload.planRef);
-  var elKey = await page.evaluate(function () { var raw = sessionStorage.getItem('mjop-worksessie'); var pl = JSON.parse(raw).plan; var e = (pl.elements || []).filter(function (x) { return x.id === 'kozijnen-onderhoud'; })[0]; return e ? e.id : null; });
-  if (elKey) {
-    r = await ask(page, { command: 'startMeasurement', mode: 'element', elementKey: elKey });
-    var se = (await posted(page)).filter(function (p) { return p.action === 'startElementScan'; }).pop();
-    check('C2. startMeasurement element: bestaande bridge-actie startElementScan met de onderhoudspost', r && r.ok && se && se.payload.mode === 'element' && se.payload.element.key === elKey, JSON.stringify(r) + JSON.stringify(se));
-  } else check('C2. onderhoudspost kozijnen-onderhoud aanwezig in het voorbeeldproject', false, 'niet gevonden');
-  r = await ask(page, { command: 'startMeasurement', mode: 'element', elementKey: 'bestaat-niet' });
-  check('C3. onbekend onderhoudsonderdeel: duidelijke fout, geen scan gestart', r && r.ok === false && r.error.code === 'NO_ELEMENT', JSON.stringify(r));
+  var na = await posted(page);
+  check('C1. startMeasurement: duidelijke fout REMOVED, de oude scanner wordt niet gestart', r && r.ok === false && r.error.code === 'REMOVED' && !na.slice(voor).some(function (p) { return p.action === 'startPhotoRound' || p.action === 'startElementScan'; }), JSON.stringify(r));
+  r = await ask(page, { command: 'startMeasurement', mode: 'element', elementKey: 'kozijnen-onderhoud' });
+  check('C2. ook een scan vanuit een onderhoudspost start niets', r && r.ok === false && r.error.code === 'REMOVED' && !(await posted(page)).some(function (p) { return p.action === 'startElementScan'; }), JSON.stringify(r));
+  // het fotorondeobject (met de projectreferentie) maakt nu de gevelfoto aan
+  await ask(page, { command: 'navigate', tab: 'fotoronde' });
+  await page.evaluate(function () { var b = document.querySelector('[data-act=gf-start]'); if (b) b.click(); });
+  await page.waitForTimeout(400);
+  await page.evaluate(function () { var b = document.querySelector('[data-gf-terug]'); if (b) b.click(); });
+  await page.waitForTimeout(200);
 
   r = await ask(page, { command: 'getProposals' });
   check('D1. getProposals: lege lijst zonder voorstellen; waarden zijn nooit verzonnen', r && r.ok && r.data.total === 0 && Array.isArray(r.data.pending) && r.data.pending.length === 0, JSON.stringify(r));

@@ -47,6 +47,14 @@ async function kozVals(page) {
   return page.evaluate(function () { return Array.from(document.querySelectorAll('.koz-row .val')).map(function (e) { return e.textContent.trim(); }); });
 }
 
+// De camera-scanner is weg; de projectreferentie (planRef) komt nu van de gevelfoto-knop: die maakt het fotorondeobject aan en zet het verzoek klaar.
+async function planRefViaGevelfoto(page) {
+  await click(page, '[data-act=gf-start]'); await page.waitForTimeout(300);
+  var ref = await page.evaluate(function () { try { return JSON.parse(localStorage.getItem('mjop-gevelfoto-request')).planRef; } catch (e) { return null; } });
+  await click(page, '[data-gf-terug]'); await page.waitForTimeout(200);
+  return ref;
+}
+
 async function main() {
   var browser = await chromium.launch({ executablePath: CHROMIUM_PATH });
 
@@ -55,13 +63,10 @@ async function main() {
   await click(page, '[data-act=skip-onboarding]');
   await click(page, '[data-act=set-tab][data-tab=fotoronde]');
   await page.waitForTimeout(200);
-  await click(page, '[data-act=photo-round-start]');
+  var planRef = await planRefViaGevelfoto(page);
+  check('Projectreferentie (planRef) beschikbaar', !!planRef, String(planRef));
+  await click(page, '[data-act=set-tab][data-tab=fotoronde]');      // de pagina opnieuw openen vraagt de app om nieuwe gegevens
   var msgs = await posted(page);
-  var start = msgs.filter(function (m) { return m.action === 'startPhotoRound'; })[0];
-  var planRef = start && start.payload.planRef;
-  check('Fotoronde gestart met een planRef', !!planRef, JSON.stringify(start));
-  await click(page, '[data-act=photo-round-refresh]');
-  msgs = await posted(page);
   var ask = msgs.filter(function (m) { return m.action === 'listFacadeInventory'; }).pop();
   check('De website vraagt de gevelinventaris op voor dit project (bericht v1)', ask && ask.v === 1 && ask.payload.planRef === planRef, JSON.stringify(ask));
 
@@ -122,8 +127,8 @@ async function main() {
   await click(page, '[data-act=skip-onboarding]');
   await click(page, '[data-act=set-tab][data-tab=fotoronde]');
   await page.waitForTimeout(200);
-  await click(page, '[data-act=photo-round-start]');
-  await click(page, '[data-act=photo-round-refresh]');
+  await planRefViaGevelfoto(page);
+  await click(page, '[data-act=set-tab][data-tab=fotoronde]');
   msgs = await posted(page);
   check('Oudere app: de website stuurt GEEN listFacadeInventory', msgs.filter(function (m) { return m.action === 'listFacadeInventory'; }).length === 0);
   check('Oudere app: bestaande berichten ongewijzigd (listProposals wordt nog gestuurd)', msgs.some(function (m) { return m.action === 'listProposals'; }));

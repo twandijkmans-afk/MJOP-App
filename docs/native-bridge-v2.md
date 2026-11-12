@@ -34,7 +34,7 @@ Altijd `{ v:1, type:"command", command, requestId, ... }`. De website valideert 
 | `navigate` | `tab` (`start`,`home`,`gebouw`,`fotoronde`,`planning`,`rapport`,`account`,`instellingen`,`mijngebouwen`), `sub?` (alleen bij account/instellingen: `profiel`,`organisatie`,`weergave`,`rapport`,`abonnement`) | zelfde als een tik op dat tabblad |
 | `getProjects` | — | ververst en geeft de projectlijst van de ingelogde gebruiker (maximaal 200) |
 | `openProject` | `id`, `tab?`, `force?` | opent een opgeslagen project (zelfde actie als op de website). Zonder `force` wordt een project met **niet-opgeslagen wijzigingen nooit vervangen** (`UNSAVED_CHANGES`) |
-| `startMeasurement` | `mode` (`round`/`element`), `planId?`, `elementKey?` (verplicht bij `element`), `force?` | opent zo nodig het project en start daarna de **bestaande** Fotoronde-brug (`startPhotoRound` / `startElementScan`). De `planRef` komt altijd van de website |
+| `startMeasurement` | (vervallen) | De camera-scanner bestaat niet meer; de website antwoordt altijd met de fout `REMOVED` en start niets. Meten in de app opent de pagina Gevelfoto (`navigate` naar `fotoronde`). |
 | `getStatus` | — | huidige status |
 | `getProposals` | — | openstaande voorstellen (onbekende waarden blijven `null`) |
 | `signOut` | — | de bestaande uitlogactie |

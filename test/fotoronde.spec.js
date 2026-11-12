@@ -48,6 +48,14 @@ async function rows(page) {
 }
 async function receive(page, msg) { return page.evaluate(function (m) { return window.MJOPNativeBridge.receive(m); }, msg); }
 
+// De camera-scanner is weg; de projectreferentie (planRef) komt nu van de gevelfoto-knop: die maakt het fotorondeobject aan en zet het verzoek klaar.
+async function planRefViaGevelfoto(page) {
+  await click(page, '[data-act=gf-start]'); await page.waitForTimeout(300);
+  var ref = await page.evaluate(function () { try { return JSON.parse(localStorage.getItem('mjop-gevelfoto-request')).planRef; } catch (e) { return null; } });
+  await click(page, '[data-gf-terug]'); await page.waitForTimeout(200);
+  return ref;
+}
+
 async function main() {
   var browser = await chromium.launch({ executablePath: CHROMIUM_PATH });
 
@@ -55,21 +63,11 @@ async function main() {
   var page = await newPage(browser, true);
   await click(page, '[data-act=skip-onboarding]');
   var tabs = await page.evaluate(function () { return Array.from(document.querySelectorAll('.tab-item')).map(function (e) { return e.textContent.trim(); }); });
-  check('Tab "Fotoronde" aanwezig in de navigatie', tabs.indexOf('Fotoronde') >= 0, tabs.join(','));
+  check('Tab "Gevelfoto" aanwezig in de navigatie', tabs.indexOf('Gevelfoto') >= 0 && tabs.indexOf('Fotoronde') < 0, tabs.join(','));
   await click(page, '[data-act=set-tab][data-tab=fotoronde]');
-  check('In de app: knop "Fotoronde starten" zichtbaar, geen uitleg "alleen in de app"', !!(await page.$('[data-act=photo-round-start]')) && !(await page.$('[data-fotoronde-niet-in-app]')));
-
-  // gevel voorbereiden + start
-  await page.fill('#pr-plan-naam', 'Voorgevel'); await page.dispatchEvent('#pr-plan-naam', 'input');
-  await page.selectOption('#pr-plan-orient', 'S');
-  await click(page, '[data-act=pr-plan-add]');
-  check('Voorbereiding: gevel "Voorgevel (zuid)" genoteerd', /Voorgevel \(zuid\)/.test(await text(page)));
-  await click(page, '[data-act=photo-round-start]');
-  var msgs = await posted(page);
-  var start = msgs.filter(function (m) { return m.action === 'startPhotoRound'; })[0];
-  check('Start: bericht v1 met requestId en projectcontext', start && start.v === 1 && /^w\d+-/.test(start.requestId) && /^plan-[0-9a-f]{24}$/.test(start.payload.planRef) && start.payload.mode === 'round' && start.payload.element === null && start.payload.buildingLabel.length > 0, JSON.stringify(start));
-  check('Start: geplande gevels worden meegegeven', start && start.payload.plannedFacades.length === 1 && start.payload.plannedFacades[0].orientation === 'S', JSON.stringify(start && start.payload.plannedFacades));
-  var planRef = start.payload.planRef;
+  check('In de app: geen knoppen van de oude camera-scanner, wel de gevelfoto', !(await page.$('[data-act=photo-round-start]')) && !(await page.$('[data-act=photo-round-refresh]')) && !(await page.$('#pr-plan-naam')) && !!(await page.$('[data-gevelfoto] [data-act=gf-start]')));
+  var planRef = await planRefViaGevelfoto(page);
+  check('Projectreferentie via de gevelfoto', /^plan-[0-9a-f]{24}$/.test(planRef || ''), String(planRef));
 
   // verkeerd project -> nooit toegepast
   await receive(page, { v: 1, type: 'proposals', planRef: planRef, proposals: [forPlan(COUNT, 'plan-ander-project-xxxxxxxx')], rounds: [] });
@@ -95,18 +93,14 @@ async function main() {
   check('Aantal: "12 st." met onzekerheid en redenen genoemd', /12 st/.test(t) && /nog niet gevalideerd/.test(t) && /verschillende scanmomenten/.test(t));
   check('Oppervlak met onbemeten kozijnen: "Niet te bepalen", deelsom alleen informatief, geen knop om te gebruiken', /Niet te bepalen/.test(t) && /17,4/.test(t) && /onvolledig/.test(t) && await page.evaluate(function () { var c = document.querySelector('[data-pr-card] [data-act=pr-keep]'); return !c || c.disabled; }));
   check('Fasen zichtbaar: detectie, meting, voorstel, bevestiging "nog niet"', /Detectie: 11 automatisch/.test(t) && /Meting: LiDAR, geschat/.test(t) && /Voorstel/.test(t) && /Bevestiging: nog niet/.test(t));
-  check('Lokaal-markering: plan nog niet opgeslagen, voorstellen alleen op dit toestel', !!(await page.$('[data-fotoronde-lokaal]')) && /alleen lokaal op dit toestel/.test(t));
+  check('Lokaal-markering: plan nog niet opgeslagen, voorstellen alleen op dit toestel', !!(await page.$('[data-fotoronde-lokaal]')));
   var kozBefore = await page.evaluate(function () { return Array.from(document.querySelectorAll('input')).length; });
 
   // handmatige waarde op rij 'Draaiend raam' zetten (via element-detail), dan voorstel als bron toevoegen
   await click(page, '[data-act=set-tab][data-tab=gebouw]');
   await click(page, '[data-act=open-element][data-id=kozijnen-onderhoud]');
   var detail = await text(page);
-  check('Elementdetail Buitenkozijnen: knop "Scannen met camera" aanwezig (in de app)', !!(await page.$('[data-act=photo-scan-element]')));
-  check('Elementdetail meldt de voorstellen uit de ronde', !!(await page.$('[data-pr-bij-post]')));
-  await click(page, '[data-act=photo-scan-element][data-id=kozijnen-onderhoud]');
-  var es = (await posted(page)).filter(function (m) { return m.action === 'startElementScan'; })[0];
-  check('Scannen vanuit element: context bevat element-sleutel, naam en eenheid st', es && es.payload.mode === 'element' && es.payload.element.key === 'kozijnen-onderhoud' && es.payload.element.unit === 'st' && es.payload.planRef === planRef, JSON.stringify(es && es.payload.element));
+  check('Elementdetail Buitenkozijnen: geen knop "Scannen met camera" meer (de camera-scanner is weg)', !(await page.$('[data-act=photo-scan-element]')));
   var rowsBefore = await rows(page);
 
   await click(page, '[data-act=set-tab][data-tab=fotoronde]');
@@ -152,8 +146,7 @@ async function main() {
   page = await newPage(browser, true);
   await click(page, '[data-act=skip-onboarding]');
   await click(page, '[data-act=set-tab][data-tab=fotoronde]');
-  await click(page, '[data-act=photo-round-start]');
-  planRef = (await posted(page)).filter(function (m) { return m.action === 'startPhotoRound'; })[0].payload.planRef;
+  planRef = await planRefViaGevelfoto(page);
   await click(page, '[data-act=set-tab][data-tab=gebouw]');
   await click(page, '[data-act=open-element][data-id=kozijnen-onderhoud]');
   await click(page, '[data-act=koz-plus][data-id=kozijnen-onderhoud][data-i="0"]');
@@ -187,16 +180,16 @@ async function main() {
   check('Geen JavaScript-fouten (handmatig-scenario)', page.__errors.length === 0, page.__errors.join('; '));
   await page.context().close();
 
-  // ===== oude versie van de app (brug bestaat, Fotoronde niet): geen knoppen die niets doen =====
+  // ===== oudere versie van de app (brug bestaat, Fotoronde niet) =====
   page = await newPage(browser, true, true);
   await click(page, '[data-act=skip-onboarding]');
   await click(page, '[data-act=set-tab][data-tab=fotoronde]');
   await page.waitForTimeout(300);
-  check('Oude app: geen start-knop, wel uitleg over de nieuwste versie', !(await page.$('[data-act=photo-round-start]')) && !!(await page.$('[data-fotoronde-app-oud]')) && /nieuwste versie/.test(await text(page)));
+  check('Oudere app: geen knoppen van de oude scanner, wel de gevelfoto', !(await page.$('[data-act=photo-round-start]')) && !!(await page.$('[data-gevelfoto] [data-act=gf-start]')));
   await click(page, '[data-act=set-tab][data-tab=gebouw]');
   await click(page, '[data-act=open-element][data-id=kozijnen-onderhoud]');
-  check('Oude app: ook op het element geen scanknop', !(await page.$('[data-act=photo-scan-element]')) && /nieuwste versie/.test(await text(page)));
-  check('Oude app: er is niets naar de app gestuurd behalve de capabilities-vraag', (await posted(page)).every(function (m) { return m.action === 'getCapabilities' || m.action === 'listProposals'; }));
+  check('Oudere app: op het element geen scanknop', !(await page.$('[data-act=photo-scan-element]')));
+  check('Oudere app: er is niets naar de app gestuurd behalve de capabilities-vraag', (await posted(page)).every(function (m) { return m.action === 'getCapabilities' || m.action === 'listProposals'; }));
   await page.context().close();
 
   // ===== gewone website (geen app) =====
@@ -204,14 +197,11 @@ async function main() {
   await click(page, '[data-act=skip-onboarding]');
   await click(page, '[data-act=set-tab][data-tab=fotoronde]');
   t = await text(page);
-  check('Website: uitleg dat de LiDAR-scanner in de iPhone-app zit', !!(await page.$('[data-fotoronde-niet-in-app]')) && /MJOP Live-app op de iPhone/.test(t));
-  check('Website: GEEN kapotte scanknoppen (start / ophalen)', !(await page.$('[data-act=photo-round-start]')) && !(await page.$('[data-act=photo-round-refresh]')));
-  await page.fill('#pr-plan-naam', 'Achtergevel'); await page.dispatchEvent('#pr-plan-naam', 'input');
-  await click(page, '[data-act=pr-plan-add]');
-  check('Website: inspectievoorbereiding (gevel noteren) werkt', /Achtergevel/.test(await text(page)));
+  check('Website: de gevelfoto, geen verwijzing meer naar de LiDAR-scanner', !!(await page.$('[data-gevelfoto] [data-act=gf-start]')) && !/LiDAR-scanner/.test(t) && !(await page.$('[data-fotoronde-niet-in-app]')));
+  check('Website: geen scanknoppen (start / ophalen) en geen gevels noteren', !(await page.$('[data-act=photo-round-start]')) && !(await page.$('[data-act=photo-round-refresh]')) && !(await page.$('#pr-plan-naam')));
   await click(page, '[data-act=set-tab][data-tab=gebouw]');
   await click(page, '[data-act=open-element][data-id=kozijnen-onderhoud]');
-  check('Website: op het element geen scanknop, wel verwijzing naar de app', !(await page.$('[data-act=photo-scan-element]')) && !!(await page.$('[data-fotoronde-niet-in-app]')));
+  check('Website: op het element geen scanknop', !(await page.$('[data-act=photo-scan-element]')));
   check('Website: geen JavaScript-fouten', page.__errors.length === 0, page.__errors.join('; '));
   await page.context().close();
 

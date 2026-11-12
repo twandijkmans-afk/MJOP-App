@@ -1058,7 +1058,7 @@
     inventory: null, // component-inventaris (zie src/inventory.js); null = legacy gedrag, plan werkt zoals voorheen
     inventoryUi: null, // { fout } | { melding }: resultaat van het importeren van een inventarisbundel
     photoRound: null, // Fotoronde (zie src/photo-round.js): { planRef, proposals:[{p,ui}], rounds, planned:[{name,orientation}] }; zit in het plan en wordt dus mee opgeslagen
-    photoRoundUi: { melding: '', fout: '', bezig: false, native: null, opties: false, tech: {}, opruimenLater: false },
+    photoRoundUi: { melding: '', fout: '', bezig: false, native: null, opties: false, tech: {}, opruimenLater: false, opgeruimd: null },
     accountMenuOpen: false, // mini-menu (Account/Uitloggen) onder het gebruikersblok in de zijbalk
     buildingSwitcherOpen: false, // dropdown van de gebouwkiezer boven in de zijbalk
     accountSubTab: 'profiel', // links sub-menu binnen de samengevoegde Account-pagina (zie renderAccount())
@@ -2564,7 +2564,8 @@
   }
 
   // ---------------------------------------------------------------------
-  // Fotoronde — foto's maken met de LiDAR-scanner van de iPhone-app (MJOP Live) en de uitkomst als VOORSTEL in dit plan.
+  // Gevelfoto en (eerdere) fotoronde-voorstellen. De camera-scanner met LiDAR bestaat niet meer; voorstellen die nog in een project staan blijven
+  // leesbaar en te bevestigen (zelfde regels), openstaande kunnen na bevestiging worden opgeruimd. Nieuwe hoeveelheden komen van de gevelfoto.
   // Logica (validatie, samenvoegen, brug) staat in src/photo-round.js; hier alleen scherm en acties.
   // Fases die de gebruiker te zien krijgt: detectie -> meting -> voorstel -> eigen bevestiging -> effectieve hoeveelheid. Een scan boekt nooit zelf.
   // ---------------------------------------------------------------------
@@ -2861,8 +2862,9 @@
     return pr && Array.isArray(pr.proposals) ? pr.proposals.filter(function (x) { return x.ui && x.ui.status === 'PROPOSED'; }).length : 0;
   }
   function renderPrOpruimen() {
-    var n = prOpenCount();
-    if (!n || state.photoRoundUi.opruimenLater) return '';
+    var n = prOpenCount(), pr = state.photoRound, ui = state.photoRoundUi;
+    if (!n && ui.opgeruimd && pr && pr.planRef === ui.opgeruimd) return '<div class="notice" data-pr-opgeruimd style="margin-top:12px">De oude voorstellen zijn verwijderd. Wat je eerder hebt overgenomen is niet veranderd.</div>';
+    if (!n || ui.opruimenLater) return '';
     return '<section class="ov-card" data-pr-opruimen style="padding:16px;margin-top:12px"><h2 class="ov-h2">Voorstellen van een oude fotoronde</h2>' +
       '<p class="ov-hint">Er ' + (n === 1 ? 'staat 1 openstaand voorstel' : 'staan ' + n + ' openstaande voorstellen') + ' van een eerdere fotoronde met de camera-scanner. Die scanner is vervangen door de gevelfoto. ' +
       'Verwijderen kan niet terug. Hoeveelheden die je al hebt overgenomen of zelf hebt ingevuld blijven precies zoals ze zijn.</p>' +
@@ -3609,7 +3611,7 @@ function wizStap(w) {
 
     // 3. Gebouw inspecteren
     html += '<section class="ov-card st-card" aria-labelledby="st-h-insp"><h2 class="ov-h2" id="st-h-insp">Gebouw inspecteren</h2>';
-    html += '<p class="ov-hint">Maak foto’s van de gevel met je iPhone. De app telt de mogelijke kozijnen; jij controleert ze.</p>';
+    html += '<p class="ov-hint">Maak een foto van een gevel. De app herkent kozijnen, metselwerk en afvoeren en rekent de hoeveelheden uit; jij kiest wat je overneemt.</p>';
     html += '<button type="button" class="ov-btn secondary st-groot" data-act="start-inspecteer">Inspectie starten</button></section>';
 
     return html + PG_CLOSE;
@@ -3865,7 +3867,7 @@ function wizStap(w) {
       if (nGf) html += '<li>' + nGf + ' ' + meervoud(nGf, 'gevelfoto', 'gevelfoto’s') + ' met hoeveelheden</li>';
       if (nFr) html += '<li>' + nFr + ' ' + meervoud(nFr, 'voorstel', 'voorstellen') + ' uit de Fotoronde</li>';
       html += '</ul><button type="button" class="ov-btn st-groot" data-act="wizard-naar-voorstellen">Voorstellen bekijken en bevestigen</button>';
-      html += '<p class="ov-hint">Je bevestigt ze in de Fotoronde. Daarna ga je via Mijn panden verder met je plan.</p></section>';
+      html += '<p class="ov-hint">Je bevestigt ze op de pagina Gevelfoto. Daarna ga je via Mijn panden verder met je plan.</p></section>';
       html += wizardVoetHtml(w, 'Verder naar het plan', 'wizard-volgende');
     } else if (w.stap === 6) {
       var sm6 = stappenModel(), m6 = overzichtModel();
@@ -5490,7 +5492,7 @@ function wizStap(w) {
       var pr = state.photoRound;
       if (!pr || !Array.isArray(pr.proposals)) return;
       pr.proposals = pr.proposals.filter(function (x) { return !(x.ui && x.ui.status === 'PROPOSED'); });   // alleen openstaande voorstellen; bevestigde hoeveelheden blijven
-      state.photoRoundUi.melding = 'De oude voorstellen zijn verwijderd. Wat je eerder hebt overgenomen is niet veranderd.';
+      state.photoRoundUi.opgeruimd = pr.planRef;      // bevestiging blijft staan op de plek van de melding (alleen voor dit project)
       render();
     },
     'pr-opruimen-later': function () { state.photoRoundUi.opruimenLater = true; render(); },
