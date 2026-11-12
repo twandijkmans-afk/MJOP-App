@@ -1599,3 +1599,18 @@ html.native-tabs .mobile-home-btn { display: none !important; }
 #splash.splash-kort .splash-mark, #splash.splash-kort .splash-word { animation: none; }
 @media (prefers-color-scheme: dark) { #splash { background: #101211; } .splash-word { color: #FCFCFB; } }
 @media print { #splash { display: none; } }
+
+/* App-gevoel (stap 2): één knopstijl, rustigere kopjes op de telefoon en labels in gewone letters.
+   Alleen uiterlijk; teksten, opbouw en gedrag blijven gelijk. */
+.ov-btn-dark { background: var(--blue); color: #fff; }
+.ov-btn-dark:hover { background: var(--blue-deep); }
+.ov-btn-dark:focus-visible { outline: 2px solid var(--blue-deep); outline-offset: 2px; }
+.ov-verdict-badge, .ov-routebar-label, .ov-routebar-now-label, .st-proj-volgende span, .wz-stapnr, .wz-onb-stap {
+  font-family: var(--font); font-weight: 600; font-size: 12.5px; letter-spacing: 0; text-transform: none;
+}
+@media (max-width: 899px) {
+  .ov-head { font-size: 26px; line-height: 1.15; letter-spacing: -.025em; }
+  .ov-lede { font-size: 15px; line-height: 1.5; }
+  .ov-h2 { font-size: 16px; }
+  .ov-page-head { row-gap: 14px; margin-bottom: 16px; }
+}
