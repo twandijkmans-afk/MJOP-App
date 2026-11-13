@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<title>MJOP · bekijken</title>
+<link rel="icon" href="../favicon.svg">
+<style>
+  :root { --bg:#F3F6FD; --card:#fff; --ink:#0E1424; --text2:#667085; --line:#E6EAF2; --blue:#2F4BFF; --blue-soft:#EAF0FF; --blue-deep:#1B2ECC;
+          --ok:#1E7A45; --ok-soft:#E7F8EE; --warn:#A15C00; --warn-soft:#FFF4E5; --bad:#C7362E; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#05070D; --card:#11151F; --ink:#F2F4FA; --text2:#98A2B3; --line:#232836; --blue:#5C74FF; --blue-soft:#1B2347; --blue-deep:#A9B4FF;
+          --ok:#4ADE80; --ok-soft:#0F2A1B; --warn:#FFB547; --warn-soft:#2E2212; --bad:#FF7A70; } }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.45 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif; -webkit-font-smoothing: antialiased; font-variant-numeric: tabular-nums; }
+  main { max-width: 760px; margin: 0 auto; padding: 28px 18px 60px; }
+  .top { display: flex; align-items: center; gap: 12px; }
+  .logo { width: 40px; height: 40px; border-radius: 12px; background: #2F4BFF; color: #fff; font-weight: 700; font-size: 22px; display: flex; align-items: center; justify-content: center; box-shadow: 0 8px 20px rgba(47,75,255,.35); }
+  .brand { font-weight: 700; } .muted { color: var(--text2); }
+  h1 { font-size: clamp(28px, 6vw, 40px); letter-spacing: -.03em; line-height: 1.1; margin: 26px 0 4px; }
+  .card { background: var(--card); border-radius: 22px; padding: 20px; box-shadow: 0 1px 2px rgba(14,20,36,.04), 0 12px 32px rgba(47,75,255,.07); margin-top: 16px; }
+  @media (prefers-color-scheme: dark) { .card { box-shadow: none; border: .5px solid rgba(255,255,255,.06); } }
+  .hero { background: linear-gradient(135deg, #2F4BFF, #1B2ECC); color: #fff; }
+  .hero .muted { color: rgba(255,255,255,.75); }
+  .big { font-size: clamp(36px, 9vw, 52px); font-weight: 700; letter-spacing: -.035em; line-height: 1.05; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-top: 16px; }
+  .tile { background: var(--card); border-radius: 18px; padding: 14px 16px; box-shadow: 0 1px 2px rgba(14,20,36,.04), 0 10px 26px rgba(47,75,255,.06); }
+  .tile b { display: block; font-size: 22px; letter-spacing: -.02em; margin-top: 2px; }
+  .bars { display: flex; align-items: flex-end; gap: 8px; height: 140px; margin-top: 14px; }
+  .bar { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; height: 100%; justify-content: flex-end; font-size: 12px; color: var(--text2); }
+  .bar span { width: 100%; border-radius: 8px; background: color-mix(in srgb, var(--blue) 25%, transparent); min-height: 4px; }
+  .bar.peak span { background: linear-gradient(180deg, #5B74FF, var(--blue)); } .bar.peak { color: var(--ink); font-weight: 700; }
+  h2 { font-size: 20px; letter-spacing: -.01em; margin: 30px 4px 6px; }
+  .year { display: flex; align-items: baseline; gap: 10px; margin: 18px 4px 8px; } .year h3 { margin: 0; font-size: 20px; }
+  .chip { display: inline-block; font-size: 12px; font-weight: 600; padding: 3px 10px; border-radius: 999px; background: var(--ink); color: var(--bg); }
+  .chip.warn { background: var(--warn-soft); color: var(--warn); } .chip.ok { background: var(--ok-soft); color: var(--ok); }
+  .year .amt { margin-left: auto; color: var(--text2); font-weight: 600; }
+  .row { display: flex; gap: 12px; padding: 12px 0; border-top: .5px solid var(--line); } .row:first-child { border-top: 0; }
+  .row .n { flex: 1; } .row .a { font-weight: 600; white-space: nowrap; }
+  ul.notes { padding-left: 18px; color: var(--text2); font-size: 14px; } ul.notes li { margin: 6px 0; }
+  .actions { display: flex; gap: 10px; margin-top: 22px; flex-wrap: wrap; }
+  button { font: 600 16px/1 inherit; font-family: inherit; border: 0; border-radius: 999px; padding: 15px 22px; cursor: pointer; background: var(--blue); color: #fff; box-shadow: 0 8px 20px rgba(47,75,255,.3); }
+  .state { text-align: center; padding: 80px 10px; color: var(--text2); }
+  footer { margin-top: 36px; font-size: 13px; color: var(--text2); text-align: center; }
+  @media print { body { background: #fff; color: #000; } .card, .tile { box-shadow: none; border: 1px solid #ddd; } .hero { background: #fff; color: #000; } .hero .muted { color: #555; } .actions { display: none; } }
+</style>
+</head>
+<body>
+<main id="app"><div class="state">Plan laden…</div></main>
+<script>
+(function () {
+  var SUPABASE = 'https://tcxmkmbupbknklwiijoq.supabase.co';
+  var KEY = 'sb_publishable_IfhXai-_KQiHnf2tNcXeLQ_k2FsUaN0';   // publieke sleutel; toegang loopt via de functie get_project_share
+  var app = document.getElementById('app');
+  var token = new URLSearchParams(location.search).get('t') || '';
+
+  function el(tag, cls, text) { var n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; }
+  function euro(v) { return v == null ? 'onbekend' : '€ ' + Math.round(v).toLocaleString('nl-NL'); }
+  function state(text) { app.textContent = ''; app.appendChild(el('div', 'state', text)); }
+
+  if (!/^[A-Za-z0-9_-]{32,}$/.test(token)) { state('Deze link is niet compleet. Vraag de beheerder om een nieuwe link.'); return; }
+
+  fetch(SUPABASE + '/rest/v1/rpc/get_project_share', {
+    method: 'POST', headers: { 'apikey': KEY, 'Authorization': 'Bearer ' + KEY, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ t: token })
+  }).then(function (r) { return r.ok ? r.json() : null; }).then(function (res) {
+    if (!res || !res.snapshot) { state('Deze link werkt niet meer: hij is ingetrokken of verlopen. Vraag de beheerder om een nieuwe link.'); return; }
+    render(res.snapshot, res.show_amounts, res);
+  }).catch(function () { state('Het plan kon niet worden geladen. Controleer je internetverbinding en probeer het opnieuw.'); });
+
+  function render(s, amounts, meta) {
+    app.textContent = '';
+    document.title = 'MJOP ' + (s.naam || '');
+    var top = el('div', 'top'); top.appendChild(el('div', 'logo', 'M'));
+    var tb = el('div'); tb.appendChild(el('div', 'brand', 'MJOP Live')); tb.appendChild(el('div', 'muted', 'Meerjarenonderhoudsplan om te bekijken'));
+    top.appendChild(tb); app.appendChild(top);
+
+    app.appendChild(el('h1', null, s.naam || 'Gebouw'));
+    app.appendChild(el('div', 'muted', [s.adres, s.periode ? 'MJOP ' + s.periode : null].filter(Boolean).join(' · ')));
+
+    var hero = el('div', 'card hero');
+    hero.appendChild(el('div', 'muted', 'Geraamd onderhoud ' + (s.periode || '')));
+    hero.appendChild(el('div', 'big', amounts ? euro(s.totaal) : s.posten + ' onderhoudsposten'));
+    if (amounts && s.piek) hero.appendChild(el('div', 'muted', 'Duurste jaar ' + s.piek.jaar + ' · ' + euro(s.piek.bedrag)));
+    app.appendChild(hero);
+
+    var grid = el('div', 'grid');
+    function tile(label, value) { var t = el('div', 'tile'); t.appendChild(el('div', 'muted', label)); t.appendChild(el('b', null, value)); grid.appendChild(t); }
+    if (amounts && s.bijdrage != null) tile('Bijdrage per appartement per maand', euro(s.bijdrage));
+    if (amounts && s.nodig != null) tile('Nodig om het fonds niet onder € 0 te laten komen', euro(s.nodig));
+    if (amounts && s.laagste) tile('Laagste stand reservefonds', euro(s.laagste.saldo) + ' in ' + s.laagste.jaar);
+    tile('Beoordeeld', (s.beoordeeld || 0) + ' van ' + (s.posten || 0) + ' posten');
+    app.appendChild(grid);
+
+    var years = s.jaren || [];
+    if (amounts && years.length) {
+      var c = el('div', 'card'); c.appendChild(el('div', 'muted', 'Kosten per jaar'));
+      var bars = el('div', 'bars'); var max = Math.max.apply(null, years.map(function (y) { return y.bedrag || 0; }).concat([1]));
+      years.forEach(function (y) { var b = el('div', 'bar' + (s.piek && s.piek.jaar === y.jaar ? ' peak' : '')); var sp = el('span'); sp.style.height = Math.max(3, (y.bedrag || 0) / max * 100) + '%'; b.appendChild(sp); b.appendChild(document.createTextNode(String(y.jaar).slice(2))); bars.appendChild(b); });
+      c.appendChild(bars); app.appendChild(c);
+    }
+
+    app.appendChild(el('h2', null, 'Planning'));
+    years.filter(function (y) { return (y.posten || []).length; }).forEach(function (y) {
+      var h = el('div', 'year'); h.appendChild(el('h3', null, String(y.jaar)));
+      if (s.piek && s.piek.jaar === y.jaar && amounts) h.appendChild(el('span', 'chip', 'Duurste jaar'));
+      if (amounts) h.appendChild(el('span', 'amt', euro(y.bedrag)));
+      app.appendChild(h);
+      var c = el('div', 'card'); c.style.marginTop = '0'; c.style.padding = '6px 20px';
+      y.posten.forEach(function (p) { var r = el('div', 'row'); r.appendChild(el('div', 'n', p.naam)); if (amounts) r.appendChild(el('div', 'a', euro(p.bedrag))); c.appendChild(r); });
+      app.appendChild(c);
+    });
+
+    app.appendChild(el('h2', null, 'Bronnen en aannames'));
+    var ul = el('ul', 'notes'); (s.bronnen || []).forEach(function (t) { ul.appendChild(el('li', null, t)); }); app.appendChild(ul);
+
+    var a = el('div', 'actions'); var pr = el('button', null, 'Afdrukken of opslaan als PDF'); pr.onclick = function () { window.print(); }; a.appendChild(pr); app.appendChild(a);
+    var made = s.gemaakt_op ? new Date(s.gemaakt_op).toLocaleDateString('nl-NL', { day: 'numeric', month: 'long', year: 'numeric' }) : '';
+    var exp = meta.expires_at ? new Date(meta.expires_at).toLocaleDateString('nl-NL', { day: 'numeric', month: 'long' }) : '';
+    app.appendChild(el('footer', null, 'Momentopname van ' + made + (exp ? ' · link geldig tot ' + exp : '') + ' · alleen bekijken'));
+  }
+})();
+</script>
+</body>
+</html>
