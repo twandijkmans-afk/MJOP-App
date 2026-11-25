@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Modellen vergelijken</title>
+<meta name="robots" content="noindex">
+<style>
+  :root {
+    --bg: #FCFCFB; --panel: #ffffff; --ink: #101211; --muted: #5C5E5A; --line: #E2E1DC;
+    --accent: #2F4BFF; --accent-ink: #ffffff; --warn-bg: #fff4d6; --warn-ink: #6b4a00; --err-bg: #FDEEEC; --err-ink: #9E2B22;
+    --ok-bg: #EEF6F1; --ok-ink: #2F6B4D;
+    --sans: system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+      --bg: #101211; --panel: #161917; --ink: #FCFCFB; --muted: #B4B8B5; --line: #2C302E;
+      --accent: #7E8FFF; --accent-ink: #0c1020; --warn-bg: #3d3212; --warn-ink: #f3d78a; --err-bg: #47201c; --err-ink: #f6b5ad;
+      --ok-bg: #1b3a24; --ok-ink: #a6e0b5; color-scheme: dark; } }
+  :root[data-theme="dark"] {
+      --bg: #101211; --panel: #161917; --ink: #FCFCFB; --muted: #B4B8B5; --line: #2C302E;
+      --accent: #7E8FFF; --accent-ink: #0c1020; --warn-bg: #3d3212; --warn-ink: #f3d78a; --err-bg: #47201c; --err-ink: #f6b5ad;
+      --ok-bg: #1b3a24; --ok-ink: #a6e0b5; color-scheme: dark; }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.45 var(--sans); }
+  header, main { max-width: 1280px; margin: 0 auto; padding-left: 16px; padding-right: 16px; }
+  header { padding-block: 14px 6px; }
+  h1 { font-size: 1.25rem; margin: 0 0 4px; }
+  h2 { font-size: 1rem; margin: 0 0 8px; }
+  p { margin: 6px 0; }
+  .muted { color: var(--muted); font-size: .88rem; }
+  main { display: grid; gap: 14px; padding-block: 10px 40px; }
+  section { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 16px; min-width: 0; }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 8px 0; }
+  button, .filebtn { font: inherit; padding: 10px 16px; min-height: 44px; border-radius: 12px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); cursor: pointer; }
+  button.primary, .filebtn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 600; }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  .filebtn input { display: none; }
+  label { font-size: .92rem; }
+  .msg { padding: 8px 10px; border-radius: 8px; font-size: .9rem; margin: 8px 0; overflow-wrap: anywhere; }
+  .msg.warn { background: var(--warn-bg); color: var(--warn-ink); }
+  .msg.err { background: var(--err-bg); color: var(--err-ink); }
+  .msg.ok { background: var(--ok-bg); color: var(--ok-ink); }
+  #results { display: grid; gap: 14px; grid-template-columns: minmax(0, 1fr); }
+  @media (min-width: 980px) { #results { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  canvas { width: 100%; height: auto; display: block; border-radius: 10px; background: var(--line); }
+  table { border-collapse: collapse; width: 100%; font-size: .88rem; margin-top: 8px; }
+  th, td { text-align: left; padding: 4px 6px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  td.n { text-align: right; font-variant-numeric: tabular-nums; }
+  .legend { display: flex; flex-wrap: wrap; gap: 10px; font-size: .82rem; color: var(--muted); margin-top: 6px; }
+  .legend i { display: inline-block; width: 14px; height: 4px; border-radius: 2px; margin-right: 4px; vertical-align: middle; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Modellen vergelijken</h1>
+  <p class="muted">Ontwikkelpagina. Dezelfde gevelfoto door Claude, Gemini en SAM 3, naast elkaar. Alleen herkenning en plaats: er worden hier geen maten of kosten berekend, en niets wordt opgeslagen.</p>
+</header>
+<main>
+  <section>
+    <h2>1. Foto</h2>
+    <div class="row">
+      <label class="filebtn primary">Foto kiezen<input id="photo" type="file" accept="image/jpeg,image/png"></label>
+      <span id="photoInfo" class="muted"></span>
+    </div>
+    <p class="muted">De foto wordt hier verkleind tot een lange zijde van 2000 pixels en opnieuw als JPEG opgeslagen. Daarmee verdwijnen ook de EXIF-gegevens, zoals GPS. Gezichten en kentekens worden nog niet onherkenbaar gemaakt: gebruik foto's zonder herkenbare personen of kentekens.</p>
+  </section>
+
+  <section>
+    <h2>2. Modellen</h2>
+    <div class="row" id="provRow">
+      <label><input type="checkbox" value="claude"> Claude</label>
+      <label><input type="checkbox" value="gemini" checked> Gemini</label>
+      <label><input type="checkbox" value="sam3" checked> SAM 3</label>
+      <label><input type="checkbox" value="gemini+sam3" checked> Gemini + SAM 3</label>
+      <label><input type="checkbox" value="claude+sam3"> Claude + SAM 3</label>
+    </div>
+    <div class="row">
+      <button id="runBtn" class="primary" disabled>Vergelijken</button>
+      <label class="filebtn">Uitkomst laden (.detect.json)<input id="loadJson" type="file" accept="application/json,.json"></label>
+      <button id="saveBtn" disabled>Uitkomst bewaren</button>
+    </div>
+    <div id="runMsg" class="msg" hidden></div>
+    <p class="muted">Vergelijken gaat via de server (Edge Function gevel-detect) en werkt alleen als je bent ingelogd bij MJOP Live. Een uitkomst van het script <code>scripts/gevel-detect-run.mjs</code> kun je ook laden; kies dan eerst dezelfde foto.</p>
+  </section>
+
+  <div id="results"></div>
+</main>
+
+<script src="../src/config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js" integrity="sha384-iLddHTLokph6Omwoyid4XKxHaWa6w41BnoEj0q5oOrzmYPpHIKt1wyjReA7s//pP" crossorigin="anonymous"></script>
+<script>
+"use strict";
+const MAX_EDGE = 2000;
+const LABELS = { kozijn_raam: "Raamkozijn", kozijn_deur: "Deurkozijn", garagedeur: "Garagedeur", metselwerk: "Metselwerk", stucwerk: "Stucwerk",
+  gevelbekleding: "Gevelbekleding", hwa: "Hemelwaterafvoer", dakgoot: "Dakgoot", boeiboord: "Boeiboord", waterslag: "Waterslag", hekwerk: "Hekwerk",
+  balkon: "Balkon", luifel: "Luifel", rooster: "Rooster", overig: "Overig" };
+const COLORS = { kozijn_raam: "#1f6feb", kozijn_deur: "#d1242f", garagedeur: "#b3541e", metselwerk: "#c2410c", stucwerk: "#a16207", gevelbekleding: "#7c5e10",
+  hwa: "#0e9384", dakgoot: "#6d28d9", boeiboord: "#be185d", waterslag: "#0369a1", hekwerk: "#4d7c0f", balkon: "#8250df", luifel: "#57606a", rooster: "#1a7f37", overig: "#6e7781" };
+const ORIGIN = { LLM_BOX: "kader van het taalmodel", LLM_BOX_REFINED_BY_SAM3: "kader verfijnd met SAM 3", SAM3_MASK: "masker van SAM 3" };
+const $ = (id) => document.getElementById(id);
+const state = { img: null, image: null, result: null };
+
+function setMsg(text, kind) { const m = $("runMsg"); m.hidden = !text; m.textContent = text || ""; m.className = "msg " + (kind || ""); }
+function fmt(n, d = 0) { return n == null ? "–" : Number(n).toLocaleString("nl-NL", { minimumFractionDigits: d, maximumFractionDigits: d }); }
+function providers() { return Array.from(document.querySelectorAll("#provRow input:checked")).map((i) => i.value); }
+
+// Verkleinen en opnieuw als JPEG coderen (daarmee ook geen EXIF/GPS meer).
+async function loadPhoto(file) {
+  const bmp = await createImageBitmap(file);
+  const k = Math.min(1, MAX_EDGE / Math.max(bmp.width, bmp.height));
+  const c = document.createElement("canvas"); c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k);
+  c.getContext("2d").drawImage(bmp, 0, 0, c.width, c.height);
+  const blob = await new Promise((res) => c.toBlob(res, "image/jpeg", 0.9));
+  const base64 = await new Promise((res) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(",")[1]); r.readAsDataURL(blob); });
+  state.img = c; state.image = { base64, media_type: "image/jpeg", width: c.width, height: c.height };
+  $("photoInfo").textContent = `${file.name}: ${c.width} × ${c.height} pixels, ${fmt(blob.size / 1024)} kB`;
+  $("runBtn").disabled = false;
+}
+
+async function run() {
+  const list = providers();
+  if (!list.length) return setMsg("Kies minstens één model.", "warn");
+  const cfg = window.SUPABASE_CONFIG;
+  if (!cfg || !window.supabase) return setMsg("De Supabase-instellingen ontbreken op deze pagina.", "err");
+  const sb = window.supabase.createClient(cfg.url, cfg.anonKey);
+  const { data } = await sb.auth.getSession();
+  const token = data && data.session && data.session.access_token;
+  if (!token) return setMsg("Je bent niet ingelogd. Log eerst in op MJOP Live in dit browservenster en open deze pagina daarna opnieuw.", "warn");
+  $("runBtn").disabled = true; setMsg("Bezig… de modellen draaien tegelijk; dit duurt meestal 5 tot 60 seconden.", "");
+  try {
+    const res = await fetch(cfg.url.replace(/\/$/, "") + "/functions/v1/gevel-detect", {
+      method: "POST", headers: { "content-type": "application/json", authorization: "Bearer " + token, apikey: cfg.anonKey },
+      body: JSON.stringify({ image: state.image, providers: list }),
+    });
+    const out = await res.json().catch(() => ({ error: "Onleesbaar antwoord (HTTP " + res.status + ")." }));
+    if (!res.ok || out.error) throw new Error(out.error || "HTTP " + res.status);
+    show(out); setMsg("Klaar. Controleer de kaders zelf: dit zijn voorstellen, geen metingen.", "ok");  } catch (e) { setMsg("Mislukt: " + e.message, "err"); }
+  finally { $("runBtn").disabled = false; }
+}
+
+function show(out) {
+  state.result = out; $("saveBtn").disabled = false;
+  const box = $("results"); box.replaceChildren();
+  for (const r of out.results || []) box.appendChild(card(r, out));
+  // Andere afmetingen: de kaders worden geschaald. Klopt de verhouding niet, dan is het vrijwel zeker een andere foto.
+  if (state.img && out.image && (out.image.width !== state.img.width || out.image.height !== state.img.height)) {
+    const ratio = Math.abs(out.image.width / out.image.height - state.img.width / state.img.height) > 0.01;
+    return `Let op: de uitkomst hoort bij een foto van ${out.image.width} × ${out.image.height} pixels; de gekozen foto is ${state.img.width} × ${state.img.height}.` +
+      (ratio ? " De verhouding verschilt: dit is waarschijnlijk een andere foto." : " De kaders zijn geschaald.");
+  }
+  return null;
+}
+
+function card(r, out) {
+  const s = document.createElement("section");
+  const h = document.createElement("h2"); h.textContent = r.provider + (r.served_model ? `  ·  ${r.served_model}` : r.requested_model ? `  ·  ${r.requested_model}` : "");
+  s.appendChild(h);
+  if (r.error) { const m = document.createElement("div"); m.className = "msg err"; m.textContent = r.error; s.appendChild(m); return s; }
+  if (state.img) {
+    const c = document.createElement("canvas"); c.width = state.img.width; c.height = state.img.height;
+    const g = c.getContext("2d"); g.drawImage(state.img, 0, 0);
+    const kx = state.img.width / (out.image ? out.image.width : state.img.width), ky = state.img.height / (out.image ? out.image.height : state.img.height);
+    const lw = Math.max(2, state.img.width / 500);
+    for (const e of r.elements || []) {
+      g.strokeStyle = COLORS[e.type] || "#000"; g.lineWidth = lw; g.setLineDash([]);
+      if (e.polygon && e.geometry_origin === "SAM3_MASK") { g.globalAlpha = 0.25; g.fillStyle = g.strokeStyle; g.beginPath(); e.polygon.forEach(([x, y], i) => (i ? g.lineTo(x * kx, y * ky) : g.moveTo(x * kx, y * ky))); g.closePath(); g.fill(); g.globalAlpha = 1; }
+      if (e.kind === "quad") { const [[x0, y0], [x1, y1]] = e.points; g.strokeRect(x0 * kx, y0 * ky, (x1 - x0) * kx, (y1 - y0) * ky); }
+      else { g.beginPath(); e.points.forEach(([x, y], i) => (i ? g.lineTo(x * kx, y * ky) : g.moveTo(x * kx, y * ky))); if (e.kind === "poly") g.closePath(); g.stroke(); }
+    }
+    g.strokeStyle = "#e5484d"; g.setLineDash([lw * 3, lw * 2]); g.lineWidth = lw;
+    for (const u of r.unmatched_segments || []) { const [[x0, y0], [x1, y1]] = u.points; g.strokeRect(x0 * kx, y0 * ky, (x1 - x0) * kx, (y1 - y0) * ky); }
+    s.appendChild(c);
+    const types = Array.from(new Set((r.elements || []).map((e) => e.type)));
+    const lg = document.createElement("div"); lg.className = "legend";
+    lg.innerHTML = types.map((t) => `<span><i style="background:${COLORS[t]}"></i>${LABELS[t] || t}</span>`).join("") + ((r.unmatched_segments || []).length ? `<span><i style="background:#e5484d"></i>mogelijk gemist (los masker)</span>` : "");
+    s.appendChild(lg);
+  } else { const p = document.createElement("p"); p.className = "muted"; p.textContent = "Kies de bijbehorende foto om de kaders te zien."; s.appendChild(p); }
+
+  const origins = {}; (r.elements || []).forEach((e) => { origins[e.geometry_origin] = (origins[e.geometry_origin] || 0) + 1; });
+  const rows = [
+    ["Tijd", `${fmt((r.elapsed_ms || 0) / 1000, 1)} s`],
+    ["Tokens (in / uit)", r.usage ? `${fmt(r.usage.input_tokens)} / ${fmt(r.usage.output_tokens)}` : "–"],
+    ["Kosten (inschatting)", r.cost_usd == null ? "niet ingesteld" : "$ " + fmt(r.cost_usd, 4)],
+    ["Promptversie", r.prompt_version || "–"],
+    ["Overgeslagen (ongeldig)", fmt(r.skipped || 0)],
+    ...Object.entries(r.counts || {}).map(([t, n]) => [LABELS[t] || t, fmt(n)]),
+    ...Object.entries(origins).map(([o, n]) => ["Herkomst: " + (ORIGIN[o] || o), fmt(n)]),
+  ];
+  if ((r.unmatched_segments || []).length) rows.push(["Losse maskers SAM 3 (niet meegeteld)", fmt(r.unmatched_segments.length)]);
+  const t = document.createElement("table");
+  t.innerHTML = rows.map(([a, b]) => `<tr><th scope="row">${a}</th><td class="n">${b}</td></tr>`).join("");
+  s.appendChild(t);
+  return s;
+}
+
+$("photo").addEventListener("change", (ev) => {
+  const f = ev.target.files[0]; if (!f) return;
+  loadPhoto(f).then(() => { if (state.result) { const w = show(state.result); if (w) setMsg(w, "warn"); } }).catch((e) => setMsg("Foto niet te lezen: " + e.message, "err"));
+});
+$("runBtn").addEventListener("click", run);
+$("loadJson").addEventListener("change", async (ev) => {
+  const f = ev.target.files[0]; if (!f) return;
+  try {
+    const out = JSON.parse(await f.text()); if (!Array.isArray(out.results)) throw new Error("geen results");
+    const warn = show(out);
+    setMsg(warn || `Uitkomst geladen (foto-hash ${String(out.photo_sha256 || "").slice(0, 12)}…).`, warn ? "warn" : "ok");
+  }
+  catch (e) { setMsg("Dit is geen uitkomst van gevel-detect: " + e.message, "err"); }
+});
+$("saveBtn").addEventListener("click", () => {
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([JSON.stringify(state.result, null, 1)], { type: "application/json" }));
+  a.download = `gevel-detect-${String(state.result.photo_sha256 || "uitkomst").slice(0, 12)}.detect.json`; a.click();
+});
+</script>
+</body>
+</html>
