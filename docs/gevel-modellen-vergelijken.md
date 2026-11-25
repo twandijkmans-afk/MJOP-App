@@ -26,6 +26,8 @@ Dit onderdeel maakt het mogelijk om dezelfde gevelfoto door meerdere modellen te
 
 De combinatie `gemini+sam3` (of `claude+sam3`) werkt zo: het taalmodel bepaalt welke kozijnen er zijn. Voor elk kozijn worden de SAM 3-maskers gezocht die voor minstens 60 % binnen het (8 % ruimere) kader liggen. Het kader wordt dan het omsluitende kader van die maskers. SAM 3 splitst een kozijn vaak per raam of draaiend deel; het taalmodel houdt het bij elkaar, dus het aantal kozijnen komt van het taalmodel.
 
+Twee veiligheden, toegevoegd na de eerste echte test: alleen maskers van hetzelfde type verfijnen een element (een raammasker van het glasstrookje boven een garagedeur maakte die deur anders tot een smalle strook), en het verfijnde kader moet minstens 40 % van het oorspronkelijke oppervlak houden. Anders blijft het kader van het taalmodel staan, met de reden in `refine_rejected`. Omdat SAM 3 alleen op "window" en "drainpipe" zoekt, worden deuren en garagedeuren nu niet verfijnd.
+
 Maskers van SAM 3 die bij geen enkel kozijn horen, worden niet toegevoegd. Ze komen als `unmatched_segments` mee ("mogelijk gemist"). Op een schuine foto zijn dat deels kozijnen die het taalmodel miste en deels kozijnen van buurpanden. De adviseur beslist, niet het systeem.
 
 Elk element draagt `geometry_origin`: `LLM_BOX` (kader van het taalmodel), `LLM_BOX_REFINED_BY_SAM3` (verfijnd, met het oorspronkelijke kader in `refined_by.llm_box`) of `SAM3_MASK`.

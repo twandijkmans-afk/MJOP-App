@@ -59,6 +59,21 @@ function check(n, ok, d) { checks.push([n, !!ok, d]); }
   check('4e. los masker wordt gemeld, niet toegevoegd', c.unmatched_segments.length === 1 && c.unmatched_segments[0].points[0][0] === 1800);
   check('4f. muurvlak ongemoeid', c.elements[2].geometry_origin === 'LLM_BOX' && !('refined_by' in c.elements[2]));
 
+  // 4g-4i. Veiligheden uit de eerste echte test: een "window"-masker verfijnt geen deur, en een te klein masker geen kozijn.
+  var c2 = C.combine({ skipped: 0, elements: [
+    { type: 'garagedeur', kind: 'quad', points: [[186, 1160], [321, 1280]], geometry_origin: 'LLM_BOX' },
+    { type: 'kozijn_raam', kind: 'quad', points: [[186, 970], [321, 1160]], geometry_origin: 'LLM_BOX' },
+    { type: 'kozijn_raam', kind: 'quad', points: [[400, 970], [500, 1160]], geometry_origin: 'LLM_BOX' },
+  ] }, { elements: [
+    { type: 'kozijn_raam', kind: 'quad', points: [[189, 1171], [321, 1193]], confidence: 0.5 },
+    { type: 'kozijn_raam', kind: 'quad', points: [[188, 978], [321, 1107]], confidence: 0.8 },
+    { type: 'kozijn_raam', kind: 'quad', points: [[440, 1000], [470, 1030]], confidence: 0.6 },
+  ] });
+  check('4g. raammasker verfijnt de garagedeur niet', c2.elements[0].geometry_origin === 'LLM_BOX' && JSON.stringify(c2.elements[0].points) === JSON.stringify([[186, 1160], [321, 1280]]), JSON.stringify(c2.elements[0]));
+  check('4h. raam wordt wel verfijnd met het raammasker', c2.elements[1].geometry_origin === 'LLM_BOX_REFINED_BY_SAM3' && c2.elements[1].points[1][1] === 1107, JSON.stringify(c2.elements[1]));
+  check('4i. te klein masker: kader blijft, met reden', c2.elements[2].geometry_origin === 'LLM_BOX' && c2.elements[2].refine_rejected.reason === 'SAM3_KADER_TE_KLEIN', JSON.stringify(c2.elements[2]));
+  check('4j. glasstrook boven de garagedeur blijft gemeld als los masker', c2.unmatched_segments.some(function (u) { return u.points[0][1] === 1171; }));
+
   // 5. Kosten alleen met ingestelde prijs.
   check('5a. geen prijs → geen kosten', C.estimateCost({ input_tokens: 1000, output_tokens: 100 }, null) === null);
   check('5b. met prijs → kosten', C.estimateCost({ input_tokens: 1e6, output_tokens: 1e6 }, { input_per_mtok: 1, output_per_mtok: 2 }) === 3);
