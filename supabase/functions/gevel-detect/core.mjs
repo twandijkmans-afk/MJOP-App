@@ -236,16 +236,26 @@ export function parseSam3Response(data, img, keys) {
 // die grotendeels (≥ 60 %) binnen het (iets ruimere) kader liggen. Zijn die er, dan wordt het kader het omsluitende
 // kader van die maskers: SAM 3 splitst een kozijn vaak per raam of draaiend deel, het taalmodel houdt het kozijn bij elkaar.
 // Maskers die bij geen enkel kozijn horen worden NIET als element toegevoegd (vaak een buurpand), alleen gemeld.
-export function combine(llm, sam, { margin = 0.08, minInside = 0.6 } = {}) {
+//
+// Twee veiligheden (gevonden op een echte gevel, 25-11-2026): alleen maskers van hetzelfde type verfijnen een element
+// (een "window"-masker van het glasstrookje boven een garagedeur maakte die deur anders tot een smalle strook), en het
+// verfijnde kader moet minstens `minKeep` van het oorspronkelijke oppervlak houden. Anders blijft het kader van het
+// taalmodel staan en meldt `refine_rejected` waarom.
+export function combine(llm, sam, { margin = 0.08, minInside = 0.6, minKeep = 0.4 } = {}) {
   const samQuads = sam.elements.filter((e) => e.kind === "quad").map((e) => ({ e, b: bbox(e.points), used: false }));
   const elements = llm.elements.map((el) => {
     if (el.kind !== "quad" || !TYPES[el.type].opening) return { ...el };
     const b = bbox(el.points), mx = (b[2] - b[0]) * margin, my = (b[3] - b[1]) * margin;
     const wide = [b[0] - mx, b[1] - my, b[2] + mx, b[3] + my];
-    const hits = samQuads.filter((s) => boxArea(s.b) > 0 && boxInter(s.b, wide) / boxArea(s.b) >= minInside);
+    const hits = samQuads.filter((s) => s.e.type === el.type && boxArea(s.b) > 0 && boxInter(s.b, wide) / boxArea(s.b) >= minInside);
     if (!hits.length) return { ...el, geometry_origin: "LLM_BOX", refined_by: null };
-    hits.forEach((h) => { h.used = true; });
     const u = bbox(hits.flatMap((h) => h.e.points));
+    const keep = boxArea(b) > 0 ? boxArea(u) / boxArea(b) : 0;
+    if (keep < minKeep) {
+      return { ...el, geometry_origin: "LLM_BOX", refined_by: null,
+               refine_rejected: { reason: "SAM3_KADER_TE_KLEIN", masks: hits.length, area_share: Math.round(keep * 100) / 100 } };
+    }
+    hits.forEach((h) => { h.used = true; });
     return { ...el, points: [[u[0], u[1]], [u[2], u[3]]], geometry_origin: "LLM_BOX_REFINED_BY_SAM3",
              refined_by: { masks: hits.length, llm_box: el.points, iou_with_llm_box: Math.round(iou(b, u) * 100) / 100 } };
   });
