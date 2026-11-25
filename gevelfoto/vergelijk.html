@@ -106,7 +106,14 @@
     <div id="bagMap"></div>
     <div id="bagMsg" class="msg" hidden></div>
     <p class="muted">Of tik zelf op de foto twee punten aan waarvan je de echte afstand weet, bijvoorbeeld een kozijn dat je hebt nagemeten, en vul die afstand in. Een lange afstand geeft een nauwkeurigere schaal dan een korte.</p>
-    <canvas id="scaleCanvas" aria-label="Foto: tik twee punten aan voor de schaal"></canvas>
+    <p class="muted">Pandgrenzen: staan er buurpanden mee op de foto, dan stelt het model gele stippellijnen voor waar het ene pand ophoudt en het volgende begint. Kies "Pand kiezen" en tik in het pand dat je meet: alleen wat daarbinnen ligt telt mee. Staan beide grenzen van het pand op de foto, dan wordt de BAG-breedte de afstand tussen die grenzen.</p>
+    <div class="row" id="modeRow" role="radiogroup" aria-label="Wat doet een tik op de foto">
+      <label><input type="radio" name="tapmode" value="pand" checked> Pand kiezen</label>
+      <label><input type="radio" name="tapmode" value="grens"> Grens zetten of weghalen</label>
+      <label><input type="radio" name="tapmode" value="punten"> Schaalpunten</label>
+    </div>
+    <div id="boundMsg" class="msg" hidden></div>
+    <canvas id="scaleCanvas" aria-label="Foto: tik om het pand, een grens of de schaalpunten te kiezen"></canvas>
     <div class="row">
       <label>Afstand tussen de punten in meter <input id="refLen" type="text" inputmode="decimal" class="num" placeholder="bijv. 1,80"></label>
       <button id="refClear">Punten wissen</button>
@@ -135,14 +142,17 @@ const COLORS = { kozijn_raam: "#1f6feb", kozijn_deur: "#d1242f", garagedeur: "#b
   hwa: "#0e9384", dakgoot: "#6d28d9", boeiboord: "#be185d", waterslag: "#0369a1", hekwerk: "#4d7c0f", balkon: "#8250df", luifel: "#57606a", rooster: "#1a7f37", overig: "#6e7781" };
 const ORIGIN = { LLM_BOX: "kader van het taalmodel", LLM_BOX_REFINED_BY_SAM3: "kader verfijnd met SAM 3", SAM3_MASK: "masker van SAM 3" };
 const $ = (id) => document.getElementById(id);
-const state = { img: null, image: null, result: null, ref: { pts: [], source: null }, core: null, bagMod: null, bag: null, bagSide: null };
+const state = { img: null, image: null, result: null, ref: { pts: [], source: null }, core: null, bagMod: null, bag: null, bagSide: null,
+                bounds: { lines: [], region: null, facade: null, from: null } };
+const LLM_ORDER = ["gemini+sam3", "gemini", "claude+sam3", "claude"];
 import("../src/bag-gevel.mjs").then((m) => { state.bagMod = m; }).catch(() => { $("addrBtn").disabled = true; });
 // De rekenregels komen uit dezelfde kern als de Edge Function (vaste regels, getest in test/gevel-detect.unit.spec.js).
 const coreReady = import("../supabase/functions/gevel-detect/core.mjs").then((m) => { state.core = m; renderSummary(); })
   .catch(() => setScaleMsg("De rekenregels konden niet worden geladen; hoeveelheden zijn niet beschikbaar.", "err"));
 const QLABELS = { ramen_st: "Raamkozijnen (st)", ramen_m2: "Raamkozijnen (m²)", deuren_st: "Deurkozijnen (st)", deuren_m2: "Deurkozijnen (m²)",
   garagedeuren_st: "Garagedeuren (st)", garagedeuren_m2: "Garagedeuren (m²)", metselwerk_bruto_m2: "Metselwerk bruto (m²)",
-  metselwerk_netto_m2: "Metselwerk netto (m²)", hwa_m1: "Hemelwaterafvoer (m1)", dakgoot_m1: "Dakgoot (m1)", boeiboord_m1: "Boeiboord (m1)", waterslag_m1: "Waterslag (m1)" };
+  metselwerk_netto_m2: "Metselwerk netto (m²)", hwa_m1: "Hemelwaterafvoer (m1)", dakgoot_m1: "Dakgoot (m1)", boeiboord_m1: "Boeiboord (m1)", waterslag_m1: "Waterslag (m1)",
+  outside_building: "Elementen buiten het pand (niet geteld)" };
 
 function setMsg(text, kind) { const m = $("runMsg"); m.hidden = !text; m.textContent = text || ""; m.className = "msg " + (kind || ""); }
 function fmt(n, d = 0) { return n == null ? "–" : Number(n).toLocaleString("nl-NL", { minimumFractionDigits: d, maximumFractionDigits: d }); }
@@ -177,17 +187,81 @@ function drawScale() {
   const c = $("scaleCanvas"); c.width = state.img.width; c.height = state.img.height;
   const g = c.getContext("2d"); g.drawImage(state.img, 0, 0);
   const lw = Math.max(2, state.img.width / 400), p = state.ref.pts;
+  // Gekozen pand: de rest van de foto gedimd.
+  const reg = state.bounds.region;
+  if (reg) { g.fillStyle = "rgba(0,0,0,0.45)"; g.fillRect(0, 0, reg[0], c.height); g.fillRect(reg[1], 0, c.width - reg[1], c.height); }
+  // Grenzen: gestippeld = voorstel van het model, doorgetrokken = zelf gezet.
+  for (const l of state.bounds.lines) {
+    g.save(); g.strokeStyle = "#ffd400"; g.lineWidth = lw; g.setLineDash(l.origin === "USER" ? [] : [lw * 4, lw * 3]);
+    g.beginPath(); g.moveTo(l.x, 0); g.lineTo(l.x, c.height); g.stroke(); g.restore();
+  }
   g.strokeStyle = "#ffd400"; g.fillStyle = "#ffd400"; g.lineWidth = lw;
   if (p.length === 2) { g.beginPath(); g.moveTo(p[0][0], p[0][1]); g.lineTo(p[1][0], p[1][1]); g.stroke(); }
   for (const [x, y] of p) { g.beginPath(); g.arc(x, y, lw * 2.5, 0, Math.PI * 2); g.fill(); g.strokeStyle = "#000"; g.lineWidth = lw / 2; g.stroke(); g.strokeStyle = "#ffd400"; g.lineWidth = lw; }
 }
+function tapMode() { const r = document.querySelector("input[name=tapmode]:checked"); return r ? r.value : "punten"; }
 function onScaleClick(ev) {
   if (!state.img) return;
   const c = $("scaleCanvas"), r = c.getBoundingClientRect();
   const pt = [(ev.clientX - r.left) * c.width / r.width, (ev.clientY - r.top) * c.height / r.height];
+  const mode = tapMode();
+  if (mode === "pand") { selectRegion(pt[0]); return; }
+  if (mode === "grens") { toggleBoundary(pt[0]); return; }
   state.ref.pts = state.ref.pts.length >= 2 ? [pt] : state.ref.pts.concat([pt]);
   if (state.ref.source) state.ref.source = { ...state.ref.source, placement: "USER_POINTS", wall_from: null };
   drawScale(); renderSummary();
+}
+
+// ------------------------------------------------------------------ pandgrenzen
+function setBoundMsg(text, kind) { const m = $("boundMsg"); m.hidden = !text; m.textContent = text || ""; m.className = "msg " + (kind || ""); }
+function scaleK(out) { return out && out.image && out.image.width && state.img ? state.img.width / out.image.width : 1; }
+function firstLlm(out) { for (const n of LLM_ORDER) { const r = (out && out.results || []).find((x) => x.provider === n && !x.error); if (r) return r; } return null; }
+// Nieuwe uitkomst: de voorgestelde grenzen van het eerste taalmodel overnemen (in pixels van de gekozen foto).
+function initBounds() {
+  const out = state.result, r = firstLlm(out), k = scaleK(out);
+  state.bounds = { lines: [], region: null, facade: r ? r.facade || null : null, from: r ? r.provider : null };
+  const f = state.bounds.facade;
+  if (!r) return setBoundMsg("", "");
+  if (!f) return setBoundMsg("Deze uitkomst bevat geen pandgrenzen (oudere versie van de functie). Zet ze zelf met \"Grens zetten of weghalen\" als er buurpanden op de foto staan.", "");
+  state.bounds.lines = f.boundaries.map((b) => ({ x: b.x * k, origin: "LLM_PROPOSAL", reason: b.reason, confidence_label: b.confidence_label }));
+  const cont = [f.continues_left ? "links" : null, f.continues_right ? "rechts" : null].filter(Boolean);
+  const parts = [];
+  if (f.boundaries.length) parts.push(`${r.provider} stelt ${f.boundaries.length === 1 ? "één pandgrens" : f.boundaries.length + " pandgrenzen"} voor: ` + f.boundaries.map((b) => `${b.reason || "geen reden"}${b.confidence_label ? " (" + ({ low: "onzeker", medium: "redelijk zeker", high: "zeker" })[b.confidence_label] + ")" : ""}`).join("; ") + ".");
+  else parts.push(`${r.provider} ziet geen pandgrens op de foto.`);
+  if (cont.length) parts.push(`De gevel loopt volgens het model ${cont.join(" en ")} door voorbij de foto.`);
+  parts.push("Controleer dit: het is een voorstel. Tik daarna in het pand dat je meet.");
+  setBoundMsg(parts.join(" "), f.boundaries.length || cont.length ? "warn" : "");
+}
+function regionAt(x) {
+  const xs = state.bounds.lines.map((l) => l.x).sort((a, b) => a - b), W = state.img.width;
+  const left = xs.filter((v) => v < x).pop(), right = xs.find((v) => v > x);
+  return { range: [left ?? 0, right ?? W], leftIsEdge: left == null, rightIsEdge: right == null };
+}
+function selectRegion(x) {
+  const reg = regionAt(x); state.bounds.region = reg.range; state.bounds.regionEdges = reg;
+  applyRegionToScale(); drawScale(); renderSummary();
+}
+function toggleBoundary(x) {
+  const W = state.img.width, near = state.bounds.lines.findIndex((l) => Math.abs(l.x - x) < W * 0.02);
+  if (near >= 0) state.bounds.lines.splice(near, 1); else state.bounds.lines.push({ x, origin: "USER", reason: "zelf gezet", confidence_label: null });
+  // Een gekozen pand volgt de nieuwe grenzen (zelfde plek, nieuwe randen).
+  if (state.bounds.region) { const mid = (state.bounds.region[0] + state.bounds.region[1]) / 2, reg = regionAt(mid); state.bounds.region = reg.range; state.bounds.regionEdges = reg; applyRegionToScale(); }
+  drawScale(); renderSummary();
+}
+// Met een gekozen BAG-zijde: staan beide grenzen van het pand op de foto, dan worden ze de schaalpunten.
+// Loopt het pand door tot de fotorand, dan kan de BAG-breedte geen schaal geven.
+function applyRegionToScale() {
+  const reg = state.bounds.regionEdges, b = state.bag, sd = b && state.bagSide != null ? b.sides[state.bagSide] : null;
+  if (!reg || !sd) return;
+  const y = state.img.height * 0.92;
+  if (!reg.leftIsEdge && !reg.rightIsEdge) {
+    state.ref.pts = [[reg.range[0], y], [reg.range[1], y]];
+    state.ref.source = { ...(state.ref.source || {}), placement: "BUILDING_BOUNDARIES", wall_from: null };
+    setBagMsg(`Zijde ${sd.facing}, ${fmt(sd.length, 2)} m, gelijkgesteld aan de afstand tussen de twee pandgrenzen. Controleer of die grenzen kloppen.`, "ok");
+  } else {
+    if (state.ref.source && state.ref.source.placement !== "USER_POINTS") state.ref.pts = [];
+    setBagMsg(`Het gekozen pand loopt ${reg.leftIsEdge && reg.rightIsEdge ? "aan beide kanten" : reg.leftIsEdge ? "links" : "rechts"} door tot de rand van de foto. Dan kan de BAG-breedte (${fmt(sd.length, 2)} m) geen schaal geven: neem de foto verder weg zodat beide grenzen erop staan, of gebruik een eigen maat (Schaalpunten).`, "warn");
+  }
 }
 
 // ------------------------------------------------------------------ schaal uit de BAG
@@ -239,21 +313,29 @@ function chooseSide(i) {
   const b = state.bag, sd = b && b.sides[i]; if (!sd) return;
   state.bagSide = i; renderBag();
   $("refLen").value = fmt(sd.length, 2);
-  let pts = null, from = null;
-  const out = state.result;
+  state.ref.source = { type: "BAG_FOOTPRINT_SIDE", bag_pand_id: b.pand.id, address: b.address, side_length_m: Math.round(sd.length * 100) / 100,
+                       side_facing: sd.facing, retrieved_at: b.retrieved_at, placement: "USER_POINTS", wall_from: null };
+  // 1. Is er al een pand gekozen tussen twee grenzen, dan zijn die grenzen de schaalpunten.
+  if (state.bounds.regionEdges) { applyRegionToScale(); drawScale(); renderSummary(); return; }
+  // 2. Anders de randen van het muurvlak, maar niet als de gevel doorloopt voorbij de foto of er grenzen op staan.
+  const out = state.result, W = state.img ? state.img.width : 0;
+  let pts = null, from = null, blocked = null;
   if (out && state.img && state.bagMod) {
-    const k = out.image && out.image.width ? state.img.width / out.image.width : 1;
-    for (const name of ["gemini+sam3", "gemini", "claude+sam3", "claude"]) {
+    const k = scaleK(out), f = state.bounds.facade;
+    for (const name of LLM_ORDER) {
       const r = (out.results || []).find((x) => x.provider === name && !x.error);
       const e = r && state.bagMod.wallEndpoints(r.elements);
       if (e) { pts = e.map(([x, y]) => [x * k, y * k]); from = name; break; }
     }
+    const touches = pts && (pts[0][0] < W * 0.01 || pts[1][0] > W * 0.99);
+    if (state.bounds.lines.length) blocked = "Er staan pandgrenzen op de foto. Kies eerst het pand (\"Pand kiezen\" en tik erin).";
+    else if (f && (f.continues_left || f.continues_right)) blocked = "Volgens het model loopt de gevel door voorbij de foto, dus het muurvlak is niet alleen dit pand.";
+    else if (touches) blocked = "Het muurvlak loopt tot de rand van de foto, dus de gevel loopt waarschijnlijk door en is niet alleen dit pand.";
+    if (blocked) pts = null;
   }
-  if (pts) state.ref.pts = pts;
-  state.ref.source = { type: "BAG_FOOTPRINT_SIDE", bag_pand_id: b.pand.id, address: b.address, side_length_m: Math.round(sd.length * 100) / 100,
-                       side_facing: sd.facing, retrieved_at: b.retrieved_at, placement: pts ? "AUTO_WALL_WIDTH" : "USER_POINTS", wall_from: from };
+  if (pts) { state.ref.pts = pts; state.ref.source.placement = "AUTO_WALL_WIDTH"; state.ref.source.wall_from = from; }
   setBagMsg(pts ? `Zijde ${sd.facing}, ${fmt(sd.length, 2)} m. De gele punten staan op de randen van het muurvlak dat ${from} aanwees. Staan ze niet op de hoeken van deze gevel, tik dan zelf de linker- en rechterhoek aan.`
-    : `Zijde ${sd.facing}, ${fmt(sd.length, 2)} m. Tik op de foto de linker- en de rechterhoek van deze gevel aan, op dezelfde hoogte.`, pts ? "ok" : "");
+    : `Zijde ${sd.facing}, ${fmt(sd.length, 2)} m. ${blocked ? blocked + " " : ""}${blocked ? "Zet anders zelf" : "Tik op de foto"} de linker- en de rechterhoek van deze gevel (Schaalpunten), op dezelfde hoogte.`, pts ? "ok" : blocked ? "warn" : "");
   drawScale(); renderSummary();
 }
 
@@ -261,8 +343,8 @@ function chooseSide(i) {
 function resultQuantities(r, out, s) {
   if (!state.core || !s || r.error) return null;
   // De elementen staan in de pixels van de foto die het model zag; de schaal in die van de gekozen foto.
-  const k = out.image && out.image.width ? state.img.width / out.image.width : 1;
-  return state.core.quantities(r.elements || [], s / k);
+  const k = scaleK(out), reg = state.bounds.region;
+  return state.core.quantities(r.elements || [], s / k, reg ? { xRange: [reg[0] / k, reg[1] / k] } : {});
 }
 function renderSummary() {
   const sec = $("sumSec"), out = state.result, s = state.img ? pxPerMeter() : null;
@@ -275,7 +357,8 @@ function renderSummary() {
   const cols = (out.results || []).filter((r) => !r.error).map((r) => ({ name: r.provider, q: resultQuantities(r, out, s) })).filter((c) => c.q);
   if (!cols.length) { sec.hidden = true; return; }
   const keys = state.core.QUANTITY_KEYS.filter((k) => cols.some((c) => c.q[k] != null && c.q[k] !== 0));
-  const cell = (k, v) => v == null ? "–" : k.endsWith("_st") ? fmt(v) : fmt(v, k.endsWith("_m1") ? 1 : 2);
+  if (state.bounds.region) keys.push("outside_building");
+  const cell = (k, v) => v == null ? "–" : k.endsWith("_st") || k === "outside_building" ? fmt(v) : fmt(v, k.endsWith("_m1") ? 1 : 2);
   $("sumTable").innerHTML = `<div class="tablewrap"><table><thead><tr><th>Hoeveelheid</th>${cols.map((c) => `<th scope="col">${c.name}</th>`).join("")}</tr></thead><tbody>` +
     keys.map((k) => `<tr><th scope="row">${QLABELS[k] || k}</th>${cols.map((c) => `<td class="n">${cell(k, c.q[k])}</td>`).join("")}</tr>`).join("") +
     `</tbody></table></div>`;
@@ -307,6 +390,7 @@ function show(out) {
   state.result = out; $("saveBtn").disabled = false;
   const box = $("results"); box.replaceChildren();
   for (const r of out.results || []) box.appendChild(card(r, out));
+  initBounds(); drawScale();
   renderSummary();
   // Andere afmetingen: de kaders worden geschaald. Klopt de verhouding niet, dan is het vrijwel zeker een andere foto.
   if (state.img && out.image && (out.image.width !== state.img.width || out.image.height !== state.img.height)) {
@@ -386,6 +470,11 @@ $("saveBtn").addEventListener("click", () => {
     const k = out.image && out.image.width ? state.img.width / out.image.width : 1;
     out.scale = { method: "REFERENCE_LINE", source: state.ref.source ? "BAG_FOOTPRINT_SIDE" : "USER_INPUT", bag: state.ref.source || null, length_m: refLength(), points_px: state.ref.pts.map(([x, y]) => [Math.round(x / k), Math.round(y / k)]), px_per_m: Math.round((s / k) * 1000) / 1000 };
     for (const r of out.results) { const q = resultQuantities(r, state.result, s); if (q) r.quantities = q; }
+  }
+  if (state.img) {
+    const k = scaleK(out), reg = state.bounds.region;
+    out.building_region = { x_range_px: reg ? reg.map((v) => Math.round(v / k)) : null, proposal_from: state.bounds.from,
+      boundaries: state.bounds.lines.map((l) => ({ x_px: Math.round(l.x / k), origin: l.origin, reason: l.reason || "" })) };
   }
   const a = document.createElement("a");
   a.href = URL.createObjectURL(new Blob([JSON.stringify(out, null, 1)], { type: "application/json" }));

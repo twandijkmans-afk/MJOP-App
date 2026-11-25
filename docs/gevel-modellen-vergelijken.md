@@ -39,6 +39,16 @@ Op `gevelfoto/vergelijk.html` zet je in stap 3 de schaal. Dat kan op twee manier
 - Uit de BAG: zoek het adres op en tik de gevelzijde aan die op de foto staat (`src/bag-gevel.mjs`, dezelfde werkwijze als de Gevelfoto-pagina). De lengte van die zijde wordt de afstand, en de twee punten komen op de linker- en rechterrand van het muurvlak dat het eerste taalmodel aanwees. Dat is een aanname: controleer of de punten echt op de hoeken van deze gevel staan en tik ze anders zelf aan. De BAG-omtrek is van boven ingemeten en kan afwijken van de gevel op ooghoogte, en een BAG-pand kan meer omvatten dan de gefotografeerde gevel.
 - Zelf: tik twee punten aan waarvan je de echte afstand weet (bijvoorbeeld een nagemeten kozijn) en vul die afstand in.
 
+Pandgrenzen. In een doorlopende straatwand staan vaak buurpanden mee op de foto. Dan is het muurvlak breder dan het pand in de BAG, en tellen de ramen van de buren mee. Daarom:
+
+- Het taalmodel geeft in dezelfde aanroep (prompt `gevel_detect_v0.2`) een voorstel voor de pandgrenzen (`facade.boundaries`, met reden en zekerheid) en of de gevel links of rechts doorloopt voorbij de foto. Dat is een voorstel, geen feit.
+- Op de pagina staan de voorgestelde grenzen als gele stippellijnen. Met "Grens zetten of weghalen" verplaats je ze; met "Pand kiezen" tik je in het pand dat je meet. De rest van de foto wordt gedimd.
+- Alleen wat binnen het pand ligt telt mee: kozijnen op hun middelpunt, muurvlakken en lijnen (goot, boeiboord) afgesneden op de grenzen. De tabel meldt hoeveel elementen buiten het pand vielen.
+- Staan beide grenzen van het pand op de foto, dan wordt de BAG-breedte de afstand tussen die grenzen. Loopt het pand door tot de fotorand, dan kan de BAG-breedte geen schaal geven; de pagina zegt dat en vraagt om een foto van verder weg of een eigen maat.
+- De pagina zet de schaalpunten niet meer automatisch op het muurvlak als er grenzen op de foto staan, als het model zegt dat de gevel doorloopt, of als het muurvlak tot de rand van de foto loopt.
+
+Eerste test (één foto, een blok in Amsterdamse School-stijl): met een losse vraag wezen Gemini Flash en Pro allebei één grens aan bij de regenpijp in het midden, "zeker". Met de prompt `gevel_detect_v0.2`, die zegt dat een symmetrie-as binnen één gebouw geen grens is, zag Gemini daar geen grens meer, wel dat de gevel aan beide kanten doorloopt. Het voorstel hangt dus sterk af van de prompt; bevestiging door de gebruiker blijft nodig, en de BAG of een eigen meting moet uitwijzen welke versie klopt.
+
 Daarna rekent de pagina met `quantities()` uit de kern (vaste regels, getest) per model uit: aantal en m² ramen, deuren en garagedeuren, metselwerk bruto en netto, en meters hemelwaterafvoer, goot, boeiboord en waterslag.
 
 - Elk model krijgt dezelfde schaal, dus verschillen komen alleen uit de kaders.
