@@ -74,6 +74,20 @@ function check(n, ok, d) { checks.push([n, !!ok, d]); }
   check('4i. te klein masker: kader blijft, met reden', c2.elements[2].geometry_origin === 'LLM_BOX' && c2.elements[2].refine_rejected.reason === 'SAM3_KADER_TE_KLEIN', JSON.stringify(c2.elements[2]));
   check('4j. glasstrook boven de garagedeur blijft gemeld als los masker', c2.unmatched_segments.some(function (u) { return u.points[0][1] === 1171; }));
 
+  // 4k-4n. Hoeveelheden met een schaal van 100 px per meter.
+  var qv = C.quantities([
+    { type: 'metselwerk', kind: 'poly', points: [[0, 0], [1000, 0], [1000, 500], [0, 500]] },
+    { type: 'kozijn_raam', kind: 'quad', points: [[100, 100], [300, 250]] },
+    { type: 'kozijn_deur', kind: 'quad', points: [[400, 250], [500, 480]] },
+    { type: 'garagedeur', kind: 'quad', points: [[1100, 100], [1300, 300]] },
+    { type: 'hwa', kind: 'line', points: [[950, 0], [950, 300], [950, 500]] },
+    { type: 'balkon', kind: 'quad', points: [[0, 0], [10, 10]] },
+  ], 100);
+  check('4k. ramen: 1 stuk, 2 × 1,5 = 3 m²', qv.ramen_st === 1 && qv.ramen_m2 === 3, JSON.stringify(qv));
+  check('4l. deur 1 × 2,3 = 2,3 m²; garagedeur buiten het muurvlak telt wel als garagedeur', qv.deuren_m2 === 2.3 && qv.garagedeuren_st === 1 && qv.garagedeuren_m2 === 4);
+  check('4m. metselwerk bruto 50 m², netto min raam en deur = 44,7 m² (garagedeur ligt erbuiten)', qv.metselwerk_bruto_m2 === 50 && qv.metselwerk_netto_m2 === 44.7, qv.metselwerk_netto_m2);
+  check('4n. hwa 5 m1, ontbrekende goot null (niet 0), zonder schaal geen hoeveelheden', qv.hwa_m1 === 5 && qv.dakgoot_m1 === null && C.quantities([], 0) === null);
+
   // 5. Kosten alleen met ingestelde prijs.
   check('5a. geen prijs → geen kosten', C.estimateCost({ input_tokens: 1000, output_tokens: 100 }, null) === null);
   check('5b. met prijs → kosten', C.estimateCost({ input_tokens: 1e6, output_tokens: 1e6 }, { input_per_mtok: 1, output_per_mtok: 2 }) === 3);
@@ -124,6 +138,29 @@ function check(n, ok, d) { checks.push([n, !!ok, d]); }
   check('7d. holdout overgeslagen bij split=dev, aanbieder met fout niet gescoord', ev.photos_scored.join() === 'a.jpg' && !ev.providers.kapot && ev.photos_without_prediction.length === 0);
   var ev2 = E.evaluate([truth], [Object.assign({}, det, { photo_sha256: 'andere' })]);
   check('7e. andere foto-hash telt niet mee', ev2.photos_scored.length === 0 && ev2.photos_without_prediction[0] === 'a.jpg');
+
+  // 8. BAG: zijden van een omtrek, pand kiezen met nep-netwerk, schaalpunten uit het muurvlak.
+  var B = await import('../src/bag-gevel.mjs');
+  var ring = [[0, 0], [20, 0], [20, 10], [10, 10.05], [0, 10], [0, 0]];  // tussenpunt bijna op de rechte bovenzijde
+  var sides = B.footprintSides(ring);
+  check('8a. rechthoek van 20 × 10 m: vier zijden, bijna rechte stukken samengevoegd', sides.length === 4 && sides.map(function (s) { return Math.round(s.length); }).sort().join() === '10,10,20,20', JSON.stringify(sides.map(function (s) { return [s.length, s.facing]; })));
+  check('8b. zuidzijde (y = 0) heeft richting zuid', sides.some(function (s) { return s.facing === 'zuid' && Math.round(s.length) === 20; }));
+  var bagCalls = [];
+  async function bagFetch(url) {
+    bagCalls.push(url);
+    var body = url.indexOf('locatieserver') >= 0 ? { response: { docs: [{ weergavenaam: 'Teststraat 1, Testdorp', centroide_rd: 'POINT(105 5)' }] } }
+      : { features: [
+        { properties: { identificatie: '0000100000000001', bouwjaar: 2020 }, geometry: { type: 'Polygon', coordinates: [[[100, 0], [120, 0], [120, 10], [100, 10], [100, 0]]] } },
+        { properties: { identificatie: '0000100000000002' }, geometry: { type: 'Polygon', coordinates: [[[130, 0], [140, 0], [140, 10], [130, 10], [130, 0]]] } }] };
+    return { ok: true, json: async function () { return body; } };
+  }
+  var docs = await B.searchAddress('Teststraat 1', bagFetch);
+  var pand = await B.loadPand(docs[0], bagFetch);
+  check('8c. adres → punt in RD, pand waar het punt in ligt, buurpand apart', docs[0].pt[0] === 105 && pand.pand.id === '0000100000000001' && pand.neighbours.length === 1 && pand.sides.length === 4);
+  check('8d. adres wordt gecodeerd in de zoek-URL', bagCalls[0].indexOf('Teststraat%201') > 0);
+  var ends = B.wallEndpoints([{ type: 'kozijn_raam', kind: 'quad', points: [[0, 0], [1, 1]] }, { type: 'metselwerk', kind: 'poly', points: [[123, 924], [1312, 924], [1312, 1280], [123, 1280]] }]);
+  check('8e. schaalpunten op linker- en rechterrand van het muurvlak, op de onderrand', JSON.stringify(ends) === JSON.stringify([[123, 1280], [1312, 1280]]), JSON.stringify(ends));
+  check('8f. zonder muurvlak geen voorstel', B.wallEndpoints([]) === null);
 
   var fails = 0;
   checks.forEach(function (c) { if (!c[1]) fails++; console.log((c[1] ? 'OK   ' : 'FOUT ') + c[0] + (c[1] || !c[2] ? '' : '  — ' + c[2])); });
