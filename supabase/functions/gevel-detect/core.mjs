@@ -265,7 +265,10 @@ export function combine(llm, sam, { margin = 0.08, minInside = 0.6, minKeep = 0.
     const wide = [b[0] - mx, b[1] - my, b[2] + mx, b[3] + my];
     const hits = samQuads.filter((s) => s.e.type === el.type && boxArea(s.b) > 0 && boxInter(s.b, wide) / boxArea(s.b) >= minInside);
     if (!hits.length) return { ...el, geometry_origin: "LLM_BOX", refined_by: null };
-    const u = bbox(hits.flatMap((h) => h.e.points));
+    // Het verfijnde kader blijft binnen de marge rond het kader van het taalmodel: een masker dat ook het glas boven een
+    // deur bevat, mag een raam niet naar beneden laten doorgroeien (gezien op een echte gevel, 25-11-2026).
+    const raw = bbox(hits.flatMap((h) => h.e.points));
+    const u = [Math.max(raw[0], wide[0]), Math.max(raw[1], wide[1]), Math.min(raw[2], wide[2]), Math.min(raw[3], wide[3])];
     const keep = boxArea(b) > 0 ? boxArea(u) / boxArea(b) : 0;
     if (keep < minKeep) {
       return { ...el, geometry_origin: "LLM_BOX", refined_by: null,
@@ -277,6 +280,24 @@ export function combine(llm, sam, { margin = 0.08, minInside = 0.6, minKeep = 0.
   });
   const unmatched = samQuads.filter((s) => !s.used).map((s) => ({ type: s.e.type, points: s.e.points, confidence: s.e.confidence }));
   return { elements, skipped: llm.skipped, unmatched_segments: unmatched, facade: llm.facade ?? null };
+}
+
+// ------------------------------------------------------------------------------------------------ uitsnede
+
+// Rekent een uitkomst op een uitsnede terug naar de pixels van de hele foto: x' = x0 + x · scaleX, y' = y0 + y · scaleY.
+// Alles met coördinaten gaat mee: elementen, maskers, het oorspronkelijke kader bij een verfijning, losse maskers en
+// pandgrenzen. De uitkomst zelf wordt niet veranderd (er komt een kopie terug).
+export function fromCrop(res, { x0 = 0, y0 = 0, scaleX = 1, scaleY = 1 } = {}) {
+  const P = ([x, y]) => [round1(x0 + x * scaleX), round1(y0 + y * scaleY)];
+  const out = JSON.parse(JSON.stringify(res));
+  for (const e of out.elements || []) {
+    e.points = (e.points || []).map(P);
+    if (e.polygon) e.polygon = e.polygon.map(P);
+    if (e.refined_by && e.refined_by.llm_box) e.refined_by.llm_box = e.refined_by.llm_box.map(P);
+  }
+  for (const u of out.unmatched_segments || []) u.points = u.points.map(P);
+  if (out.facade && Array.isArray(out.facade.boundaries)) for (const b of out.facade.boundaries) b.x = round1(x0 + b.x * scaleX);
+  return out;
 }
 
 // ------------------------------------------------------------------------------------------------ hoeveelheden
