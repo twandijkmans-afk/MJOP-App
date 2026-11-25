@@ -49,12 +49,17 @@
   td.n { text-align: right; font-variant-numeric: tabular-nums; }
   .legend { display: flex; flex-wrap: wrap; gap: 10px; font-size: .82rem; color: var(--muted); margin-top: 6px; }
   .legend i { display: inline-block; width: 14px; height: 4px; border-radius: 2px; margin-right: 4px; vertical-align: middle; }
+  input[type=text] { font: inherit; padding: 10px 12px; min-height: 44px; border-radius: 12px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); max-width: 100%; }
+  input.num { width: 7em; }
+  #scaleCanvas { cursor: crosshair; touch-action: manipulation; }
+  .tablewrap { overflow-x: auto; }
+  #sumTable th[scope=col] { text-align: right; white-space: nowrap; }
 </style>
 </head>
 <body>
 <header>
   <h1>Modellen vergelijken</h1>
-  <p class="muted">Ontwikkelpagina. Dezelfde gevelfoto door Claude, Gemini en SAM 3, naast elkaar. Alleen herkenning en plaats: er worden hier geen maten of kosten berekend, en niets wordt opgeslagen.</p>
+  <p class="muted">Ontwikkelpagina. Dezelfde gevelfoto door Claude, Gemini en SAM 3, naast elkaar. Met een schaal (stap 3) rekent de pagina met vaste regels de hoeveelheden uit, voor elk model met dezelfde schaal. Er worden geen kosten berekend en niets wordt opgeslagen.</p>
 </header>
 <main>
   <section>
@@ -84,6 +89,23 @@
     <p class="muted">Vergelijken gaat via de server (Edge Function gevel-detect) en werkt alleen als je bent ingelogd bij MJOP Live. Een uitkomst van het script <code>scripts/gevel-detect-run.mjs</code> kun je ook laden; kies dan eerst dezelfde foto.</p>
   </section>
 
+  <section id="scaleSec" hidden>
+    <h2>3. Schaal</h2>
+    <p class="muted">Tik op de foto twee punten aan waarvan je de echte afstand weet, bijvoorbeeld de buitenkant links en rechts van een kozijn dat je hebt nagemeten, of de breedte van de gevel. Vul die afstand in. Een lange afstand geeft een nauwkeurigere schaal dan een korte.</p>
+    <canvas id="scaleCanvas" aria-label="Foto: tik twee punten aan voor de schaal"></canvas>
+    <div class="row">
+      <label>Afstand tussen de punten in meter <input id="refLen" type="text" inputmode="decimal" class="num" placeholder="bijv. 1,80"></label>
+      <button id="refClear">Punten wissen</button>
+    </div>
+    <div id="scaleMsg" class="msg" hidden></div>
+  </section>
+
+  <section id="sumSec" hidden>
+    <h2>Hoeveelheden naast elkaar</h2>
+    <div id="sumTable"></div>
+    <p class="muted">Dezelfde schaal en dezelfde rekenregels voor elk model: verschillen komen alleen uit de kaders. Aannames: foto recht van voren, de gevel is één plat vlak, geen perspectiefcorrectie. Netto metselwerk is bruto min de ramen en deuren die erin liggen. Losse maskers van SAM 3 tellen niet mee. Dit zijn voorstellen, geen metingen: leg ze naast je eigen maten.</p>
+  </section>
+
   <div id="results"></div>
 </main>
 
@@ -99,7 +121,13 @@ const COLORS = { kozijn_raam: "#1f6feb", kozijn_deur: "#d1242f", garagedeur: "#b
   hwa: "#0e9384", dakgoot: "#6d28d9", boeiboord: "#be185d", waterslag: "#0369a1", hekwerk: "#4d7c0f", balkon: "#8250df", luifel: "#57606a", rooster: "#1a7f37", overig: "#6e7781" };
 const ORIGIN = { LLM_BOX: "kader van het taalmodel", LLM_BOX_REFINED_BY_SAM3: "kader verfijnd met SAM 3", SAM3_MASK: "masker van SAM 3" };
 const $ = (id) => document.getElementById(id);
-const state = { img: null, image: null, result: null };
+const state = { img: null, image: null, result: null, ref: { pts: [] }, core: null };
+// De rekenregels komen uit dezelfde kern als de Edge Function (vaste regels, getest in test/gevel-detect.unit.spec.js).
+const coreReady = import("../supabase/functions/gevel-detect/core.mjs").then((m) => { state.core = m; renderSummary(); })
+  .catch(() => setScaleMsg("De rekenregels konden niet worden geladen; hoeveelheden zijn niet beschikbaar.", "err"));
+const QLABELS = { ramen_st: "Raamkozijnen (st)", ramen_m2: "Raamkozijnen (m²)", deuren_st: "Deurkozijnen (st)", deuren_m2: "Deurkozijnen (m²)",
+  garagedeuren_st: "Garagedeuren (st)", garagedeuren_m2: "Garagedeuren (m²)", metselwerk_bruto_m2: "Metselwerk bruto (m²)",
+  metselwerk_netto_m2: "Metselwerk netto (m²)", hwa_m1: "Hemelwaterafvoer (m1)", dakgoot_m1: "Dakgoot (m1)", boeiboord_m1: "Boeiboord (m1)", waterslag_m1: "Waterslag (m1)" };
 
 function setMsg(text, kind) { const m = $("runMsg"); m.hidden = !text; m.textContent = text || ""; m.className = "msg " + (kind || ""); }
 function fmt(n, d = 0) { return n == null ? "–" : Number(n).toLocaleString("nl-NL", { minimumFractionDigits: d, maximumFractionDigits: d }); }
@@ -116,6 +144,59 @@ async function loadPhoto(file) {
   state.img = c; state.image = { base64, media_type: "image/jpeg", width: c.width, height: c.height };
   $("photoInfo").textContent = `${file.name}: ${c.width} × ${c.height} pixels, ${fmt(blob.size / 1024)} kB`;
   $("runBtn").disabled = false;
+  state.ref.pts = []; $("scaleSec").hidden = false; drawScale(); renderSummary();
+}
+
+// ------------------------------------------------------------------ schaal
+function setScaleMsg(text, kind) { const m = $("scaleMsg"); m.hidden = !text; m.textContent = text || ""; m.className = "msg " + (kind || ""); }
+function refLength() { const v = Number(String($("refLen").value).replace(",", ".")); return Number.isFinite(v) && v > 0 ? v : null; }
+// Pixels per meter in de pixels van de gekozen foto (state.img).
+function pxPerMeter() {
+  const p = state.ref.pts, len = refLength();
+  if (p.length !== 2 || !len) return null;
+  const d = Math.hypot(p[1][0] - p[0][0], p[1][1] - p[0][1]);
+  return d > 0 ? d / len : null;
+}
+function drawScale() {
+  if (!state.img) return;
+  const c = $("scaleCanvas"); c.width = state.img.width; c.height = state.img.height;
+  const g = c.getContext("2d"); g.drawImage(state.img, 0, 0);
+  const lw = Math.max(2, state.img.width / 400), p = state.ref.pts;
+  g.strokeStyle = "#ffd400"; g.fillStyle = "#ffd400"; g.lineWidth = lw;
+  if (p.length === 2) { g.beginPath(); g.moveTo(p[0][0], p[0][1]); g.lineTo(p[1][0], p[1][1]); g.stroke(); }
+  for (const [x, y] of p) { g.beginPath(); g.arc(x, y, lw * 2.5, 0, Math.PI * 2); g.fill(); g.strokeStyle = "#000"; g.lineWidth = lw / 2; g.stroke(); g.strokeStyle = "#ffd400"; g.lineWidth = lw; }
+}
+function onScaleClick(ev) {
+  if (!state.img) return;
+  const c = $("scaleCanvas"), r = c.getBoundingClientRect();
+  const pt = [(ev.clientX - r.left) * c.width / r.width, (ev.clientY - r.top) * c.height / r.height];
+  state.ref.pts = state.ref.pts.length >= 2 ? [pt] : state.ref.pts.concat([pt]);
+  drawScale(); renderSummary();
+}
+
+// ------------------------------------------------------------------ hoeveelheden naast elkaar
+function resultQuantities(r, out, s) {
+  if (!state.core || !s || r.error) return null;
+  // De elementen staan in de pixels van de foto die het model zag; de schaal in die van de gekozen foto.
+  const k = out.image && out.image.width ? state.img.width / out.image.width : 1;
+  return state.core.quantities(r.elements || [], s / k);
+}
+function renderSummary() {
+  const sec = $("sumSec"), out = state.result, s = state.img ? pxPerMeter() : null;
+  if (!state.img) { sec.hidden = true; return; }
+  const p = state.ref.pts.length, len = refLength();
+  if (p < 2) setScaleMsg(p === 0 ? "Tik het eerste punt aan." : "Tik het tweede punt aan.", "");
+  else if (!len) setScaleMsg("Vul de afstand tussen de punten in meter in.", "warn");
+  else setScaleMsg(`Schaal: ${fmt(s, 1)} pixels per meter (${fmt(len, 2)} m over ${fmt(s * len)} pixels).` + (s < 40 ? " Dat is weinig: elke pixel is meer dan 2,5 cm. Neem de foto dichterbij of beeldvullend." : ""), s < 40 ? "warn" : "ok");
+  if (!out || !s || !state.core) { sec.hidden = true; return; }
+  const cols = (out.results || []).filter((r) => !r.error).map((r) => ({ name: r.provider, q: resultQuantities(r, out, s) })).filter((c) => c.q);
+  if (!cols.length) { sec.hidden = true; return; }
+  const keys = state.core.QUANTITY_KEYS.filter((k) => cols.some((c) => c.q[k] != null && c.q[k] !== 0));
+  const cell = (k, v) => v == null ? "–" : k.endsWith("_st") ? fmt(v) : fmt(v, k.endsWith("_m1") ? 1 : 2);
+  $("sumTable").innerHTML = `<div class="tablewrap"><table><thead><tr><th>Hoeveelheid</th>${cols.map((c) => `<th scope="col">${c.name}</th>`).join("")}</tr></thead><tbody>` +
+    keys.map((k) => `<tr><th scope="row">${QLABELS[k] || k}</th>${cols.map((c) => `<td class="n">${cell(k, c.q[k])}</td>`).join("")}</tr>`).join("") +
+    `</tbody></table></div>`;
+  sec.hidden = false;
 }
 
 async function run() {
@@ -143,6 +224,7 @@ function show(out) {
   state.result = out; $("saveBtn").disabled = false;
   const box = $("results"); box.replaceChildren();
   for (const r of out.results || []) box.appendChild(card(r, out));
+  renderSummary();
   // Andere afmetingen: de kaders worden geschaald. Klopt de verhouding niet, dan is het vrijwel zeker een andere foto.
   if (state.img && out.image && (out.image.width !== state.img.width || out.image.height !== state.img.height)) {
     const ratio = Math.abs(out.image.width / out.image.height - state.img.width / state.img.height) > 0.01;
@@ -208,9 +290,19 @@ $("loadJson").addEventListener("change", async (ev) => {
   }
   catch (e) { setMsg("Dit is geen uitkomst van gevel-detect: " + e.message, "err"); }
 });
+$("scaleCanvas").addEventListener("click", onScaleClick);
+$("refLen").addEventListener("input", renderSummary);
+$("refClear").addEventListener("click", () => { state.ref.pts = []; drawScale(); renderSummary(); });
 $("saveBtn").addEventListener("click", () => {
+  // Met een schaal gaan de hoeveelheden en de referentie mee, zodat de uitkomst later te herleiden is.
+  const out = JSON.parse(JSON.stringify(state.result)), s = state.img ? pxPerMeter() : null;
+  if (s && state.core) {
+    const k = out.image && out.image.width ? state.img.width / out.image.width : 1;
+    out.scale = { method: "REFERENCE_LINE", source: "USER_INPUT", length_m: refLength(), points_px: state.ref.pts.map(([x, y]) => [Math.round(x / k), Math.round(y / k)]), px_per_m: Math.round((s / k) * 1000) / 1000 };
+    for (const r of out.results) { const q = resultQuantities(r, state.result, s); if (q) r.quantities = q; }
+  }
   const a = document.createElement("a");
-  a.href = URL.createObjectURL(new Blob([JSON.stringify(state.result, null, 1)], { type: "application/json" }));
+  a.href = URL.createObjectURL(new Blob([JSON.stringify(out, null, 1)], { type: "application/json" }));
   a.download = `gevel-detect-${String(state.result.photo_sha256 || "uitkomst").slice(0, 12)}.detect.json`; a.click();
 });
 </script>

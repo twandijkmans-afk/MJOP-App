@@ -263,6 +263,59 @@ export function combine(llm, sam, { margin = 0.08, minInside = 0.6, minKeep = 0.
   return { elements, skipped: llm.skipped, unmatched_segments: unmatched };
 }
 
+// ------------------------------------------------------------------------------------------------ hoeveelheden
+
+// Vaste rekenregels, geen AI. `pxPerM` = pixels per meter op de gevel, in de pixels van de foto waar de elementen in staan.
+// Aanname: foto recht van voren, de hele gevel in één vlak, schaal gemeten op dat vlak. Er is GEEN perspectiefcorrectie:
+// bij een schuine foto of een gevel met erkers zijn de uitkomsten systematisch fout. Daarom gaat `assumptions` mee.
+// Netto metselwerk = bruto min de openingen (raam, deur, garagedeur) waarvan het middelpunt in het muurvlak ligt.
+// Losse SAM 3-maskers (`unmatched_segments`) tellen niet mee.
+function polyArea(pts) {
+  let a = 0;
+  for (let i = 0; i < pts.length; i++) { const [x1, y1] = pts[i], [x2, y2] = pts[(i + 1) % pts.length]; a += x1 * y2 - x2 * y1; }
+  return Math.abs(a) / 2;
+}
+function polyLength(pts) {
+  let l = 0;
+  for (let i = 1; i < pts.length; i++) l += Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]);
+  return l;
+}
+function inside(pt, poly) {
+  let c = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const [xi, yi] = poly[i], [xj, yj] = poly[j];
+    if ((yi > pt[1]) !== (yj > pt[1]) && pt[0] < ((xj - xi) * (pt[1] - yi)) / (yj - yi) + xi) c = !c;
+  }
+  return c;
+}
+const r2 = (v) => (v == null ? null : Math.round(v * 100) / 100);
+
+export const QUANTITY_KEYS = ["ramen_st", "ramen_m2", "deuren_st", "deuren_m2", "garagedeuren_st", "garagedeuren_m2",
+  "metselwerk_bruto_m2", "metselwerk_netto_m2", "hwa_m1", "dakgoot_m1", "boeiboord_m1", "waterslag_m1"];
+
+export function quantities(elements, pxPerM) {
+  if (!finite(pxPerM) || pxPerM <= 0) return null;
+  const s = pxPerM, q = Object.fromEntries(QUANTITY_KEYS.map((k) => [k, k.endsWith("_st") ? 0 : null]));
+  const addM = (k, v) => { q[k] = (q[k] || 0) + v; };
+  const openings = [];
+  for (const e of elements || []) {
+    if (e.kind === "quad") {
+      const [[x0, y0], [x1, y1]] = e.points, m2 = ((x1 - x0) / s) * ((y1 - y0) / s);
+      const key = e.type === "kozijn_raam" ? "ramen" : e.type === "kozijn_deur" ? "deuren" : e.type === "garagedeur" ? "garagedeuren" : null;
+      if (key) { q[key + "_st"]++; addM(key + "_m2", m2); openings.push({ c: [(x0 + x1) / 2, (y0 + y1) / 2], m2 }); }
+    } else if (e.kind === "line" && q[e.type + "_m1"] !== undefined) addM(e.type + "_m1", polyLength(e.points) / s);
+  }
+  for (const e of elements || []) {
+    if (e.kind !== "poly" || e.type !== "metselwerk") continue;
+    const bruto = polyArea(e.points) / (s * s);
+    const open = openings.filter((o) => inside(o.c, e.points)).reduce((a, o) => a + o.m2, 0);
+    addM("metselwerk_bruto_m2", bruto); addM("metselwerk_netto_m2", Math.max(0, bruto - open));
+  }
+  for (const k of QUANTITY_KEYS) if (!k.endsWith("_st")) q[k] = r2(q[k]);
+  return { ...q, px_per_m: Math.round(s * 1000) / 1000,
+           assumptions: ["FOTO_RECHT_VAN_VOREN", "EEN_VLAK", "GEEN_PERSPECTIEFCORRECTIE", "LOSSE_MASKERS_NIET_GETELD"] };
+}
+
 // ------------------------------------------------------------------------------------------------ uitvoeren
 
 export function summarize(elements) {

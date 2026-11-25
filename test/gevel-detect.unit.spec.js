@@ -74,6 +74,20 @@ function check(n, ok, d) { checks.push([n, !!ok, d]); }
   check('4i. te klein masker: kader blijft, met reden', c2.elements[2].geometry_origin === 'LLM_BOX' && c2.elements[2].refine_rejected.reason === 'SAM3_KADER_TE_KLEIN', JSON.stringify(c2.elements[2]));
   check('4j. glasstrook boven de garagedeur blijft gemeld als los masker', c2.unmatched_segments.some(function (u) { return u.points[0][1] === 1171; }));
 
+  // 4k-4n. Hoeveelheden met een schaal van 100 px per meter.
+  var qv = C.quantities([
+    { type: 'metselwerk', kind: 'poly', points: [[0, 0], [1000, 0], [1000, 500], [0, 500]] },
+    { type: 'kozijn_raam', kind: 'quad', points: [[100, 100], [300, 250]] },
+    { type: 'kozijn_deur', kind: 'quad', points: [[400, 250], [500, 480]] },
+    { type: 'garagedeur', kind: 'quad', points: [[1100, 100], [1300, 300]] },
+    { type: 'hwa', kind: 'line', points: [[950, 0], [950, 300], [950, 500]] },
+    { type: 'balkon', kind: 'quad', points: [[0, 0], [10, 10]] },
+  ], 100);
+  check('4k. ramen: 1 stuk, 2 × 1,5 = 3 m²', qv.ramen_st === 1 && qv.ramen_m2 === 3, JSON.stringify(qv));
+  check('4l. deur 1 × 2,3 = 2,3 m²; garagedeur buiten het muurvlak telt wel als garagedeur', qv.deuren_m2 === 2.3 && qv.garagedeuren_st === 1 && qv.garagedeuren_m2 === 4);
+  check('4m. metselwerk bruto 50 m², netto min raam en deur = 44,7 m² (garagedeur ligt erbuiten)', qv.metselwerk_bruto_m2 === 50 && qv.metselwerk_netto_m2 === 44.7, qv.metselwerk_netto_m2);
+  check('4n. hwa 5 m1, ontbrekende goot null (niet 0), zonder schaal geen hoeveelheden', qv.hwa_m1 === 5 && qv.dakgoot_m1 === null && C.quantities([], 0) === null);
+
   // 5. Kosten alleen met ingestelde prijs.
   check('5a. geen prijs → geen kosten', C.estimateCost({ input_tokens: 1000, output_tokens: 100 }, null) === null);
   check('5b. met prijs → kosten', C.estimateCost({ input_tokens: 1e6, output_tokens: 1e6 }, { input_per_mtok: 1, output_per_mtok: 2 }) === 3);

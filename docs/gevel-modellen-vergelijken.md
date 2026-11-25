@@ -32,6 +32,16 @@ Maskers van SAM 3 die bij geen enkel kozijn horen, worden niet toegevoegd. Ze ko
 
 Elk element draagt `geometry_origin`: `LLM_BOX` (kader van het taalmodel), `LLM_BOX_REFINED_BY_SAM3` (verfijnd, met het oorspronkelijke kader in `refined_by.llm_box`) of `SAM3_MASK`.
 
+## Hoeveelheden naast elkaar
+
+Op `gevelfoto/vergelijk.html` tik je in stap 3 twee punten op de foto aan waarvan je de echte afstand weet, en je vult die afstand in. De pagina rekent dan met `quantities()` uit de kern (vaste regels, getest) per model uit: aantal en m² ramen, deuren en garagedeuren, metselwerk bruto en netto, en meters hemelwaterafvoer, goot, boeiboord en waterslag.
+
+- Elk model krijgt dezelfde schaal, dus verschillen komen alleen uit de kaders.
+- Aannames: foto recht van voren, de gevel is één plat vlak, geen perspectiefcorrectie. Bij een schuine foto of een gevel met erkers zijn de uitkomsten systematisch fout.
+- Netto metselwerk is bruto min de ramen en deuren waarvan het middelpunt in het muurvlak ligt.
+- Bij minder dan 40 pixels per meter waarschuwt de pagina: dan is elke pixel meer dan 2,5 cm.
+- "Uitkomst bewaren" neemt de schaal (punten, lengte, pixels per meter) en de hoeveelheden per model mee in het JSON-bestand.
+
 ## Eerste waarnemingen (25-11-2026, drie foto's, géén grondwaarheid)
 
 Dit zijn indrukken, geen metingen. Er zijn nog geen foto's met bekende maten.
