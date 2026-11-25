@@ -70,6 +70,22 @@ Dit zijn indrukken, geen metingen. Er zijn nog geen foto's met bekende maten.
 
 Wat dit betekent: SAM 3 maakt de kaders van Gemini zichtbaar strakker, maar is als enige bron niet bruikbaar (te veel losse delen, geen deuren). De combinatie lijkt de beste richting. Of dat ook betere m² oplevert, moet de testset uitwijzen.
 
+### Claude en Gemini op dezelfde foto (25-11-2026, prompt `gevel_detect_v0.2`)
+
+Eén foto van een bedrijfsverzamelgebouw met acht traveeën, schaal uit de BAG (27,93 m). Nog steeds geen gemeten maten: dit is een vergelijking op het oog.
+
+| | Claude (claude-opus-5-5) | Gemini (gemini-3.5-flash) |
+|---|---|---|
+| Tijd | 19 s | 7 s |
+| Tokens in / uit | 5.166 / 2.267 | 2.011 / 799 |
+| Indeling | ramen op de verdieping, deuren en garagedeuren beneden apart, ook de smalle glasstrook links | per travee één kader van dak tot straat (op een eerdere run van dezelfde foto wel apart) |
+| Raamkozijnen | 9 st, 62 m² | 4 st, 95 m² |
+| Pandgrenzen | op beide hoeken van het pand, gevel loopt door (buurpanden) | geen grens, gevel loopt niet door |
+
+- Claude legde de randen hier al zo strak dat SAM 3 weinig toevoegt (62 → 63 m²); bij Gemini scheelt SAM 3 veel (95 → 71 m²), maar de indeling blijft fout.
+- Gemini gaf op dezelfde foto bij twee runs een heel andere indeling. Een model moet daarom op meerdere runs per foto worden gemeten, niet op één.
+- Gevonden en opgelost: een SAM 3-masker dat ook het glas boven een deur bevatte, liet een raam naar beneden doorgroeien. Het verfijnde kader blijft nu binnen de marge rond het kader van het taalmodel.
+
 ## Op Supabase zetten
 
 De sleutels horen als secrets op Supabase, nooit in de code, de browser of een mail. Voer uit in de map van deze repository, met de Supabase CLI ingelogd op het project:

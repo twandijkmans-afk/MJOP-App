@@ -72,6 +72,9 @@ function check(n, ok, d) { checks.push([n, !!ok, d]); }
   check('4g. raammasker verfijnt de garagedeur niet', c2.elements[0].geometry_origin === 'LLM_BOX' && JSON.stringify(c2.elements[0].points) === JSON.stringify([[186, 1160], [321, 1280]]), JSON.stringify(c2.elements[0]));
   check('4h. raam wordt wel verfijnd met het raammasker', c2.elements[1].geometry_origin === 'LLM_BOX_REFINED_BY_SAM3' && c2.elements[1].points[1][1] === 1107, JSON.stringify(c2.elements[1]));
   check('4i. te klein masker: kader blijft, met reden', c2.elements[2].geometry_origin === 'LLM_BOX' && c2.elements[2].refine_rejected.reason === 'SAM3_KADER_TE_KLEIN', JSON.stringify(c2.elements[2]));
+  var c3 = C.combine({ skipped: 0, elements: [{ type: 'kozijn_raam', kind: 'quad', points: [[442.5, 976], [510, 1110]], geometry_origin: 'LLM_BOX' }] },
+    { elements: [{ type: 'kozijn_raam', kind: 'quad', points: [[443, 975], [509, 1172]], confidence: 0.67 }] });
+  check('4v. masker met het glas boven de deur laat het raam niet doorgroeien (onderkant ≤ 1110 + 8 %)', c3.elements[0].points[1][1] <= 1110 + 0.08 * 134 + 0.01 && c3.elements[0].points[1][1] < 1172, JSON.stringify(c3.elements[0].points));
   check('4j. glasstrook boven de garagedeur blijft gemeld als los masker', c2.unmatched_segments.some(function (u) { return u.points[0][1] === 1171; }));
 
   // 4k-4n. Hoeveelheden met een schaal van 100 px per meter.

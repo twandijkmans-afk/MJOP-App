@@ -265,7 +265,10 @@ export function combine(llm, sam, { margin = 0.08, minInside = 0.6, minKeep = 0.
     const wide = [b[0] - mx, b[1] - my, b[2] + mx, b[3] + my];
     const hits = samQuads.filter((s) => s.e.type === el.type && boxArea(s.b) > 0 && boxInter(s.b, wide) / boxArea(s.b) >= minInside);
     if (!hits.length) return { ...el, geometry_origin: "LLM_BOX", refined_by: null };
-    const u = bbox(hits.flatMap((h) => h.e.points));
+    // Het verfijnde kader blijft binnen de marge rond het kader van het taalmodel: een masker dat ook het glas boven een
+    // deur bevat, mag een raam niet naar beneden laten doorgroeien (gezien op een echte gevel, 25-11-2026).
+    const raw = bbox(hits.flatMap((h) => h.e.points));
+    const u = [Math.max(raw[0], wide[0]), Math.max(raw[1], wide[1]), Math.min(raw[2], wide[2]), Math.min(raw[3], wide[3])];
     const keep = boxArea(b) > 0 ? boxArea(u) / boxArea(b) : 0;
     if (keep < minKeep) {
       return { ...el, geometry_origin: "LLM_BOX", refined_by: null,
