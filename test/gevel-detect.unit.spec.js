@@ -139,6 +139,29 @@ function check(n, ok, d) { checks.push([n, !!ok, d]); }
   var ev2 = E.evaluate([truth], [Object.assign({}, det, { photo_sha256: 'andere' })]);
   check('7e. andere foto-hash telt niet mee', ev2.photos_scored.length === 0 && ev2.photos_without_prediction[0] === 'a.jpg');
 
+  // 8. BAG: zijden van een omtrek, pand kiezen met nep-netwerk, schaalpunten uit het muurvlak.
+  var B = await import('../src/bag-gevel.mjs');
+  var ring = [[0, 0], [20, 0], [20, 10], [10, 10.05], [0, 10], [0, 0]];  // tussenpunt bijna op de rechte bovenzijde
+  var sides = B.footprintSides(ring);
+  check('8a. rechthoek van 20 × 10 m: vier zijden, bijna rechte stukken samengevoegd', sides.length === 4 && sides.map(function (s) { return Math.round(s.length); }).sort().join() === '10,10,20,20', JSON.stringify(sides.map(function (s) { return [s.length, s.facing]; })));
+  check('8b. zuidzijde (y = 0) heeft richting zuid', sides.some(function (s) { return s.facing === 'zuid' && Math.round(s.length) === 20; }));
+  var bagCalls = [];
+  async function bagFetch(url) {
+    bagCalls.push(url);
+    var body = url.indexOf('locatieserver') >= 0 ? { response: { docs: [{ weergavenaam: 'Teststraat 1, Testdorp', centroide_rd: 'POINT(105 5)' }] } }
+      : { features: [
+        { properties: { identificatie: '0000100000000001', bouwjaar: 2020 }, geometry: { type: 'Polygon', coordinates: [[[100, 0], [120, 0], [120, 10], [100, 10], [100, 0]]] } },
+        { properties: { identificatie: '0000100000000002' }, geometry: { type: 'Polygon', coordinates: [[[130, 0], [140, 0], [140, 10], [130, 10], [130, 0]]] } }] };
+    return { ok: true, json: async function () { return body; } };
+  }
+  var docs = await B.searchAddress('Teststraat 1', bagFetch);
+  var pand = await B.loadPand(docs[0], bagFetch);
+  check('8c. adres → punt in RD, pand waar het punt in ligt, buurpand apart', docs[0].pt[0] === 105 && pand.pand.id === '0000100000000001' && pand.neighbours.length === 1 && pand.sides.length === 4);
+  check('8d. adres wordt gecodeerd in de zoek-URL', bagCalls[0].indexOf('Teststraat%201') > 0);
+  var ends = B.wallEndpoints([{ type: 'kozijn_raam', kind: 'quad', points: [[0, 0], [1, 1]] }, { type: 'metselwerk', kind: 'poly', points: [[123, 924], [1312, 924], [1312, 1280], [123, 1280]] }]);
+  check('8e. schaalpunten op linker- en rechterrand van het muurvlak, op de onderrand', JSON.stringify(ends) === JSON.stringify([[123, 1280], [1312, 1280]]), JSON.stringify(ends));
+  check('8f. zonder muurvlak geen voorstel', B.wallEndpoints([]) === null);
+
   var fails = 0;
   checks.forEach(function (c) { if (!c[1]) fails++; console.log((c[1] ? 'OK   ' : 'FOUT ') + c[0] + (c[1] || !c[2] ? '' : '  — ' + c[2])); });
   console.log('\n' + (checks.length - fails) + '/' + checks.length + ' geslaagd');

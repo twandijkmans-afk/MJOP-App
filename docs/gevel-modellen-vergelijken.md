@@ -34,7 +34,12 @@ Elk element draagt `geometry_origin`: `LLM_BOX` (kader van het taalmodel), `LLM_
 
 ## Hoeveelheden naast elkaar
 
-Op `gevelfoto/vergelijk.html` tik je in stap 3 twee punten op de foto aan waarvan je de echte afstand weet, en je vult die afstand in. De pagina rekent dan met `quantities()` uit de kern (vaste regels, getest) per model uit: aantal en m² ramen, deuren en garagedeuren, metselwerk bruto en netto, en meters hemelwaterafvoer, goot, boeiboord en waterslag.
+Op `gevelfoto/vergelijk.html` zet je in stap 3 de schaal. Dat kan op twee manieren:
+
+- Uit de BAG: zoek het adres op en tik de gevelzijde aan die op de foto staat (`src/bag-gevel.mjs`, dezelfde werkwijze als de Gevelfoto-pagina). De lengte van die zijde wordt de afstand, en de twee punten komen op de linker- en rechterrand van het muurvlak dat het eerste taalmodel aanwees. Dat is een aanname: controleer of de punten echt op de hoeken van deze gevel staan en tik ze anders zelf aan. De BAG-omtrek is van boven ingemeten en kan afwijken van de gevel op ooghoogte, en een BAG-pand kan meer omvatten dan de gefotografeerde gevel.
+- Zelf: tik twee punten aan waarvan je de echte afstand weet (bijvoorbeeld een nagemeten kozijn) en vul die afstand in.
+
+Daarna rekent de pagina met `quantities()` uit de kern (vaste regels, getest) per model uit: aantal en m² ramen, deuren en garagedeuren, metselwerk bruto en netto, en meters hemelwaterafvoer, goot, boeiboord en waterslag.
 
 - Elk model krijgt dezelfde schaal, dus verschillen komen alleen uit de kaders.
 - Aannames: foto recht van voren, de gevel is één plat vlak, geen perspectiefcorrectie. Bij een schuine foto of een gevel met erkers zijn de uitkomsten systematisch fout.

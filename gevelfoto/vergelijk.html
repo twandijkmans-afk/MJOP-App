@@ -52,6 +52,12 @@
   input[type=text] { font: inherit; padding: 10px 12px; min-height: 44px; border-radius: 12px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); max-width: 100%; }
   input.num { width: 7em; }
   #scaleCanvas { cursor: crosshair; touch-action: manipulation; }
+  select { font: inherit; padding: 10px 12px; min-height: 44px; border-radius: 12px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); min-width: 0; max-width: 100%; }
+  #bagMap svg { width: 100%; max-height: 260px; display: block; margin-top: 6px; color: var(--ink); }
+  #bagMap .side { stroke: var(--muted); stroke-width: 3; }
+  #bagMap .side.on { stroke: var(--accent); stroke-width: 6; }
+  #bagMap .hit { stroke: transparent; stroke-width: 22; cursor: pointer; }
+  #bagMap text { font: 600 11px var(--sans); fill: var(--ink); pointer-events: none; }
   .tablewrap { overflow-x: auto; }
   #sumTable th[scope=col] { text-align: right; white-space: nowrap; }
 </style>
@@ -91,7 +97,15 @@
 
   <section id="scaleSec" hidden>
     <h2>3. Schaal</h2>
-    <p class="muted">Tik op de foto twee punten aan waarvan je de echte afstand weet, bijvoorbeeld de buitenkant links en rechts van een kozijn dat je hebt nagemeten, of de breedte van de gevel. Vul die afstand in. Een lange afstand geeft een nauwkeurigere schaal dan een korte.</p>
+    <p class="muted">Snelst: zoek het adres op en tik de gevelzijde aan die op de foto staat. De breedte uit de BAG wordt dan de schaal, en de gele punten komen op de randen van het muurvlak dat het model aanwees. Controleer of die punten echt op de hoeken van deze gevel staan.</p>
+    <div class="row">
+      <input id="addr" type="text" placeholder="Adres, bijv. Dorpsstraat 12 Utrecht" style="flex:1" autocomplete="off" enterkeyhint="search">
+      <button id="addrBtn">Zoek in de BAG</button>
+    </div>
+    <div class="row" id="addrPickRow" hidden><select id="addrPick" style="flex:1"></select></div>
+    <div id="bagMap"></div>
+    <div id="bagMsg" class="msg" hidden></div>
+    <p class="muted">Of tik zelf op de foto twee punten aan waarvan je de echte afstand weet, bijvoorbeeld een kozijn dat je hebt nagemeten, en vul die afstand in. Een lange afstand geeft een nauwkeurigere schaal dan een korte.</p>
     <canvas id="scaleCanvas" aria-label="Foto: tik twee punten aan voor de schaal"></canvas>
     <div class="row">
       <label>Afstand tussen de punten in meter <input id="refLen" type="text" inputmode="decimal" class="num" placeholder="bijv. 1,80"></label>
@@ -121,7 +135,8 @@ const COLORS = { kozijn_raam: "#1f6feb", kozijn_deur: "#d1242f", garagedeur: "#b
   hwa: "#0e9384", dakgoot: "#6d28d9", boeiboord: "#be185d", waterslag: "#0369a1", hekwerk: "#4d7c0f", balkon: "#8250df", luifel: "#57606a", rooster: "#1a7f37", overig: "#6e7781" };
 const ORIGIN = { LLM_BOX: "kader van het taalmodel", LLM_BOX_REFINED_BY_SAM3: "kader verfijnd met SAM 3", SAM3_MASK: "masker van SAM 3" };
 const $ = (id) => document.getElementById(id);
-const state = { img: null, image: null, result: null, ref: { pts: [] }, core: null };
+const state = { img: null, image: null, result: null, ref: { pts: [], source: null }, core: null, bagMod: null, bag: null, bagSide: null };
+import("../src/bag-gevel.mjs").then((m) => { state.bagMod = m; }).catch(() => { $("addrBtn").disabled = true; });
 // De rekenregels komen uit dezelfde kern als de Edge Function (vaste regels, getest in test/gevel-detect.unit.spec.js).
 const coreReady = import("../supabase/functions/gevel-detect/core.mjs").then((m) => { state.core = m; renderSummary(); })
   .catch(() => setScaleMsg("De rekenregels konden niet worden geladen; hoeveelheden zijn niet beschikbaar.", "err"));
@@ -171,6 +186,74 @@ function onScaleClick(ev) {
   const c = $("scaleCanvas"), r = c.getBoundingClientRect();
   const pt = [(ev.clientX - r.left) * c.width / r.width, (ev.clientY - r.top) * c.height / r.height];
   state.ref.pts = state.ref.pts.length >= 2 ? [pt] : state.ref.pts.concat([pt]);
+  if (state.ref.source) state.ref.source = { ...state.ref.source, placement: "USER_POINTS", wall_from: null };
+  drawScale(); renderSummary();
+}
+
+// ------------------------------------------------------------------ schaal uit de BAG
+function setBagMsg(text, kind) { const m = $("bagMsg"); m.hidden = !text; m.textContent = text || ""; m.className = "msg " + (kind || ""); }
+async function searchBag() {
+  const q = $("addr").value.trim();
+  if (!q || !state.bagMod) return;
+  setBagMsg("Zoeken…", ""); $("addrPickRow").hidden = true;
+  try {
+    const docs = await state.bagMod.searchAddress(q);
+    if (!docs.length) return setBagMsg("Geen adres gevonden. Probeer straat, huisnummer en plaats.", "warn");
+    if (docs.length === 1) return loadBag(docs[0]);
+    const sel = $("addrPick"); sel.replaceChildren(new Option("Kies het adres…", ""), ...docs.map((d, i) => new Option(d.name, String(i))));
+    sel.onchange = () => { if (sel.value !== "") loadBag(docs[Number(sel.value)]); };
+    $("addrPickRow").hidden = false; setBagMsg("Kies het juiste adres.", "");
+  } catch (e) { setBagMsg(e.message, "err"); }
+}
+async function loadBag(doc) {
+  setBagMsg("Pand ophalen…", "");
+  try {
+    state.bag = await state.bagMod.loadPand(doc); state.bagSide = null; renderBag();
+    setBagMsg(state.bag.sides.length ? `${state.bag.address} · pand ${state.bag.pand.id}${state.bag.pand.bouwjaar ? " · bouwjaar " + state.bag.pand.bouwjaar : ""}. Tik op de zijde die op de foto staat (maten in meter, noorden boven).`
+      : "De omtrek van dit pand kon niet in zijden worden verdeeld. Tik zelf twee punten aan en vul de afstand in.", state.bag.sides.length ? "" : "warn");
+  } catch (e) { state.bag = null; renderBag(); setBagMsg(e.message, "err"); }
+}
+function renderBag() {
+  const box = $("bagMap"); box.replaceChildren();
+  const b = state.bag; if (!b || !b.pand) return;
+  const NS = "http://www.w3.org/2000/svg", mk = (tag, attrs) => { const n = document.createElementNS(NS, tag); for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, v); return n; };
+  const xs = b.pand.ring.map((p) => p[0]), ys = b.pand.ring.map((p) => p[1]), pad = 4;
+  const minX = Math.min(...xs) - pad, maxX = Math.max(...xs) + pad, minY = Math.min(...ys) - pad, maxY = Math.max(...ys) + pad, k = 300 / Math.max(maxX - minX, maxY - minY);
+  const P = (p) => [(p[0] - minX) * k, (maxY - p[1]) * k], path = (ring) => ring.map((p) => P(p).map((v) => v.toFixed(1)).join(",")).join(" ");
+  const svg = mk("svg", { viewBox: `0 0 ${((maxX - minX) * k).toFixed(0)} ${((maxY - minY) * k).toFixed(0)}`, role: "img", "aria-label": "Omtrek van het pand volgens de BAG, noorden boven" });
+  for (const n of b.neighbours || []) svg.append(mk("polygon", { points: path(n.ring), fill: "none", stroke: "currentColor", "stroke-opacity": "0.2" }));
+  svg.append(mk("polygon", { points: path(b.pand.ring), fill: "currentColor", "fill-opacity": "0.08", stroke: "none" }));
+  const cx = b.pand.ring.reduce((a, p) => a + p[0], 0) / b.pand.ring.length, cy = b.pand.ring.reduce((a, p) => a + p[1], 0) / b.pand.ring.length, c = P([cx, cy]);
+  b.sides.forEach((s, i) => {
+    const a = P(s.a), e = P(s.b), mid = [(a[0] + e[0]) / 2, (a[1] + e[1]) / 2], out = Math.hypot(mid[0] - c[0], mid[1] - c[1]) || 1;
+    const line = { x1: a[0], y1: a[1], x2: e[0], y2: e[1] };
+    svg.append(mk("line", { ...line, class: "side" + (state.bagSide === i ? " on" : "") }));
+    if (s.length >= 1.5) { const t = mk("text", { x: mid[0] + (mid[0] - c[0]) / out * 16, y: mid[1] + (mid[1] - c[1]) / out * 16, "text-anchor": "middle", "dominant-baseline": "middle" }); t.textContent = fmt(s.length, 1); svg.append(t); }
+    if (s.length < 0.5) return;
+    const hit = mk("line", { ...line, class: "hit" }); hit.addEventListener("click", () => chooseSide(i)); svg.append(hit);
+  });
+  box.append(svg);
+}
+// Gekozen zijde: lengte uit de BAG, punten op de randen van het muurvlak van het eerste taalmodel dat er een gaf.
+function chooseSide(i) {
+  const b = state.bag, sd = b && b.sides[i]; if (!sd) return;
+  state.bagSide = i; renderBag();
+  $("refLen").value = fmt(sd.length, 2);
+  let pts = null, from = null;
+  const out = state.result;
+  if (out && state.img && state.bagMod) {
+    const k = out.image && out.image.width ? state.img.width / out.image.width : 1;
+    for (const name of ["gemini+sam3", "gemini", "claude+sam3", "claude"]) {
+      const r = (out.results || []).find((x) => x.provider === name && !x.error);
+      const e = r && state.bagMod.wallEndpoints(r.elements);
+      if (e) { pts = e.map(([x, y]) => [x * k, y * k]); from = name; break; }
+    }
+  }
+  if (pts) state.ref.pts = pts;
+  state.ref.source = { type: "BAG_FOOTPRINT_SIDE", bag_pand_id: b.pand.id, address: b.address, side_length_m: Math.round(sd.length * 100) / 100,
+                       side_facing: sd.facing, retrieved_at: b.retrieved_at, placement: pts ? "AUTO_WALL_WIDTH" : "USER_POINTS", wall_from: from };
+  setBagMsg(pts ? `Zijde ${sd.facing}, ${fmt(sd.length, 2)} m. De gele punten staan op de randen van het muurvlak dat ${from} aanwees. Staan ze niet op de hoeken van deze gevel, tik dan zelf de linker- en rechterhoek aan.`
+    : `Zijde ${sd.facing}, ${fmt(sd.length, 2)} m. Tik op de foto de linker- en de rechterhoek van deze gevel aan, op dezelfde hoogte.`, pts ? "ok" : "");
   drawScale(); renderSummary();
 }
 
@@ -187,7 +270,7 @@ function renderSummary() {
   const p = state.ref.pts.length, len = refLength();
   if (p < 2) setScaleMsg(p === 0 ? "Tik het eerste punt aan." : "Tik het tweede punt aan.", "");
   else if (!len) setScaleMsg("Vul de afstand tussen de punten in meter in.", "warn");
-  else setScaleMsg(`Schaal: ${fmt(s, 1)} pixels per meter (${fmt(len, 2)} m over ${fmt(s * len)} pixels).` + (s < 40 ? " Dat is weinig: elke pixel is meer dan 2,5 cm. Neem de foto dichterbij of beeldvullend." : ""), s < 40 ? "warn" : "ok");
+  else setScaleMsg(`Schaal: ${fmt(s, 1)} pixels per meter (${fmt(len, 2)} m${state.ref.source ? " uit de BAG" : ""} over ${fmt(s * len)} pixels).` + (s < 40 ? " Dat is weinig: elke pixel is meer dan 2,5 cm. Neem de foto dichterbij of beeldvullend." : ""), s < 40 ? "warn" : "ok");
   if (!out || !s || !state.core) { sec.hidden = true; return; }
   const cols = (out.results || []).filter((r) => !r.error).map((r) => ({ name: r.provider, q: resultQuantities(r, out, s) })).filter((c) => c.q);
   if (!cols.length) { sec.hidden = true; return; }
@@ -291,14 +374,17 @@ $("loadJson").addEventListener("change", async (ev) => {
   catch (e) { setMsg("Dit is geen uitkomst van gevel-detect: " + e.message, "err"); }
 });
 $("scaleCanvas").addEventListener("click", onScaleClick);
-$("refLen").addEventListener("input", renderSummary);
+// Een zelf getypte afstand is geen BAG-maat meer.
+$("refLen").addEventListener("input", () => { state.ref.source = null; state.bagSide = null; renderBag(); renderSummary(); });
 $("refClear").addEventListener("click", () => { state.ref.pts = []; drawScale(); renderSummary(); });
+$("addrBtn").addEventListener("click", searchBag);
+$("addr").addEventListener("keydown", (ev) => { if (ev.key === "Enter") searchBag(); });
 $("saveBtn").addEventListener("click", () => {
   // Met een schaal gaan de hoeveelheden en de referentie mee, zodat de uitkomst later te herleiden is.
   const out = JSON.parse(JSON.stringify(state.result)), s = state.img ? pxPerMeter() : null;
   if (s && state.core) {
     const k = out.image && out.image.width ? state.img.width / out.image.width : 1;
-    out.scale = { method: "REFERENCE_LINE", source: "USER_INPUT", length_m: refLength(), points_px: state.ref.pts.map(([x, y]) => [Math.round(x / k), Math.round(y / k)]), px_per_m: Math.round((s / k) * 1000) / 1000 };
+    out.scale = { method: "REFERENCE_LINE", source: state.ref.source ? "BAG_FOOTPRINT_SIDE" : "USER_INPUT", bag: state.ref.source || null, length_m: refLength(), points_px: state.ref.pts.map(([x, y]) => [Math.round(x / k), Math.round(y / k)]), px_per_m: Math.round((s / k) * 1000) / 1000 };
     for (const r of out.results) { const q = resultQuantities(r, state.result, s); if (q) r.quantities = q; }
   }
   const a = document.createElement("a");
