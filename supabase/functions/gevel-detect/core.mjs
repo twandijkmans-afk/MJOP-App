@@ -282,6 +282,24 @@ export function combine(llm, sam, { margin = 0.08, minInside = 0.6, minKeep = 0.
   return { elements, skipped: llm.skipped, unmatched_segments: unmatched, facade: llm.facade ?? null };
 }
 
+// ------------------------------------------------------------------------------------------------ uitsnede
+
+// Rekent een uitkomst op een uitsnede terug naar de pixels van de hele foto: x' = x0 + x · scaleX, y' = y0 + y · scaleY.
+// Alles met coördinaten gaat mee: elementen, maskers, het oorspronkelijke kader bij een verfijning, losse maskers en
+// pandgrenzen. De uitkomst zelf wordt niet veranderd (er komt een kopie terug).
+export function fromCrop(res, { x0 = 0, y0 = 0, scaleX = 1, scaleY = 1 } = {}) {
+  const P = ([x, y]) => [round1(x0 + x * scaleX), round1(y0 + y * scaleY)];
+  const out = JSON.parse(JSON.stringify(res));
+  for (const e of out.elements || []) {
+    e.points = (e.points || []).map(P);
+    if (e.polygon) e.polygon = e.polygon.map(P);
+    if (e.refined_by && e.refined_by.llm_box) e.refined_by.llm_box = e.refined_by.llm_box.map(P);
+  }
+  for (const u of out.unmatched_segments || []) u.points = u.points.map(P);
+  if (out.facade && Array.isArray(out.facade.boundaries)) for (const b of out.facade.boundaries) b.x = round1(x0 + b.x * scaleX);
+  return out;
+}
+
 // ------------------------------------------------------------------------------------------------ hoeveelheden
 
 // Vaste rekenregels, geen AI. `pxPerM` = pixels per meter op de gevel, in de pixels van de foto waar de elementen in staan.

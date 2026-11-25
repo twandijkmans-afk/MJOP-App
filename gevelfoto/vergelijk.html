@@ -91,6 +91,10 @@
       <label class="filebtn">Uitkomst laden (.detect.json)<input id="loadJson" type="file" accept="application/json,.json"></label>
       <button id="saveBtn" disabled>Uitkomst bewaren</button>
     </div>
+    <div class="row">
+      <button id="cropBtn" disabled>Opnieuw met uitsnede van het pand</button>
+    </div>
+    <p class="muted">Uitsnede: na een eerste vergelijking snijdt de pagina het pand uit de originele foto (het gekozen pand in stap 3, anders de hele breedte; in de hoogte de gevonden elementen plus een marge) en stuurt alleen dat stuk opnieuw. Elk kozijn krijgt zo meer pixels. De uitkomsten komen erbij als extra kolommen, teruggerekend naar de hele foto. Dit kost een tweede aanroep per model.</p>
     <div id="runMsg" class="msg" hidden></div>
     <p class="muted">Vergelijken gaat via de server (Edge Function gevel-detect) en werkt alleen als je bent ingelogd bij MJOP Live. Een uitkomst van het script <code>scripts/gevel-detect-run.mjs</code> kun je ook laden; kies dan eerst dezelfde foto.</p>
   </section>
@@ -161,6 +165,7 @@ function providers() { return Array.from(document.querySelectorAll("#provRow inp
 // Verkleinen en opnieuw als JPEG coderen (daarmee ook geen EXIF/GPS meer).
 async function loadPhoto(file) {
   const bmp = await createImageBitmap(file);
+  state.orig = bmp;   // de originele foto in volle resolutie, voor de uitsnede
   const k = Math.min(1, MAX_EDGE / Math.max(bmp.width, bmp.height));
   const c = document.createElement("canvas"); c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k);
   c.getContext("2d").drawImage(bmp, 0, 0, c.width, c.height);
@@ -365,32 +370,84 @@ function renderSummary() {
   sec.hidden = false;
 }
 
-async function run() {
-  const list = providers();
-  if (!list.length) return setMsg("Kies minstens één model.", "warn");
+// Roept de Edge Function aan met een foto; geeft de uitkomst of gooit een fout met een leesbare melding.
+async function callDetect(image, list) {
   const cfg = window.SUPABASE_CONFIG;
-  if (!cfg || !window.supabase) return setMsg("De Supabase-instellingen ontbreken op deze pagina.", "err");
+  if (!cfg || !window.supabase) throw new Error("De Supabase-instellingen ontbreken op deze pagina.");
   const sb = window.supabase.createClient(cfg.url, cfg.anonKey);
   const { data } = await sb.auth.getSession();
   const token = data && data.session && data.session.access_token;
-  if (!token) return setMsg("Je bent niet ingelogd. Log eerst in op MJOP Live in dit browservenster en open deze pagina daarna opnieuw.", "warn");
+  if (!token) throw new Error("Je bent niet ingelogd. Log eerst in op MJOP Live in dit browservenster en open deze pagina daarna opnieuw.");
+  const res = await fetch(cfg.url.replace(/\/$/, "") + "/functions/v1/gevel-detect", {
+    method: "POST", headers: { "content-type": "application/json", authorization: "Bearer " + token, apikey: cfg.anonKey },
+    body: JSON.stringify({ image, providers: list }),
+  });
+  const out = await res.json().catch(() => ({ error: "Onleesbaar antwoord (HTTP " + res.status + ")." }));
+  if (!res.ok || out.error) throw new Error(out.error || "HTTP " + res.status);
+  return out;
+}
+
+async function run() {
+  const list = providers();
+  if (!list.length) return setMsg("Kies minstens één model.", "warn");
   $("runBtn").disabled = true; setMsg("Bezig… de modellen draaien tegelijk; dit duurt meestal 5 tot 60 seconden.", "");
-  try {
-    const res = await fetch(cfg.url.replace(/\/$/, "") + "/functions/v1/gevel-detect", {
-      method: "POST", headers: { "content-type": "application/json", authorization: "Bearer " + token, apikey: cfg.anonKey },
-      body: JSON.stringify({ image: state.image, providers: list }),
-    });
-    const out = await res.json().catch(() => ({ error: "Onleesbaar antwoord (HTTP " + res.status + ")." }));
-    if (!res.ok || out.error) throw new Error(out.error || "HTTP " + res.status);
-    show(out); setMsg("Klaar. Controleer de kaders zelf: dit zijn voorstellen, geen metingen.", "ok");  } catch (e) { setMsg("Mislukt: " + e.message, "err"); }
+  try { show(await callDetect(state.image, list)); setMsg("Klaar. Controleer de kaders zelf: dit zijn voorstellen, geen metingen.", "ok"); }
+  catch (e) { setMsg("Mislukt: " + e.message, "err"); }
   finally { $("runBtn").disabled = false; }
 }
 
-function show(out) {
-  state.result = out; $("saveBtn").disabled = false;
+// ------------------------------------------------------------------ uitsnede
+const CROP_TAG = " · uitsnede";
+// Het deel van de foto dat naar de modellen gaat (in pixels van state.img): horizontaal het gekozen pand (of de hele
+// breedte), verticaal de elementen van het eerste taalmodel plus 6 % marge (of de hele hoogte).
+function cropRect() {
+  const W = state.img.width, H = state.img.height, out = state.result, k = scaleK(out);
+  const reg = state.bounds.region || [0, W];
+  let y0 = 0, y1 = H;
+  const r = firstLlm(out);
+  const ys = r ? (r.elements || []).flatMap((e) => e.points.map((p) => p[1] * k)) : [];
+  if (ys.length) { const m = H * 0.06; y0 = Math.max(0, Math.min(...ys) - m); y1 = Math.min(H, Math.max(...ys) + m); }
+  const mx = (reg[1] - reg[0]) * 0.03;
+  return { x0: Math.max(0, reg[0] - mx), y0, x1: Math.min(W, reg[1] + mx), y1 };
+}
+async function runCrop() {
+  if (!state.orig || !state.result || !state.core) return;
+  const list = providers();
+  if (!list.length) return setMsg("Kies minstens één model.", "warn");
+  const rc = cropRect(), f = state.orig.width / state.img.width;
+  // Uit de originele foto, niet uit de verkleinde: zo krijgt elk element echt meer pixels.
+  const sw = (rc.x1 - rc.x0) * f, sh = (rc.y1 - rc.y0) * f, k2 = Math.min(1, MAX_EDGE / Math.max(sw, sh));
+  const c = document.createElement("canvas"); c.width = Math.round(sw * k2); c.height = Math.round(sh * k2);
+  c.getContext("2d").drawImage(state.orig, rc.x0 * f, rc.y0 * f, sw, sh, 0, 0, c.width, c.height);
+  const blob = await new Promise((res) => c.toBlob(res, "image/jpeg", 0.92));
+  const base64 = await new Promise((res) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(",")[1]); r.readAsDataURL(blob); });
+  const gain = c.width / (rc.x1 - rc.x0);   // pixels in de uitsnede per pixel van de verkleinde hele foto
+  $("cropBtn").disabled = true;
+  setMsg(`Uitsnede van ${fmt(c.width)} × ${fmt(c.height)} pixels wordt verstuurd (${fmt(gain, 1)} keer zoveel pixels per meter als de verkleinde hele foto)…`, "");
+  try {
+    const crop = await callDetect({ base64, media_type: "image/jpeg", width: c.width, height: c.height }, list);
+    const out = state.result, k = scaleK(out);
+    // Terug naar de pixels van de oorspronkelijke uitkomst (out.image), zodat alles in één tabel past.
+    const map = { x0: rc.x0 / k, y0: rc.y0 / k, scaleX: (rc.x1 - rc.x0) / c.width / k, scaleY: (rc.y1 - rc.y0) / c.height / k };
+    const mapped = crop.results.map((r) => ({ ...state.core.fromCrop(r, map), provider: r.provider + CROP_TAG }));
+    out.results = out.results.filter((r) => !r.provider.endsWith(CROP_TAG)).concat(mapped);
+    out.crop = { rect_px: [rc.x0 / k, rc.y0 / k, rc.x1 / k, rc.y1 / k].map(Math.round), sent_px: [c.width, c.height], gain: Math.round(gain * 100) / 100,
+                 photo_sha256: crop.photo_sha256, created_at: crop.created_at };
+    show(out, { keepBounds: true });
+    // Ook zonder extra pixels in de originele foto ziet het model het pand groter: het verkleint een kleinere afbeelding minder.
+    const why = gain >= 1.15 ? `${fmt(gain, 1)} keer zoveel pixels per meter uit de originele foto`
+      : "de originele foto had geen extra pixels, maar het model ziet het pand groter omdat de rest van de foto wegvalt";
+    setMsg(`Klaar: de uitkomsten op de uitsnede staan erbij als "${CROP_TAG.trim()}" (${why}). Vergelijk ze in de tabel met de hele foto.`, "ok");
+  } catch (e) { setMsg("Uitsnede mislukt: " + e.message, "err"); }
+  finally { $("cropBtn").disabled = false; }
+}
+
+function show(out, opts = {}) {
+  state.result = out; $("saveBtn").disabled = false; $("cropBtn").disabled = !state.orig;
   const box = $("results"); box.replaceChildren();
   for (const r of out.results || []) box.appendChild(card(r, out));
-  initBounds(); drawScale();
+  if (!opts.keepBounds) initBounds();
+  drawScale();
   renderSummary();
   // Andere afmetingen: de kaders worden geschaald. Klopt de verhouding niet, dan is het vrijwel zeker een andere foto.
   if (state.img && out.image && (out.image.width !== state.img.width || out.image.height !== state.img.height)) {
@@ -448,6 +505,7 @@ $("photo").addEventListener("change", (ev) => {
   loadPhoto(f).then(() => { if (state.result) { const w = show(state.result); if (w) setMsg(w, "warn"); } }).catch((e) => setMsg("Foto niet te lezen: " + e.message, "err"));
 });
 $("runBtn").addEventListener("click", run);
+$("cropBtn").addEventListener("click", runCrop);
 $("loadJson").addEventListener("change", async (ev) => {
   const f = ev.target.files[0]; if (!f) return;
   try {

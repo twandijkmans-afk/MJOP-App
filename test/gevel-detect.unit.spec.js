@@ -108,6 +108,14 @@ function check(n, ok, d) { checks.push([n, !!ok, d]); }
   check('4u. goot over de hele foto: alleen het stuk binnen het pand (4 m); hwa erbuiten gemeld', gutter.dakgoot_m1 === 4 && gutter.hwa_m1 === null && gutter.outside_building === 1, JSON.stringify(gutter));
   check('4t. afsnijden van een vierkant op een strook', JSON.stringify(C.clipToBand([[0, 0], [10, 0], [10, 10], [0, 10]], 2, 6).map(function (p) { return p[0]; }).sort()) === JSON.stringify([2, 2, 6, 6]));
 
+  // 4w. Uitsnede terugrekenen naar de hele foto.
+  var cropRes = { provider: 'x', elements: [{ type: 'kozijn_raam', kind: 'quad', points: [[10, 20], [110, 220]], polygon: [[10, 20], [110, 20], [110, 220]], refined_by: { llm_box: [[0, 0], [120, 240]] } }],
+    unmatched_segments: [{ points: [[0, 0], [10, 10]] }], facade: { boundaries: [{ x: 50 }] } };
+  var back = C.fromCrop(cropRes, { x0: 100, y0: 900, scaleX: 0.5, scaleY: 0.5 });
+  check('4w. uitsnede (halve schaal, verschoven): punten, masker, oorspronkelijk kader, losse maskers en grens terug in de hele foto; origineel ongewijzigd',
+    JSON.stringify(back.elements[0].points) === JSON.stringify([[105, 910], [155, 1010]]) && back.elements[0].polygon[2][1] === 1010 && back.elements[0].refined_by.llm_box[1][0] === 160
+    && back.unmatched_segments[0].points[1][0] === 105 && back.facade.boundaries[0].x === 125 && cropRes.elements[0].points[0][0] === 10, JSON.stringify(back));
+
   // 5. Kosten alleen met ingestelde prijs.
   check('5a. geen prijs → geen kosten', C.estimateCost({ input_tokens: 1000, output_tokens: 100 }, null) === null);
   check('5b. met prijs → kosten', C.estimateCost({ input_tokens: 1e6, output_tokens: 1e6 }, { input_per_mtok: 1, output_per_mtok: 2 }) === 3);

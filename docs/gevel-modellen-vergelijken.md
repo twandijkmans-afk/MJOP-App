@@ -86,6 +86,12 @@ Eén foto van een bedrijfsverzamelgebouw met acht traveeën, schaal uit de BAG (
 - Gemini gaf op dezelfde foto bij twee runs een heel andere indeling. Een model moet daarom op meerdere runs per foto worden gemeten, niet op één.
 - Gevonden en opgelost: een SAM 3-masker dat ook het glas boven een deur bevatte, liet een raam naar beneden doorgroeien. Het verfijnde kader blijft nu binnen de marge rond het kader van het taalmodel.
 
+### Uitsnede van het pand
+
+Na een eerste vergelijking stuurt "Opnieuw met uitsnede van het pand" alleen het pand opnieuw naar de modellen: horizontaal het gekozen pand (anders de hele breedte, plus 3 %), verticaal de gevonden elementen plus 6 %. De uitsnede komt uit de originele foto in volle resolutie, niet uit de verkleinde. De uitkomsten worden met `fromCrop()` (kern, getest) teruggerekend naar de hele foto en staan erbij als extra kolommen ("· uitsnede"). De uitsnede en de verhouding staan in `crop` bij "Uitkomst bewaren". Het kost een tweede aanroep per model.
+
+Eerste test (dezelfde foto als hierboven; de originele foto was 1500 × 2000, dus geen extra pixels): Gemini deelde de gevel op de uitsnede wel in zoals Claude (8 ramen, 6 deuren, 2 garagedeuren in plaats van 4 + 4 + 0), en Gemini + SAM 3 kwam op 63 m² ramen tegen 62 m² bij Claude op de hele foto. Het model ziet het pand groter omdat de rest van de foto wegvalt; met een foto van een telefoon in volle resolutie (12 megapixel) komen daar ook echt meer pixels bij.
+
 ## Op Supabase zetten
 
 De sleutels horen als secrets op Supabase, nooit in de code, de browser of een mail. Voer uit in de map van deze repository, met de Supabase CLI ingelogd op het project:
