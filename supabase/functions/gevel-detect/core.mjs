@@ -12,7 +12,7 @@
 // Ongeldige elementen worden overgeslagen en geteld, nooit "gerepareerd" door te gokken.
 
 export const CORE_VERSION = "gevel-detect-core-0.1.0";
-export const PROMPT_VERSION = "gevel_detect_v0.1";
+export const PROMPT_VERSION = "gevel_detect_v0.2";   // v0.2: ook pandgrenzen (building_boundaries) en doorlopen voorbij de fotorand
 
 // Zelfde typen en geometrie als de Gevelfoto-pagina (gevelfoto/index.html, TYPES).
 export const TYPES = {
@@ -70,10 +70,13 @@ Guidelines:
 - "confidence": low, medium or high: how sure you are that the element exists and is of this type.
 - "note": at most a few words in Dutch when something limits the result (for example "deels achter boom"), otherwise "".
 
+Building boundaries: several separate buildings (panden) may stand side by side in one continuous street wall. Report the vertical lines where one building ends and the next begins (party walls), as "x" (0-1000 over the image width, at street level). Use visible cues: a change in brick colour or bond, in window rhythm or style, a step in the roof line, cornice or gutter, a vertical joint, a downpipe at a joint. A symmetry axis inside one building is not a boundary. Also say whether the facade continues beyond the left and right edge of the photo. Return an empty list when you see no boundary; do not guess.
+
 Do not estimate sizes in metres, condition, defects or costs.
 
 Return only a JSON object of this shape, with no other text:
-{"elements": [{"type": "<type key>", "box_2d": [0, 0, 0, 0], "points": [], "material": "", "confidence": "low|medium|high", "note": ""}]}`;
+{"elements": [{"type": "<type key>", "box_2d": [0, 0, 0, 0], "points": [], "material": "", "confidence": "low|medium|high", "note": ""}],
+ "building_boundaries": [{"x": 0, "confidence": "low|medium|high", "reason": "few Dutch words"}], "continues_left": false, "continues_right": false}`;
 }
 
 // ------------------------------------------------------------------------------------------------ hulpfuncties
@@ -141,7 +144,20 @@ export function normalizeLlmElements(obj, W, H) {
       geometry_origin: "LLM_BOX",
     });
   }
-  return { elements, skipped };
+  return { elements, skipped, facade: normalizeFacade(obj, W) };
+}
+
+// Pandgrenzen van het taalmodel → pixels. Alleen een voorstel: de gebruiker bevestigt of verplaatst ze.
+// Ontbreekt het veld, dan is het null (onbekend), niet "geen grenzen".
+export function normalizeFacade(obj, W) {
+  if (!obj || Array.isArray(obj) || !("building_boundaries" in obj || "continues_left" in obj || "continues_right" in obj)) return null;
+  const list = Array.isArray(obj.building_boundaries) ? obj.building_boundaries : [];
+  const boundaries = list.filter((b) => b && finite(Number(b.x)) && Number(b.x) > 5 && Number(b.x) < 995)
+    .map((b) => ({ x: round1(clamp(Number(b.x), 0, 1000) / 1000 * W), confidence: CONFIDENCE[b.confidence] ?? null,
+                   confidence_label: CONFIDENCE[b.confidence] ? b.confidence : null, reason: typeof b.reason === "string" ? b.reason.slice(0, 120) : "" }))
+    .sort((a, b) => a.x - b.x);
+  const bool = (v) => (v === true || v === false ? v : null);
+  return { boundaries, continues_left: bool(obj.continues_left), continues_right: bool(obj.continues_right), origin: "LLM_PROPOSAL" };
 }
 
 function boxToLine(b, toPx) {
@@ -260,7 +276,7 @@ export function combine(llm, sam, { margin = 0.08, minInside = 0.6, minKeep = 0.
              refined_by: { masks: hits.length, llm_box: el.points, iou_with_llm_box: Math.round(iou(b, u) * 100) / 100 } };
   });
   const unmatched = samQuads.filter((s) => !s.used).map((s) => ({ type: s.e.type, points: s.e.points, confidence: s.e.confidence }));
-  return { elements, skipped: llm.skipped, unmatched_segments: unmatched };
+  return { elements, skipped: llm.skipped, unmatched_segments: unmatched, facade: llm.facade ?? null };
 }
 
 // ------------------------------------------------------------------------------------------------ hoeveelheden
@@ -293,27 +309,78 @@ const r2 = (v) => (v == null ? null : Math.round(v * 100) / 100);
 export const QUANTITY_KEYS = ["ramen_st", "ramen_m2", "deuren_st", "deuren_m2", "garagedeuren_st", "garagedeuren_m2",
   "metselwerk_bruto_m2", "metselwerk_netto_m2", "hwa_m1", "dakgoot_m1", "boeiboord_m1", "waterslag_m1"];
 
-export function quantities(elements, pxPerM) {
+// Snijdt een polygoon af op de verticale strook x0 ≤ x ≤ x1 (Sutherland–Hodgman, twee randen).
+export function clipToBand(pts, x0, x1) {
+  const clip = (poly, keep, cross) => {
+    const out = [];
+    for (let i = 0; i < poly.length; i++) {
+      const a = poly[i], b = poly[(i + 1) % poly.length], ia = keep(a), ib = keep(b);
+      if (ia) out.push(a);
+      if (ia !== ib) out.push(cross(a, b));
+    }
+    return out;
+  };
+  const at = (x) => (a, b) => [x, a[1] + (b[1] - a[1]) * (x - a[0]) / (b[0] - a[0])];
+  let p = clip(pts, (q) => q[0] >= x0, at(x0));
+  if (p.length) p = clip(p, (q) => q[0] <= x1, at(x1));
+  return p.length >= 3 ? p : [];
+}
+
+// Snijdt een lijn (goot, boeiboord) af op de strook x0 ≤ x ≤ x1; geeft de losse stukken binnen de strook.
+export function clipLineToBand(pts, x0, x1) {
+  const parts = [];
+  for (let i = 1; i < pts.length; i++) {
+    let [a, b] = [pts[i - 1], pts[i]];
+    if (a[0] > b[0]) [a, b] = [b, a];
+    if (b[0] < x0 || a[0] > x1) continue;
+    const at = (x) => (b[0] === a[0] ? a[1] : a[1] + (b[1] - a[1]) * (x - a[0]) / (b[0] - a[0]));
+    const s = a[0] < x0 ? [x0, at(x0)] : a, e = b[0] > x1 ? [x1, at(x1)] : b;
+    parts.push([s, e]);
+  }
+  return parts;
+}
+
+// opts.xRange = [x0, x1]: alleen het pand tussen die twee verticale grenzen telt (in dezelfde pixels als de elementen).
+// Een kozijn telt mee als zijn middelpunt binnen de strook ligt; muurvlakken en lijnen worden op de grenzen afgesneden.
+// `outside` telt wat daardoor buiten de hoeveelheden bleef.
+export function quantities(elements, pxPerM, opts = {}) {
   if (!finite(pxPerM) || pxPerM <= 0) return null;
   const s = pxPerM, q = Object.fromEntries(QUANTITY_KEYS.map((k) => [k, k.endsWith("_st") ? 0 : null]));
   const addM = (k, v) => { q[k] = (q[k] || 0) + v; };
+  const band = Array.isArray(opts.xRange) && opts.xRange.length === 2 && opts.xRange.every(finite) && opts.xRange[1] > opts.xRange[0] ? opts.xRange : null;
+  let outside = 0;
+  const inBand = (e) => {
+    if (!band || e.kind === "poly" || e.kind === "line") return true;
+    const xs = e.points.map((p) => p[0]), cx = (Math.min(...xs) + Math.max(...xs)) / 2;
+    const ok = cx >= band[0] && cx <= band[1]; if (!ok) outside++; return ok;
+  };
+  elements = (elements || []).filter(inBand).flatMap((e) => {
+    if (!band || e.kind === "quad") return [e];
+    if (e.kind === "line") {                                // lijn: alleen de stukken binnen de grenzen
+      const parts = clipLineToBand(e.points, band[0], band[1]);
+      if (!parts.length) outside++;
+      return parts.map((pts) => ({ ...e, points: pts }));
+    }
+    const pts = clipToBand(e.points, band[0], band[1]);   // muurvlak: afgesneden op de grenzen
+    return pts.length ? [{ ...e, points: pts }] : [];
+  });
   const openings = [];
-  for (const e of elements || []) {
+  for (const e of elements) {
     if (e.kind === "quad") {
       const [[x0, y0], [x1, y1]] = e.points, m2 = ((x1 - x0) / s) * ((y1 - y0) / s);
       const key = e.type === "kozijn_raam" ? "ramen" : e.type === "kozijn_deur" ? "deuren" : e.type === "garagedeur" ? "garagedeuren" : null;
       if (key) { q[key + "_st"]++; addM(key + "_m2", m2); openings.push({ c: [(x0 + x1) / 2, (y0 + y1) / 2], m2 }); }
     } else if (e.kind === "line" && q[e.type + "_m1"] !== undefined) addM(e.type + "_m1", polyLength(e.points) / s);
   }
-  for (const e of elements || []) {
+  for (const e of elements) {
     if (e.kind !== "poly" || e.type !== "metselwerk") continue;
     const bruto = polyArea(e.points) / (s * s);
     const open = openings.filter((o) => inside(o.c, e.points)).reduce((a, o) => a + o.m2, 0);
     addM("metselwerk_bruto_m2", bruto); addM("metselwerk_netto_m2", Math.max(0, bruto - open));
   }
   for (const k of QUANTITY_KEYS) if (!k.endsWith("_st")) q[k] = r2(q[k]);
-  return { ...q, px_per_m: Math.round(s * 1000) / 1000,
-           assumptions: ["FOTO_RECHT_VAN_VOREN", "EEN_VLAK", "GEEN_PERSPECTIEFCORRECTIE", "LOSSE_MASKERS_NIET_GETELD"] };
+  return { ...q, px_per_m: Math.round(s * 1000) / 1000, x_range_px: band ? band.map(round1) : null, outside_building: band ? outside : null,
+           assumptions: ["FOTO_RECHT_VAN_VOREN", "EEN_VLAK", "GEEN_PERSPECTIEFCORRECTIE", "LOSSE_MASKERS_NIET_GETELD"].concat(band ? ["ALLEEN_BINNEN_PANDGRENZEN"] : []) };
 }
 
 // ------------------------------------------------------------------------------------------------ uitvoeren

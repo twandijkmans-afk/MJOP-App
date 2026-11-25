@@ -88,6 +88,23 @@ function check(n, ok, d) { checks.push([n, !!ok, d]); }
   check('4m. metselwerk bruto 50 m², netto min raam en deur = 44,7 m² (garagedeur ligt erbuiten)', qv.metselwerk_bruto_m2 === 50 && qv.metselwerk_netto_m2 === 44.7, qv.metselwerk_netto_m2);
   check('4n. hwa 5 m1, ontbrekende goot null (niet 0), zonder schaal geen hoeveelheden', qv.hwa_m1 === 5 && qv.dakgoot_m1 === null && C.quantities([], 0) === null);
 
+  // 4o-4s. Pandgrenzen: voorstel van het model omzetten, en alleen tellen binnen de grenzen.
+  var f = C.normalizeFacade({ elements: [], building_boundaries: [{ x: 515, confidence: 'high', reason: 'regenpijp' }, { x: 999, confidence: 'low' }, { x: 'x' }], continues_left: true, continues_right: 'ja' }, 2000);
+  check('4o. grens naar pixels, rand en ongeldig overgeslagen, onbekend blijft null', f.boundaries.length === 1 && f.boundaries[0].x === 1030 && f.continues_left === true && f.continues_right === null, JSON.stringify(f));
+  check('4p. antwoord zonder grensvelden: facade onbekend (null), niet "geen grenzen"', C.normalizeFacade({ elements: [] }, 100) === null && C.normalizeLlmElements({ elements: [] }, 10, 10).facade === null);
+  var band = C.quantities([
+    { type: 'metselwerk', kind: 'poly', points: [[0, 0], [1000, 0], [1000, 500], [0, 500]] },
+    { type: 'kozijn_raam', kind: 'quad', points: [[100, 100], [300, 250]] },
+    { type: 'kozijn_raam', kind: 'quad', points: [[600, 100], [800, 250]] },
+    { type: 'hwa', kind: 'line', points: [[450, 0], [450, 500]] },
+  ], 100, { xRange: [0, 500] });
+  check('4q. raam rechts van de grens niet geteld, wel gemeld', band.ramen_st === 1 && band.outside_building === 1, JSON.stringify(band));
+  check('4r. metselwerk afgesneden op de grens: 5 × 5 = 25 m² bruto, netto 22 m²', band.metselwerk_bruto_m2 === 25 && band.metselwerk_netto_m2 === 22, band.metselwerk_bruto_m2 + ' / ' + band.metselwerk_netto_m2);
+  check('4s. hwa binnen de grens telt, grenzen en aanname gaan mee', band.hwa_m1 === 5 && band.x_range_px.join() === '0,500' && band.assumptions.indexOf('ALLEEN_BINNEN_PANDGRENZEN') >= 0);
+  var gutter = C.quantities([{ type: 'dakgoot', kind: 'line', points: [[0, 10], [1000, 10]] }, { type: 'hwa', kind: 'line', points: [[800, 0], [800, 500]] }], 100, { xRange: [200, 600] });
+  check('4u. goot over de hele foto: alleen het stuk binnen het pand (4 m); hwa erbuiten gemeld', gutter.dakgoot_m1 === 4 && gutter.hwa_m1 === null && gutter.outside_building === 1, JSON.stringify(gutter));
+  check('4t. afsnijden van een vierkant op een strook', JSON.stringify(C.clipToBand([[0, 0], [10, 0], [10, 10], [0, 10]], 2, 6).map(function (p) { return p[0]; }).sort()) === JSON.stringify([2, 2, 6, 6]));
+
   // 5. Kosten alleen met ingestelde prijs.
   check('5a. geen prijs → geen kosten', C.estimateCost({ input_tokens: 1000, output_tokens: 100 }, null) === null);
   check('5b. met prijs → kosten', C.estimateCost({ input_tokens: 1e6, output_tokens: 1e6 }, { input_per_mtok: 1, output_per_mtok: 2 }) === 3);
